@@ -14,3 +14,5 @@ build/*
 src/data
 Next-up.md
 Future-ideas.md
+dev/*
+assets/flash/backups/*
