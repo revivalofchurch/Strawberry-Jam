@@ -389,7 +389,7 @@
        <img id="border-left" src="images/frame/standAlone_woodLeft.svg" class="border-spiral-background"></img> 
       <img id="border-right-background" class="border-spiral-background"></img>
       <div id="border-right-container">
-         <img id="border-right" src="images/frame/standAlone_woodRight.svg" class="border-spiral-background"></img>
+         <img id="border-right" class="border-spiral-background"></img>
       </div>
       <div id="flash-game-container">
         <webview id="flash-game-webview" plugins preload="gamePreload.js" style="height: 100%; width: 100%;"></webview>

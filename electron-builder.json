@@ -7,13 +7,17 @@
   "win": {
     "icon": "./assets/images/icon.ico",
     "asar": "true",
-    "target": {
-      "target": "nsis",
-      "artifactName": "${productName}-Setup-${version}.${ext}",
-      "arch": [
-        "x64"
-      ]
-    }
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  },
+  "nsis": {
+    "artifactName": "${productName}-Setup-${version}.${ext}"
   },
   "files": [
     "package.json",
