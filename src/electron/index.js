@@ -1077,8 +1077,7 @@ class Electron {
 
     logManager.initialize({
       appDataPath: app.getPath('userData'),
-      consoleLimit: consoleLimit,
-      networkLimit: networkLimit
+      maxMemoryLogs: consoleLimit
     });
 
     const originalConsole = {

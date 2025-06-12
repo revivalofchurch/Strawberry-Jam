@@ -810,6 +810,17 @@
           if (flashVars.deploy_version) {
             flashVars.clientURL = `http://localhost:8080/${flashVars.deploy_version}/ajclient.swf`;
           }
+          flashVars.smartfoxServer = 'localhost';          // or your proxy host
+          flashVars.blueboxServer = 'localhost';
+          flashVars.blueboxPort   = '443';                // or the port your proxy listens on
+          flashVars.smartfoxPort  = '443';
+
+          flashVars.playerWallHost   = 'http://localhost:8080/wall/';
+          flashVars.sbStatTrackerIp  = 'localhost';
+
+          flashVars.website = 'http://localhost:8080/';
+          flashVars.mdUrl   = 'http://localhost:8080/game/';
+
           Object.assign(
             flashVars,
             globals.getClientData(),
