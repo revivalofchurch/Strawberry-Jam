@@ -805,6 +805,11 @@
         this.loginBlocked = true;
         try {
           const flashVars = await globals.getFlashVarsFromWeb();
+          // Override asset URLs so Create-Account also uses the local proxy instead of the official CDN
+          flashVars.content = 'http://localhost:8080/';
+          if (flashVars.deploy_version) {
+            flashVars.clientURL = `http://localhost:8080/${flashVars.deploy_version}/ajclient.swf`;
+          }
           Object.assign(
             flashVars,
             globals.getClientData(),
