@@ -5,20 +5,10 @@
   "version": "3.0.3",
   "author": "glvckoma",
   "scripts": {
-    "devtools": "electron dev/index.js",
     "dev": "npx cross-env NODE_ENV=development electron .",
-    "build:css": "npx tailwindcss -i ./src/styles/app.css -o ./assets/css/style.css",
-    "pack:asar:dev": "npx asar pack assets/extracted-winapp-dev assets/winapp.asar --unpack *.node",
-    "pack:asar:public": "cd assets/extracted-winapp-public && npx electron-rebuild -f -w keytar -v 32.0.1 && cd ../.. && npx asar pack assets/extracted-winapp-public assets/winapp.asar --unpack *.node",
+    "pack": "cd assets/extracted-winapp-public && npx electron-rebuild -f -w keytar -v 32.0.1 && cd ../.. && npx asar pack assets/extracted-winapp-public assets/winapp.asar --unpack *.node",
     "build": "npm run pack:asar:public && npx electron-builder build -w",
-    "version:patch": "npm version patch",
-    "version:minor": "npm version minor",
-    "version:major": "npm version major",
-    "verify": "node verify-build.js",
-    "plugin:tag": "node src/utils/manage-plugin-tags.js",
-    "plugin:tag:list": "node src/utils/manage-plugin-tags.js list",
-    "publish:win": "npm run version:patch && npm run build && npm run verify && npx electron-builder build -w -p always",
-    "publish:force": "npm run build && npx electron-builder build -w -p always"
+    "publish": "npm run build && npx electron-builder build -w -p always"
   },
   "repository": {
     "type": "git",

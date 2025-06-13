@@ -617,10 +617,11 @@
             <h4 style="font-family: CCDigitalDelivery; color: #6E4B37; font-size: 13px; margin-top: 10px; margin-bottom: 5px; text-align: left;">Shortcuts</h4>
             
             <h5 style="font-family: CCDigitalDelivery; color: #805B47; font-size: 12px; margin-top: 8px; margin-bottom: 4px; font-weight: bold;">General:</h5>
-            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Cmd/Ctrl + Shift + I: Toggle Developer Tools</div>
-            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Cmd/Ctrl + R: Reload / Logout (Return to Login Screen)</div>
+            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + Shift + I: Toggle Developer Tools</div>
+            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + R: Reload / Logout (Return to Login Screen)</div>
  
             <h5 style="font-family: CCDigitalDelivery; color: #805B47; font-size: 12px; margin-top: 8px; margin-bottom: 4px; font-weight: bold;">In-Game:</h5>
+            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">F5: Toggle In-Game HUD</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Shift + Equals / Numpad Add: Zoom In</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Shift + Minus / Numpad Subtract: Zoom Out</div>
 
@@ -628,9 +629,7 @@
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Alt + Enter / F11: Toggle Fullscreen</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + Q / Alt + F4: Quit Application</div>
  
-            <h5 style="font-family: CCDigitalDelivery; color: #805B47; font-size: 12px; margin-top: 8px; margin-bottom: 4px; font-weight: bold;">macOS:</h5>
-            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + Cmd + F: Toggle Fullscreen</div>
-            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Cmd + Q: Quit Application</div>
+            <!-- macOS shortcuts removed: application is Windows/Linux only -->
           </div>
         </div>
  
