@@ -587,6 +587,9 @@
         $('#playButton .fa-external-link-alt').css('color', color);
       };
       
+      // Apply theme styles immediately on initial load to ensure icons are colored
+      applySynchronizedElements(getComputedStyle(document.documentElement).getPropertyValue('--theme-primary').trim() || '#e83d52');
+      
       // jQuery fruit icon click handler
       const $fruitIcon = $('#fruitIcon');
       if ($fruitIcon.length) {
