@@ -83,11 +83,11 @@ const translations = {
     pt: "redefinição de senha",
   },
   playerLogin: {
-    en: "Player Login",
-    fr: "Connexion joueur",
-    de: "Spieler-Anmeldung",
-    es: "Inicio de sesión de jugador",
-    pt: "Acesso do jogador",
+    en: "Strawberry Jam",
+    fr: "Confiture de fraise",
+    de: "Erdbeermarmelade",
+    es: "Mermelada de fresa",
+    pt: "Geleia de morango",
   },
   submit: {
     en: "submit",

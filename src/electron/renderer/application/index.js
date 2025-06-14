@@ -84,17 +84,22 @@ module.exports = class Application extends EventEmitter {
      * @public
      */
     this.dataPath = null;
+    this.assetsPath = null;
 
     /**
      * Promise that resolves when the data path is received from the main process.
      * @type {Promise<void>}
      * @private
      */
-    this.dataPathPromise = new Promise((resolve) => {
+    this.pathPromise = new Promise((resolve) => {
       ipcRenderer.once('set-data-path', (event, receivedPath) => {
         devLog(`[Renderer] Received data path: ${receivedPath}`);
         this.dataPath = receivedPath;
-        resolve(); // Resolve the promise once path is received
+      });
+      ipcRenderer.once('set-assets-path', (event, receivedPath) => {
+        devLog(`[Renderer] Received assets path: ${receivedPath}`);
+        this.assetsPath = receivedPath;
+        resolve();
       });
     });
 
@@ -117,7 +122,7 @@ module.exports = class Application extends EventEmitter {
      * @type {Patcher}
      * @public
      */
-    this.patcher = new Patcher(this)
+    this.patcher = null
 
     // Dispatch will be initialized in instantiate() after dataPath is received
     /**
@@ -711,7 +716,7 @@ module.exports = class Application extends EventEmitter {
             padding: 8px;
             backdrop-filter: blur(8px);
             scrollbar-width: thin;
-            scrollbar-color: #3A3D4D #121212;
+            scrollbar-color: #16171f #121212;
           }
           .ui-autocomplete::-webkit-scrollbar {
             width: 8px;
@@ -720,7 +725,7 @@ module.exports = class Application extends EventEmitter {
             background: #121212;
           }
           .ui-autocomplete::-webkit-scrollbar-thumb {
-            background: #3A3D4D;
+            background: #16171f;
             border-radius: 8px;
           }
           .ui-autocomplete::-webkit-scrollbar-thumb:hover {
@@ -2011,8 +2016,11 @@ module.exports = class Application extends EventEmitter {
   async instantiate () {
     // Wait for the data path to be received from the main process
     devLog('[Renderer] Waiting for data path from main process...');
-    await this.dataPathPromise;
+    await this.pathPromise;
     devLog(`[Renderer] Data path received: ${this.dataPath}`);
+
+    // Now that paths are available, instantiate the Patcher
+    this.patcher = new Patcher(this, this.assetsPath);
     
     // Initialize Dispatch with the data path and the bound consoleMessage function
     this.dispatch = new Dispatch(

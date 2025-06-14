@@ -1,0 +1,12 @@
+{
+  "name": "TFD Automator",
+  "author": "Sxip",
+  "version": "1.0.0",
+  "description": "Automates The Forgotten Desert adventure",
+  "type": "ui",
+  "tags": ["automation", "adventure", "tfd"],
+  "main": "index.html",
+  "game": "*",
+  "dependencies": {},
+  "runInBackground": true
+}

@@ -5,131 +5,103 @@
     constructor() {
       super();
       this.attachShadow({ mode: "open" });
-      this._expanded = false; // Internal state for content visibility
+      this._expanded = false; // Always start collapsed
       this._expandable = true; // Internal state for arrow visibility
 
-      this.render();
-      this.attachListeners();
+      this.loadExternalFiles();
     }
 
-    render() {
+    async loadExternalFiles() {
+      try {
+        // Load CSS
+        const cssResponse = await fetch('components/UserTray.css');
+        const cssText = await cssResponse.text();
+        
+        // Load HTML
+        const htmlResponse = await fetch('components/UserTray.html');
+        const htmlText = await htmlResponse.text();
+        
+        // Apply to shadow DOM
+        this.shadowRoot.innerHTML = `<style>${cssText}</style>${htmlText}`;
+        
+        // Initialize after content is loaded
+        this.initializeElements();
+        this.attachListeners();
+        this._updateVisibility();
+      } catch (error) {
+        console.error('Failed to load UserTray external files:', error);
+        // Fallback to inline content if external files fail
+        this.renderFallback();
+      }
+    }
+
+    renderFallback() {
+      // Fallback inline content (simplified version)
       this.shadowRoot.innerHTML = `
         <style>
           :host {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            font-family: Arial, sans-serif; /* Basic font */
+            position: fixed;
+            bottom: 4px;
+            right: 4px;
+            z-index: 10000;
           }
-
-          .hidden {
-            display: none !important;
-          }
-
-          #arrow-container {
-            cursor: pointer;
-            background-color: rgba(50,50,50,0.85); /* Dark grey background */
-            border-radius: 50%; /* Circular */
-            margin-bottom: 10px; /* Increased space */
-            width: 44px; /* Increased diameter of the circle */
-            height: 44px; /* Increased diameter of the circle */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3); /* Slightly enhanced shadow */
-            transform: scale(1); /* Base scale for smooth transition */
-            transition: background-color 0.2s ease, transform 0.1s ease;
-          }
-
-          #arrow-container:hover {
-            background-color: rgba(70,70,70,0.9);
-            transform: scale(1.05); /* Slight pop on hover */
-          }
-          
-          #arrow-container:active {
-            background-color: rgba(40,40,40,0.9); /* Darker press effect */
-          }
-
-          #arrow-icon-svg { /* ID for the arrow SVG element */
-            width: 22px; 
-            height: 22px;
-            stroke: #e83d52; /* Strawberry red */
-            stroke-width: 2.5; /* Slightly thicker for visibility */
-            transition: transform 0.3s ease-out;
-            /* Initial rotation set by _updateVisibility */
-          }
-
-          #tray-content {
-            background-color: rgba(50,50,50,0.85); /* Dark grey background */
-            padding: 15px;
+          #tray-container {
+            background: rgba(255, 245, 230, 0.95);
+            border: 2px solid rgba(232, 61, 82, 0.3);
             border-radius: 8px;
-            color: white;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            min-width: 180px; /* Minimum width for content */
+            padding: 8px;
           }
-
-          #tray-content button {
-            display: flex; 
-            align-items: center;
-            width: 100%;
-            margin-top: 10px;
-            padding: 10px 15px;
-            cursor: pointer;
-            background-color: #e83d52; /* Strawberry red */
+          button {
+            background: #e83d52;
             color: white;
             border: none;
-            border-radius: 5px;
-            font-size: 14px;
-            text-align: left;
-            transition: background-color 0.2s ease;
-          }
-
-          #tray-content button:first-child {
-            margin-top: 0;
-          }
-
-          #tray-content button:hover {
-            background-color: #d03040; /* Darker strawberry red on hover */
-          }
-
-          #tray-content button svg { /* Style for Lucide SVGs in buttons */
-            margin-right: 10px; 
-            width: 18px; 
-            height: 18px; 
-            stroke: white; 
-            stroke-width: 2; 
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 2px 0;
+            display: block;
           }
         </style>
-
-        <div id="arrow-container">
-          <svg id="arrow-icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-        </div>
-        <div id="tray-content" class="hidden"> 
-          <button id="fullscreen-button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>Fullscreen</button>
-          <button id="logout-button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>Logout</button>
+        <div id="tray-container">
+          <button id="fullscreen-button">Fullscreen</button>
+          <button id="logout-button">Logout</button>
         </div>
       `;
+      
+      this.initializeElements();
+      this.attachListeners();
+    }
 
+    initializeElements() {
+      this.trayContainer = this.shadowRoot.getElementById("tray-container");
       this.arrowContainer = this.shadowRoot.getElementById("arrow-container");
-      this.arrowIcon = this.shadowRoot.getElementById("arrow-icon-svg"); // Updated ID
+      this.arrowIcon = this.shadowRoot.getElementById("arrow-icon-svg");
       this.trayContent = this.shadowRoot.getElementById("tray-content");
       this.fullscreenButton = this.shadowRoot.getElementById("fullscreen-button");
       this.logoutButton = this.shadowRoot.getElementById("logout-button");
-
-      // Reflect initial states
-      this._updateVisibility();
     }
 
     attachListeners() {
-      this.arrowContainer.addEventListener("click", () => this.toggleExpand());
+      if (this.arrowContainer) {
+        this.arrowContainer.addEventListener("click", () => this.toggleExpand());
+      }
       
-      this.fullscreenButton.addEventListener("click", () => {
-        window.ipc.send("systemCommand", { command: "toggleFullScreen" });
-      });
+      if (this.fullscreenButton) {
+        this.fullscreenButton.addEventListener("click", () => {
+          window.ipc.send("systemCommand", { command: "toggleFullScreen" });
+        });
+      }
 
-      this.logoutButton.addEventListener("click", () => {
-        this.dispatchEvent(new CustomEvent("logout-requested", { bubbles: true, composed: true }));
-      });
+      if (this.logoutButton) {
+        this.logoutButton.addEventListener("click", () => {
+          // Send IPC message to log out from Electron app
+          if (window.ipc) {
+            window.ipc.send("logout");
+          }
+          // Also dispatch the custom event for the UI
+          this.dispatchEvent(new CustomEvent("logout-requested", { bubbles: true, composed: true }));
+        });
+      }
     }
 
     toggleExpand() {
@@ -165,49 +137,92 @@
       if (this._expandable) {
         this.arrowContainer.classList.remove("hidden");
         if (this._expanded) {
-          this.trayContent.classList.remove("hidden");
-          this.arrowIcon.style.transform = "rotate(0deg)"; // Expanded (pointing down)
+          this.trayContent.classList.add("expanded");
+          this.arrowIcon.style.transform = "rotate(180deg)"; // Expanded (pointing right)
         } else {
-          this.trayContent.classList.add("hidden");
-          this.arrowIcon.style.transform = "rotate(-90deg)"; // Collapsed (pointing right)
+          this.trayContent.classList.remove("expanded");
+          this.arrowIcon.style.transform = "rotate(0deg)"; // Collapsed (pointing left)
         }
       } else {
         // Not expandable (e.g., maximized mode) - arrow is hidden, content is shown
         this.arrowContainer.classList.add("hidden");
-        this.trayContent.classList.remove("hidden"); 
+        this.trayContent.classList.add("expanded"); 
         // Ensure arrow is in a sensible default state if it were to become visible again
-        if (this.arrowIcon) this.arrowIcon.style.transform = "rotate(-90deg)";
+        if (this.arrowIcon) this.arrowIcon.style.transform = "rotate(0deg)";
       }
     }
 
     // Public methods for GameScreen to control appearance
     show() {
-      this.classList.remove("hidden");
-      // console.log("[UserTray] show() called");
+      this.style.display = 'flex';
     }
 
     hide() {
-      this.classList.add("hidden");
-      // console.log("[UserTray] hide() called");
+      this.style.display = 'none';
     }
 
     setAppearance(mode) {
-      // console.log(`[UserTray] setAppearance(${mode}) called`);
       if (mode === 'maximized' || mode === 'fullscreen') {
         this.expandable = false; // This will hide arrow, show content via _updateVisibility
         this.expanded = true;    // Ensure content is marked as expanded
       } else { // 'windowed'
         this.expandable = true;
-        this.expanded = false;   // Default to collapsed when windowed
+        this.expanded = false;   // Always start collapsed when windowed
       }
     }
 
     async localize() {
       // Placeholder for localization if needed in the future
-      // For example:
-      // this.fullscreenButton.textContent = await globals.translate("userTray.fullscreen");
-      // this.logoutButton.textContent = await globals.translate("userTray.logout");
-      // console.log("[UserTray] localize() called");
     }
   });
+
+  // Global UserTray manager
+  window.UserTrayManager = {
+    instance: null,
+    
+    create() {
+      if (this.instance) {
+        this.destroy();
+      }
+      
+      this.instance = document.createElement('ajd-user-tray');
+      document.body.appendChild(this.instance);
+      
+      // Listen for logout events at document level
+      document.addEventListener('logout-requested', (event) => {
+        // Dispatch to game screen if it exists
+        const gameScreen = document.getElementById('game-screen');
+        if (gameScreen) {
+          gameScreen.dispatchEvent(new CustomEvent('logout-requested', { bubbles: true }));
+        }
+      });
+      
+      return this.instance;
+    },
+    
+    destroy() {
+      if (this.instance && this.instance.parentNode) {
+        this.instance.parentNode.removeChild(this.instance);
+        this.instance = null;
+      }
+    },
+    
+    show() {
+      if (this.instance) {
+        this.instance.show();
+      }
+    },
+    
+    hide() {
+      if (this.instance) {
+        this.instance.hide();
+      }
+    },
+    
+    setAppearance(mode) {
+      if (this.instance) {
+        this.instance.setAppearance(mode);
+      }
+    }
+  };
 })();

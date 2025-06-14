@@ -18,7 +18,7 @@ const KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY = 'leak_checker_api_key';
 const MIGRATION_FLAG_LEAK_CHECK_API_KEY_V1 = 'leakCheckApiKeyMigratedToKeytar_v1';
 
 const Patcher = require('./renderer/application/patcher');
-const { getDataPath } = require('../Constants');
+const { getDataPath, getAssetsPath } = require('../Constants');
 const logManager = require('../utils/LogManager');
 
 const isDevelopment = process.env.NODE_ENV === 'development'
@@ -154,8 +154,7 @@ const defaultWindowOptions = {
     nodeIntegration: true,
     preload: path.resolve(__dirname, 'preload.js'),
     additionalArguments: ['--disable-electron-security-warnings']
-  },
-  icon: path.join('assets', 'images', 'icon.png')
+  }
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -183,7 +182,7 @@ class Electron {
       console.error('[Migration] Error during leak check API key migration:', err);
     });
 
-    this._patcher = new Patcher(null);
+    this._patcher = null;
     this._isQuitting = false;
     this._isClearingCacheAndQuitting = false;
     this._savedWindowState = null;
@@ -1104,17 +1103,19 @@ class Electron {
       }
 
       protocol.handle('app', (request) => {
-        const url = request.url.slice('app://'.length)
-        let filePath
-
-        if (app.isPackaged) {
-          filePath = path.join(process.resourcesPath, url)
+        const url = request.url.slice('app://'.length);
+        const assetsPath = getAssetsPath(app);
+        let filePath;
+      
+        if (url.startsWith('assets/')) {
+          filePath = path.join(assetsPath, url.substring('assets/'.length));
         } else {
-          filePath = path.normalize(`${__dirname}/../../${url}`)
+          filePath = path.normalize(`${__dirname}/../../${url}`);
         }
-    devLog(`[Protocol Handler] Serving request for ${request.url} from ${filePath}`); 
-    return net.fetch(`file://${filePath}`)
-      })
+      
+        devLog(`[Protocol Handler] Serving request for ${request.url} from ${filePath}`);
+        return net.fetch(`file://${filePath}`);
+      });
 
       // Call _onReady which will now also register the IPC handler
       this._onReady()
@@ -1379,7 +1380,11 @@ class Electron {
     global.console.log('[IPC Main _onReady Setup] DIAGNOSTIC: Attempted to register "request-main-log-path" (ipcMain.on) handler within _onReady.');
     // --- END IPC HANDLER REGISTRATION ---
 
-    const windowOptions = { ...defaultWindowOptions };
+    this._patcher = new Patcher(null, getAssetsPath(app));
+    const windowOptions = {
+      ...defaultWindowOptions,
+      icon: path.join(getAssetsPath(app), 'images', 'icon.png')
+    };
     
     this._window = new BrowserWindow(windowOptions);
     
@@ -1419,9 +1424,13 @@ class Electron {
     
     // Note: loadFile is already promise-based, no fsPromises needed here.
     await this._window.loadFile(path.join(__dirname, 'renderer', 'index.html'))
+
+    const assetsPath = getAssetsPath(app)
     
-    this._window.webContents.send('set-data-path', dataPath);
+    this._window.webContents.send('set-data-path', dataPath)
+    this._window.webContents.send('set-assets-path', assetsPath)
     devLog(`[Main] Sent data path to renderer: ${dataPath}`);
+    devLog(`[Main] Sent assets path to renderer: ${assetsPath}`);
     
     this._window.webContents.setWindowOpenHandler((details) => this._createWindow(details))
 

@@ -603,10 +603,21 @@ module.exports = class Dispatch {
     }))
 
     for (const { jsPath, jsonPath } of pluginPaths) {
-      const jsCacheKey = require.resolve(jsPath)
-      const jsonCacheKey = require.resolve(jsonPath)
-      if (require.cache[jsCacheKey]) delete require.cache[jsCacheKey]
-      if (require.cache[jsonCacheKey]) delete require.cache[jsonCacheKey]
+      try {
+        await fs.access(jsPath)
+        const jsCacheKey = require.resolve(jsPath)
+        if (require.cache[jsCacheKey]) delete require.cache[jsCacheKey]
+      } catch (e) {
+        // ignore
+      }
+
+      try {
+        await fs.access(jsonPath)
+        const jsonCacheKey = require.resolve(jsonPath)
+        if (require.cache[jsonCacheKey]) delete require.cache[jsonCacheKey]
+      } catch (e) {
+        // ignore
+      }
     }
 
     this.clearAll()

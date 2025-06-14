@@ -23,7 +23,6 @@
             font-family: CCDigitalDelivery;
             font-size: 13px;
             color: #FFFFFF;
-            background: linear-gradient(0deg, #FF4A26 60%, #FF6C47 92%, #FFA38C 100%);
             border: #FF4A26 1px solid;
             border-radius: 20px;
             letter-spacing: .7px;

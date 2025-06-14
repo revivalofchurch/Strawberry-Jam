@@ -68,9 +68,10 @@ module.exports = class Patcher {
    * Creates an instance of the Patcher class.
    * @param {Settings} application - The application that instantiated this patcher.
    */
-  constructor (application) {
+  constructor (application, assetsPath) {
     this._application = application
     this._animalJamProcess = null
+    this.assetsPath = assetsPath
   }
 
   /**
@@ -281,9 +282,9 @@ module.exports = class Patcher {
     const asarUnpackedPath = path.join(resourcesDir, 'app.asar.unpacked')
 
     const customAsarPath = process.platform === 'win32'
-      ? path.resolve('assets', 'winapp.asar')
+      ? path.join(this.assetsPath, 'winapp.asar')
       : process.platform === 'darwin'
-        ? path.resolve('assets', 'osxapp.asar')
+        ? path.join(this.assetsPath, 'osxapp.asar')
         : undefined
 
     try {
@@ -369,9 +370,9 @@ module.exports = class Patcher {
 
       // Silently handle the patching operation
       const customAsarPath = process.platform === 'win32'
-        ? path.resolve('assets', 'winapp.asar')
+        ? path.join(this.assetsPath, 'winapp.asar')
         : process.platform === 'darwin'
-          ? path.resolve('assets', 'osxapp.asar')
+          ? path.join(this.assetsPath, 'osxapp.asar')
           : undefined
       const resourcesDir = path.join(STRAWBERRY_JAM_CLASSIC_BASE_PATH, 'resources')
       const asarPath = path.join(resourcesDir, 'app.asar')

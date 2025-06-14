@@ -35,9 +35,6 @@
 
       :host(:active) {
         background-color: var(--ajd-bubble-button-background-color-active, #55C749);
-        /* The linear-gradient might be overridden by a solid background-color. Consider if this is desired. */
-        /* For simplicity, we'll prioritize the CSS variable for background color. */
-        /* background: linear-gradient(0deg, #59ed5e 0%, #30b020 53.4%, #51bd45 53.5%, #c8f7c5 98%); */
         border: 1px solid var(--ajd-bubble-button-border-color-active, var(--ajd-bubble-button-border-color, #30D830));
         box-shadow: 0px 0px 0px 1px #3d7c1f, 2px 3px 0 rgba(0, 0, 0, 0.25); /* Keep existing shadow or make themeable */
         transform: translateY(1px);
@@ -46,7 +43,6 @@
       :host([disabled]) {
         color: #5E5E5E;
         background-color: #969696;
-        background: linear-gradient(0deg, #A2A2A2 0%, #868686 53.4%, #939393 53.5%, #B3B3B3 98.8%);
         border: #B0B7BA 1px solid;
         box-shadow: 0px 0px 1px #808080, 2px 3px 0 rgba(0, 0, 0, 0.25);
         cursor: default;

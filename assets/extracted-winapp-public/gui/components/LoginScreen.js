@@ -265,7 +265,6 @@
 
             :host {
               background-color: rgba(255, 240, 245, 1); /* Keep neutral */
-              background-image: linear-gradient(to bottom right, var(--theme-gradient-start), var(--theme-gradient-end));
               transition: background-image 0.3s ease;
             }
           }
@@ -455,7 +454,7 @@
 
           #version {
             position: absolute;
-            right: 10px;
+            left: 10px;
             bottom: 10px;
             display: grid;
             grid-template-columns: 1fr 24px;
@@ -617,6 +616,7 @@
             <h4 style="font-family: CCDigitalDelivery; color: #6E4B37; font-size: 13px; margin-top: 10px; margin-bottom: 5px; text-align: left;">Shortcuts</h4>
             
             <h5 style="font-family: CCDigitalDelivery; color: #805B47; font-size: 12px; margin-top: 8px; margin-bottom: 4px; font-weight: bold;">General:</h5>
+            <div class="settings-item" style="font-size: 10px; padding-left: 10px; color: #8B6914; font-style: italic; margin-bottom: 6px;">ℹ️ Note: Click on the left or right side panels first to focus the window before using shortcuts</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + Shift + I: Toggle Developer Tools</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + R: Reload / Logout (Return to Login Screen)</div>
  
@@ -664,6 +664,8 @@
       this.closeButtonElement = this.shadowRoot.getElementById("close-button");
       this.loginAppIconElem = this.shadowRoot.getElementById("login-app-icon"); // Get reference to the icon
       this.accountPanelInstance = this.shadowRoot.getElementById("account-panel-instance"); // Reference to the new panel
+
+
 
       // --- Fruit Rotation & Theming Setup (CLASS LEVEL) ---
       this._fruitThemes = {
@@ -769,10 +771,6 @@
           }
         });
       }
-
-      // --- REMOVED DUPLICATE/SCOPED FRUIT ROTATION & THEMING LOGIC ---
-      // The block that was here defining local fruitThemes, fruitImages, applyTheme, etc.
-      // and adding a second event listener has been removed.
 
       // --- Core Login Event Listeners ---
       this.loginSpinnerElem.addEventListener("click", event => {

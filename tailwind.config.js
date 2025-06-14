@@ -5,12 +5,11 @@ module.exports = {
       colors: {
         'primary-bg': '#121212',
         'secondary-bg': '#121212',
-        'tertiary-bg': '#3A3D4D',
         'text-primary': '#C3C3C3',
         'highlight-yellow': '#f0b429',
         'highlight-green': '#38b000',
         'sidebar-bg': '#121212',
-        'sidebar-border': '#3A3D4D',
+        'sidebar-border': '#16171f',
         'custom-pink': '#F10048',
         'sidebar-text': '#C3C3C3',
         'sidebar-hover': '#2C2E34',

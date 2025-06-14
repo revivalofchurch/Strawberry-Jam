@@ -13,7 +13,7 @@ const ConnectionMessageTypes = Object.freeze({
 /**
  * Returns the appropriate data directory path based on the environment.
  * In development, returns the 'data' folder in the project root.
- * In production (packaged), returns '%LOCALAPPDATA%\Programs\aj-classic\data'.
+ * In production (packaged), returns '%LOCALAPPDATA%\\Programs\\aj-classic\\data'.
  * @param {import('electron').App} app - The Electron app object.
  * @returns {string} The data directory path.
  */
@@ -35,6 +35,22 @@ const getDataPath = (app) => { // Accept app as parameter
 }
 
 /**
+ * Returns the appropriate assets directory path based on the environment.
+ * @param {import('electron').App} app - The Electron app object.
+ * @returns {string} The assets directory path.
+ */
+const getAssetsPath = (app) => {
+  if (!app) {
+    throw new Error("getAssetsPath requires the Electron app object as an argument.");
+  }
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'assets');
+  } else {
+    return path.join(app.getAppPath(), 'assets');
+  }
+};
+
+/**
  * Plugin types.
  * @enum
  */
@@ -43,4 +59,4 @@ const PluginTypes = Object.freeze({
   game: 'game'
 })
 
-module.exports = { ConnectionMessageTypes, PluginTypes, getDataPath }
+module.exports = { ConnectionMessageTypes, PluginTypes, getDataPath, getAssetsPath }

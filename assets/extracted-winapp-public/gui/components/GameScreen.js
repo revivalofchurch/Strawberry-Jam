@@ -20,8 +20,8 @@
         /* Application theme colors for consistency */
         --primary-bg: #121212;
         --secondary-bg: #121212;
-        --tertiary-bg: #3A3D4D;
-        --sidebar-border: #3A3D4D;
+        --tertiary-bg: #16171f;
+        --sidebar-border: #16171f;
         --text-primary: #C3C3C3;
         --highlight-green: #38b000;
         --theme-primary: #e83d52;
@@ -68,18 +68,6 @@
         transform: scale(1.02);
       }
 
-      /* New User Tray Styling - adjust as needed */
-      ajd-user-tray {
-        position: absolute; /* Positioned relative to flash-game-container */
-        top: 350px;
-        right: 10px;
-        z-index: 100; /* Ensure it's above the webview */
-      }
-      ajd-user-tray.hidden {
-        display: none !important;
-      }
-
-
       /* Enhanced game frame container with modern styling */
       #game-frame-container {
         width: 100%;
@@ -91,19 +79,13 @@
                             ". bottom .";
         background: radial-gradient(ellipse at center, var(--primary-bg) 0%, rgba(18, 18, 18, 0.95) 100%);
         position: relative;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       #game-frame-container::before {
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(45deg, 
-          transparent 0%, 
-          rgba(232, 61, 82, 0.03) 25%, 
-          transparent 50%, 
-          rgba(56, 176, 0, 0.03) 75%, 
-          transparent 100%);
         pointer-events: none;
         opacity: 0;
         animation: subtleGlow 8s ease-in-out infinite;
@@ -147,10 +129,7 @@
         grid-area: top;
         width: calc(100% + 2px);
         height: calc(100% + 1px);
-        background: linear-gradient(270deg, 
-          var(--tertiary-bg) 0%, 
-          var(--sidebar-border) 50%, 
-          var(--tertiary-bg) 100%);
+
         margin-left: -1px;
         margin-top: -1px;
         position: relative;
@@ -161,10 +140,7 @@
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(270deg,
-          transparent 0%,
-          rgba(232, 61, 82, 0.1) 50%,
-          transparent 100%);
+
         opacity: 0;
         transition: opacity 0.4s ease;
       }
@@ -190,10 +166,7 @@
         grid-area: right;
         width: calc(100% + 1px);
         height: calc(100% + 2px);
-        background: linear-gradient(0deg, 
-          var(--tertiary-bg) 0%, 
-          var(--sidebar-border) 50%, 
-          var(--tertiary-bg) 100%);
+
         margin-top: -1px;
         position: relative;
         overflow: hidden;
@@ -203,10 +176,6 @@
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(0deg,
-          transparent 0%,
-          rgba(56, 176, 0, 0.1) 50%,
-          transparent 100%);
         opacity: 0;
         transition: opacity 0.4s ease;
       }
@@ -216,7 +185,6 @@
       }
 
       #docked-button-tray {
-        background: linear-gradient(135deg, var(--tertiary-bg) 0%, var(--sidebar-border) 100%);
         border: 1px solid rgba(58, 61, 77, 0.3);
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -234,7 +202,6 @@
       #docked-button-tray:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-        background: linear-gradient(135deg, var(--sidebar-border) 0%, var(--tertiary-bg) 100%);
       }
 
       #border-right-container {
@@ -260,10 +227,7 @@
         height: calc(100% + 2px);
         margin-left: -1px;
         margin-top: -1px;
-        background: linear-gradient(270deg, 
-          var(--tertiary-bg) 0%, 
-          var(--sidebar-border) 50%, 
-          var(--tertiary-bg) 100%);
+
         position: relative;
         overflow: hidden;
       }
@@ -272,10 +236,6 @@
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(270deg,
-          transparent 0%,
-          rgba(240, 180, 41, 0.1) 50%,
-          transparent 100%);
         opacity: 0;
         transition: opacity 0.4s ease;
       }
@@ -299,10 +259,7 @@
         grid-area: left;
         width: calc(100% + 1px);
         height: calc(100% + 2px);
-        background: linear-gradient(0deg, 
-          var(--tertiary-bg) 0%, 
-          var(--sidebar-border) 50%, 
-          var(--tertiary-bg) 100%);
+
         margin-left: -1px;
         margin-top: -1px;
         position: relative;
@@ -313,10 +270,7 @@
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(0deg,
-          transparent 0%,
-          rgba(195, 195, 195, 0.05) 50%,
-          transparent 100%);
+
         opacity: 0;
         transition: opacity 0.4s ease;
       }
@@ -330,7 +284,6 @@
         grid-area: game;
         width: 100%;
         height: 100%;
-        background: linear-gradient(135deg, var(--primary-bg) 0%, rgba(18, 18, 18, 0.9) 100%);
         border-radius: 4px;
         box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
         position: relative;
@@ -400,6 +353,15 @@
       this.webViewElem = this.shadowRoot.querySelector("webview");
 
       this.gameFrameElem = this.shadowRoot.getElementById("game-frame-container");
+
+      // Create UserTray using the global manager
+      this.userTray = window.UserTrayManager.create();
+
+      // Handle logout requests from the user tray
+      document.addEventListener("logout-requested", () => {
+        this.closeGame();
+        this.dispatchEvent(new CustomEvent("switchToLogin"));
+      });
 
       this.webViewElem.addEventListener("dragover", event => {
         event.preventDefault();
@@ -475,6 +437,8 @@
               this.classList.add("no-transition-delays");
             }, 1000);
             this.gameFrameElem.classList.remove("logged-out");
+            // Show UserTray when game is loaded
+            window.UserTrayManager.show();
             this.dispatchEvent(new CustomEvent("gameLoaded"));
           } break;
           case "reloadGame": {
@@ -569,6 +533,8 @@
       this.closeGameTimeout = setTimeout(this.resetWebView.bind(this), 1000);
       this.classList.remove("no-transition-delays");
       this.classList.remove("show");
+      // Hide UserTray when game is closed
+      window.UserTrayManager.hide();
     }
 
     resetWebView() {
@@ -582,7 +548,12 @@
     }
 
     localize() {
-      // this.floatingContainerElem.localize(); // Old tray
+      // UserTray localization is handled by the UserTrayManager
+    }
+
+    disconnectedCallback() {
+      // Clean up UserTray when GameScreen is removed
+      window.UserTrayManager.destroy();
     }
   });
 })();
