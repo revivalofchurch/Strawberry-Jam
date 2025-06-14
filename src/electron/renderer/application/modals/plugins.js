@@ -757,7 +757,10 @@ exports.render = function (app) {
 
       const contents = await response.json()
 
-      for (const file of contents) {
+      // Process based on whether contents is an array or single file
+      const filesArray = Array.isArray(contents) ? contents : [contents];
+
+      for (const file of filesArray) {
         if (file.type === 'file') {
           const fileResponse = await fetch(file.download_url)
 
@@ -767,6 +770,31 @@ exports.render = function (app) {
 
           const fileContent = await fileResponse.text()
           fs.writeFileSync(path.join(pluginDir, file.name), fileContent)
+        } else if (file.type === 'dir') {
+          // Create the subdirectory
+          const subDir = path.join(pluginDir, file.name);
+          if (!fs.existsSync(subDir)) {
+            fs.mkdirSync(subDir, { recursive: true });
+          }
+          
+          // Fetch and save the subdirectory contents
+          const subContentsUrl = file.url;
+          const subResponse = await fetch(subContentsUrl);
+          
+          if (subResponse.ok) {
+            const subContents = await subResponse.json();
+            
+            for (const subFile of subContents) {
+              if (subFile.type === 'file') {
+                const subFileResponse = await fetch(subFile.download_url);
+                
+                if (subFileResponse.ok) {
+                  const subFileContent = await subFileResponse.text();
+                  fs.writeFileSync(path.join(subDir, subFile.name), subFileContent);
+                }
+              }
+            }
+          }
         }
       }
       
