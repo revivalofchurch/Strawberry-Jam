@@ -1,0 +1,608 @@
+const { ipcMain, shell, dialog, session, app, BrowserWindow } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const fsPromises = fs.promises;
+const crypto = require('crypto');
+const { spawn } = require('child_process');
+const processManager = require('../utils/ProcessManager');
+const logManager = require('../utils/LogManager');
+const os = require('os');
+const { autoUpdater } = require('electron-updater');
+const { getDataPath } = require('../Constants');
+
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+const STRAWBERRY_JAM_CLASSIC_BASE_PATH = process.platform === 'win32'
+  ? path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'strawberry-jam-classic')
+  : process.platform === 'darwin'
+    ? path.join('/', 'Applications', 'Strawberry Jam Classic.app', 'Contents')
+    : undefined;
+
+let KEYTAR_SERVICE_LEAK_CHECK_API_KEY;
+const KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY = 'leak_checker_api_key';
+
+function setupIpcHandlers(electronInstance) {
+  KEYTAR_SERVICE_LEAK_CHECK_API_KEY = `${app.getName()}-leak-check-api-key`;
+
+  ipcMain.on('open-directory', (event, filePath) => {
+    if (!filePath) {
+      return;
+    }
+    shell.openPath(filePath).catch(err => {
+       if (event && event.sender && !event.sender.isDestroyed()) {
+          event.sender.send('directory-open-error', { path: filePath, error: err.message });
+       }
+    });
+  });
+
+  ipcMain.on('window-close', () => {
+    const shouldPrompt = electronInstance._store.get('ui.promptOnExit', true);
+    
+    if (shouldPrompt && electronInstance._window && !electronInstance._window.isDestroyed()) {
+      electronInstance._window.webContents.send('show-exit-confirmation');
+    } else {
+      electronInstance._window.close();
+    }
+  });
+  
+  ipcMain.on('exit-confirmation-response', (event, { confirmed, dontAskAgain }) => {
+    
+    if (dontAskAgain) {
+      electronInstance._store.set('ui.promptOnExit', false);
+    }
+    
+    if (confirmed) {
+      electronInstance._window.close();
+    }
+  });
+
+  ipcMain.on('window-minimize', () => {
+    if (electronInstance._window) {
+      electronInstance._window.minimize();
+      electronInstance._handleAppMinimized();
+    }
+  });
+  
+  ipcMain.on('window-toggle-fullscreen', () => {
+    if (!electronInstance._window) return;
+    
+    if (!electronInstance._window.isFullScreen()) {
+      const bounds = electronInstance._window.getBounds();
+      electronInstance._savedWindowState = {
+        bounds,
+        isMaximized: electronInstance._window.isMaximized()
+      };
+    }
+    
+    electronInstance._window.setFullScreen(!electronInstance._window.isFullScreen());
+    
+    electronInstance._window.webContents.send('fullscreen-changed', electronInstance._window.isFullScreen());
+  });
+
+  ipcMain.on('window-toggle-maximize', () => {
+    if (!electronInstance._window) return;
+    
+    if (electronInstance._window.isMaximized()) {
+      electronInstance._window.unmaximize();
+    } else {
+      if (!electronInstance._savedWindowState) {
+        electronInstance._savedWindowState = {
+          bounds: electronInstance._window.getBounds(),
+          isMaximized: false
+        };
+      }
+      
+      electronInstance._window.maximize();
+    }
+    
+    electronInstance._window.webContents.send('maximize-changed', electronInstance._window.isMaximized());
+  });
+
+  ipcMain.on('open-settings', (_, url) => shell.openExternal(url));
+
+  ipcMain.on('open-url', (_, url) => shell.openExternal(url));
+
+  ipcMain.on('plugin-window-minimize', (event) => {
+    const senderWindow = BrowserWindow.fromWebContents(event.sender);
+    if (senderWindow && !senderWindow.isDestroyed()) {
+      senderWindow.minimize();
+    } else {
+    }
+  });
+
+  ipcMain.handle('get-app-version', () => {
+    return app.getVersion();
+  });
+
+  ipcMain.handle('get-setting', async (event, key) => {
+    try {
+      if (key === 'plugins.usernameLogger.apiKey') {
+        const apiKey = await electronInstance.keytar.getPassword(KEYTAR_SERVICE_LEAK_CHECK_API_KEY, KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY);
+        return apiKey || '';
+      }
+      const valueFromStore = electronInstance._store.get(key);
+      return valueFromStore;
+    } catch (error) {
+      if (isDevelopment) {
+      }
+      return key === 'plugins.usernameLogger.apiKey' ? '' : undefined;
+    }
+  });
+
+  ipcMain.handle('set-setting', async (event, key, value) => {
+    try {
+      if (key === 'plugins.usernameLogger.apiKey') {
+        if (typeof value === 'string' && value.trim() !== '') {
+          await electronInstance.keytar.setPassword(KEYTAR_SERVICE_LEAK_CHECK_API_KEY, KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY, value);
+        } else {
+          await electronInstance.keytar.deletePassword(KEYTAR_SERVICE_LEAK_CHECK_API_KEY, KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY);
+        }
+        return { success: true };
+      }
+      electronInstance._store.set(key, value);
+      return { success: true };
+    } catch (error) {
+      if (isDevelopment) {
+      }
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('select-output-directory', async (event) => {
+    if (!electronInstance._window) {
+      if (isDevelopment) console.error('[Dialog] Cannot show dialog, main window not available.');
+      return { canceled: true, error: 'Main window not available' };
+    }
+    try {
+      const result = await dialog.showOpenDialog(electronInstance._window, {
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'Select Leak Check Output Directory'
+      });
+
+      if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+        return { canceled: true };
+      } else {
+        const selectedPath = result.filePaths[0];
+        return { canceled: false, path: selectedPath };
+      }
+    } catch (error) {
+      if (isDevelopment) console.error('[Dialog] Error showing open dialog:', error);
+      return { canceled: true, error: error.message };
+    }
+  });
+
+  ipcMain.handle('save-text-file', async (event, options) => {
+    
+    if (!electronInstance._window) {
+      return { success: false, canceled: true };
+    }
+    
+    try {
+      const result = await dialog.showSaveDialog(electronInstance._window, {
+        title: 'Save Report',
+        defaultPath: options.suggestedFilename,
+        filters: [
+          { name: 'Text Files', extensions: ['txt'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+      
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true };
+      }
+      
+      await fsPromises.writeFile(result.filePath, options.content, 'utf-8');
+      
+      return { success: true, filePath: result.filePath };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.on('app-restart', () => {
+    app.relaunch();
+    app.exit(0);
+  });
+
+  ipcMain.handle('get-app-state', (async () => {
+      return electronInstance.getAppState();
+  }).bind(electronInstance));
+
+  ipcMain.handle('set-app-state', (async (event, newState) => {
+      return electronInstance.setAppState(newState);
+  }).bind(electronInstance));
+
+  ipcMain.handle('dispatch-get-state', async (event, key) => {
+    if (electronInstance._isQuitting) {
+      if (isDevelopment) console.warn(`[IPC Main] Denying 'dispatch-get-state' for key '${key}' because app is quitting.`);
+      return Promise.reject(new Error('Application is shutting down. Cannot get state.'));
+    }
+
+    if (!electronInstance._window || !electronInstance._window.webContents || electronInstance._window.webContents.isDestroyed()) {
+      if (isDevelopment) console.error(`[IPC Main] Cannot get state for key '${key}': Main window not available.`);
+      return Promise.reject(new Error('Main window not available to get state.'));
+    }
+
+    const replyChannel = `get-state-reply-${crypto.randomUUID()}`;
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        ipcMain.removeListener(replyChannel, listener);
+        if (isDevelopment) console.error(`[IPC Main] Timeout waiting for reply on ${replyChannel} for key ${key}`);
+        reject(new Error(`Timeout waiting for state response for key: ${key}`));
+      }, 2000);
+
+      const listener = (event, value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      };
+
+      ipcMain.once(replyChannel, listener);
+
+      if (electronInstance._window && electronInstance._window.webContents && !electronInstance._window.webContents.isDestroyed()) {
+        electronInstance._window.webContents.send('main-renderer-get-state-async', { key, replyChannel });
+      } else {
+        clearTimeout(timeout);
+        ipcMain.removeListener(replyChannel, listener);
+        if (isDevelopment) console.error(`[IPC Main] Main window webContents destroyed before sending 'main-renderer-get-state-async' for key '${key}'.`);
+        reject(new Error('Main window became unavailable before state request could be sent.'));
+      }
+    });
+  });
+
+  ipcMain.once('renderer-ready', (async () => {
+  }).bind(electronInstance));
+
+  ipcMain.handle('danger-zone:clear-cache', async () => {
+    const continueClear = await electronInstance._confirmNoOtherInstances('clear the cache');
+    if (!continueClear) {
+      return { success: false, message: 'Cache clearing cancelled by user.' };
+    }
+
+    try {
+      await session.defaultSession.clearCache();
+      await session.defaultSession.clearStorageData({ storages: ['cookies', 'localstorage'] });
+
+      const cachePaths = electronInstance._getCachePaths();
+      if (!cachePaths || cachePaths.length === 0) {
+      } else {
+        const helperScriptPath = path.join(__dirname, 'clear-cache-helper.js');
+
+         let resolvedHelperPath;
+         if (app.isPackaged) {
+           resolvedHelperPath = path.join(process.resourcesPath, 'clear-cache-helper.js');
+         } else {
+           resolvedHelperPath = helperScriptPath;
+         }
+
+         try {
+             await fsPromises.access(resolvedHelperPath);
+
+             const child = spawn('node', [resolvedHelperPath, ...cachePaths], {
+               detached: true,
+               stdio: 'ignore'
+             });
+             processManager.add(child);
+             child.on('error', (err) => { });
+             child.unref();
+         } catch (accessError) {
+         }
+      }
+
+      app.quit();
+      return { success: true, message: 'Internal cache cleared. External cache clearing scheduled. Application will close.' };
+
+    } catch (error) {
+      dialog.showMessageBoxSync(electronInstance._window, {
+        type: 'error',
+        title: 'Clear Cache Error',
+        message: `Failed to initiate cache clearing: ${error.message}`,
+        buttons: ['OK']
+      });
+      return { success: false, error: error.message };
+    }
+
+    electronInstance._isClearingCacheAndQuitting = true;
+    app.quit();
+    return { success: true, message: 'Cache clearing initiated. Application will close.' };
+
+  });
+
+  ipcMain.handle('danger-zone:uninstall', async () => {
+    const continueUninstall = await electronInstance._confirmNoOtherInstances('uninstall Strawberry Jam');
+    if (!continueUninstall) {
+      return { success: false, message: 'Uninstall cancelled by user.' };
+    }
+
+    try {
+      const uninstallerPath = electronInstance._getUninstallerPath();
+      if (!uninstallerPath) {
+        throw new Error('Uninstaller path could not be determined for this OS.');
+      }
+
+      await fsPromises.access(uninstallerPath);
+
+      const child = spawn(uninstallerPath, [], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      processManager.add(child);
+      child.unref();
+
+
+      app.quit();
+      return { success: true };
+
+    } catch (error) {
+      const errorMsg = error.code === 'ENOENT' ? 'Uninstaller executable not found.' : error.message;
+      dialog.showMessageBoxSync(electronInstance._window, {
+        type: 'error',
+        title: 'Uninstall Error',
+        message: `Failed to start uninstaller: ${errorMsg}`,
+        buttons: ['OK']
+      });
+      return { success: false, error: errorMsg };
+    }
+  });
+
+  ipcMain.on('open-plugin-window', electronInstance._handleOpenPluginWindow.bind(electronInstance));
+
+  ipcMain.handle('get-os-info', async () => {
+    return {
+      platform: process.platform,
+      release: os.release(),
+      arch: process.arch
+    };
+  });
+
+  ipcMain.handle('get-enabled-plugins', async () => {
+    try {
+      const plugins = [];
+      const pluginsPath = path.join(app.getPath('userData'), 'plugins');
+      
+      if (fs.existsSync(pluginsPath)) {
+        const pluginDirs = fs.readdirSync(pluginsPath, { withFileTypes: true })
+          .filter(dirent => dirent.isDirectory())
+          .map(dirent => dirent.name);
+        
+        for (const dir of pluginDirs) {
+          const configPath = path.join(pluginsPath, dir, 'plugin.json');
+          
+          if (fs.existsSync(configPath)) {
+            try {
+              const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+              
+              if (configData.enabled !== false) {
+                plugins.push({
+                  name: configData.name || dir,
+                  version: configData.version || 'unknown',
+                  author: configData.author || 'unknown'
+                });
+              }
+            } catch (err) {
+              try {
+                logManager.error(`Error reading plugin config for ${dir}: ${err.message}`);
+              } catch (logErr) {
+              }
+            }
+          }
+        }
+      }
+      
+      return plugins;
+    } catch (error) {
+      try {
+        logManager.error('Error getting enabled plugins:', error.message);
+      } catch (logErr) {
+      }
+      return [];
+    }
+  });
+
+  ipcMain.handle('get-cache-size', async () => {
+    const cachePaths = electronInstance._getCachePaths();
+    const sizes = { total: 0, directories: {} };
+
+    try {
+      const calculateDirSize = async (dirPath) => {
+        let size = 0;
+        
+        try {
+          await fsPromises.access(dirPath);
+        } catch (error) {
+          return 0;
+        }
+
+        const files = await fsPromises.readdir(dirPath, { withFileTypes: true });
+        
+        for (const file of files) {
+          const filePath = path.join(dirPath, file.name);
+          
+          if (file.isDirectory()) {
+            size += await calculateDirSize(filePath);
+          } else {
+            try {
+              const stats = await fsPromises.stat(filePath);
+              size += stats.size;
+            } catch (error) {
+            }
+          }
+        }
+        
+        return size;
+      };
+
+      for (const cachePath of cachePaths) {
+        try {
+          const dirName = path.basename(cachePath);
+          const size = await calculateDirSize(cachePath);
+          sizes.directories[dirName] = size;
+          sizes.total += size;
+        } catch (error) {
+          sizes.directories[path.basename(cachePath)] = 0;
+        }
+      }
+
+      return sizes;
+    } catch (error) {
+      return { total: 0, directories: {} };
+    }
+  });
+
+  ipcMain.on('direct-close-window', () => {
+    if (electronInstance._window && !electronInstance._window.isDestroyed()) {
+      electronInstance._window.close();
+    }
+  });
+
+  ipcMain.on('winapp-generate-report', (event, reportData) => {
+    if (reportData && reportData.logs) {
+      logManager.addGameClientLogs(reportData.logs);
+    } else {
+    }
+  });
+
+  ipcMain.handle('get-username-logger-counts', async (event) => {
+    try {
+      const pluginWindowEntry = Array.from(electronInstance.pluginWindows.entries()).find(([name, win]) => name === 'Username Logger');
+      
+      if (!pluginWindowEntry) {
+        return null;
+      }
+      const pluginWindow = pluginWindowEntry[1];
+
+      if (!pluginWindow || pluginWindow.isDestroyed() || !pluginWindow.webContents || pluginWindow.webContents.isDestroyed()) {
+        return null;
+      }
+
+      const isFunctionAvailable = await pluginWindow.webContents.executeJavaScript('typeof window.getUsernameLoggerCounts === "function"');
+      if (!isFunctionAvailable) {
+        return null;
+      }
+      
+      const counts = await pluginWindow.webContents.executeJavaScript('window.getUsernameLoggerCounts();');
+      return counts;
+    } catch (error) {
+      return null;
+    }
+  });
+
+  ipcMain.on('plugin-settings-updated', (event) => {
+    if (electronInstance._window && electronInstance._window.webContents && !electronInstance._window.webContents.isDestroyed()) {
+      electronInstance._window.webContents.send('broadcast-plugin-settings-updated');
+    }
+  });
+
+  ipcMain.on('check-for-updates', () => {
+    electronInstance.manualCheckInProgress = true;
+    autoUpdater.checkForUpdates().catch(err => {
+      if (electronInstance._window && electronInstance._window.webContents && !electronInstance._window.isDestroyed()) {
+        electronInstance._window.webContents.send('manual-update-check-status', { status: 'error', message: `Manual update check failed: ${err.message}` });
+      }
+      electronInstance.manualCheckInProgress = false;
+    });
+  });
+
+  ipcMain.on('launch-game-client', () => {
+    const exePath = process.platform === 'win32'
+      ? path.join(STRAWBERRY_JAM_CLASSIC_BASE_PATH, 'AJ Classic.exe')
+      : process.platform === 'darwin'
+        ? path.join(STRAWBER_JAM_CLASSIC_BASE_PATH, 'MacOS', 'AJ Classic')
+        : undefined;
+
+    if (!exePath || !fs.existsSync(exePath)) {
+      logManager.error(`[Process] Game client executable not found at: ${exePath}`);
+      dialog.showErrorBox('Launch Error', `Could not find the game client executable. Please ensure it is installed correctly at:\n${exePath}`);
+      return;
+    }
+
+    const dataPath = getDataPath(app);
+    const spawnEnv = {
+      ...process.env,
+      STRAWBERRY_JAM_DATA_PATH: dataPath
+    };
+
+    try {
+      const gameProcess = spawn(exePath, [], {
+        detached: false,
+        stdio: 'ignore',
+        env: spawnEnv
+      });
+
+      processManager.add(gameProcess);
+
+      gameProcess.on('close', (code) => {
+        logManager.log(`Game client process exited with code: ${code}`, 'main', logManager.logLevels.INFO);
+      });
+
+      gameProcess.on('error', (err) => {
+        logManager.error(`[Process] Error with game client process: ${err.message}`);
+      });
+    } catch (error) {
+      logManager.error(`[Process] Failed to spawn game client process: ${error.message}`);
+      dialog.showErrorBox('Launch Error', `Failed to start the game client process:\n${error.message}`);
+    }
+  });
+
+  // Global IPC handlers that don't depend on electronInstance directly
+  ipcMain.on('packet-event', (event, packetData) => {
+    const windows = BrowserWindow.getAllWindows();
+    windows.forEach(win => {
+      try {
+        if (win && win.webContents && !win.webContents.isDestroyed()) {
+          win.webContents.send('packet-event', packetData);
+        }
+      } catch (e) {
+      }
+    });
+  });
+
+  ipcMain.on('plugin-remote-message', (event, msg) => {
+    const mainWindow = BrowserWindow.getAllWindows().find(win =>
+      win.webContents && !win.webContents.isDestroyed() && win.webContents.getURL().includes('renderer/index.html')
+    );
+    if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send('plugin-remote-message', msg);
+    } else {
+    }
+  });
+
+  ipcMain.on('send-connection-message', (event, msg) => {
+    const mainWindow = BrowserWindow.getAllWindows().find(win =>
+      win.webContents.getURL().includes('renderer/index.html')
+    );
+    if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send('plugin-connection-message', msg);
+    }
+  });
+
+  ipcMain.on('console-message', (event, { type, msg }) => {
+  });
+
+  ipcMain.on('dispatch-get-state-sync', (event, key) => {
+    const mainWindow = BrowserWindow.getAllWindows().find(win =>
+      win.webContents.getURL().includes('renderer/index.html')
+    );
+
+    if (!mainWindow || !mainWindow.webContents) {
+      event.returnValue = null;
+      return;
+    }
+
+    if (key === 'room') {
+      if (global.cachedRoomState !== undefined) {
+        event.returnValue = global.cachedRoomState;
+      } else {
+        event.returnValue = null;
+      }
+    } else {
+      event.returnValue = null;
+    }
+  });
+
+  ipcMain.on('update-room-state', (event, roomState) => {
+    global.cachedRoomState = roomState;
+  });
+}
+
+module.exports = setupIpcHandlers;
