@@ -1,7 +1,7 @@
 {
   "name": "Username Logger",
   "version": "3.0.0",
-  "description": "Collects usernames from nearby players and buddies, with integrated leak checking functionality",
+  "description": "Collects usernames from nearby players and buddies",
   "author": "Glockoma",
   "main": "index.js",
   "type": "game",
@@ -13,40 +13,12 @@
   ],
   "commands": [
     {
-      "name": "userlog",
-      "description": "Toggles username logging on/off."
-    },
-    {
-      "name": "userlogsettings",
-      "description": "Configure username logging settings. Usage: !userlogsettings [setting] [value]"
-    },
-    {
       "name": "leakcheck",
       "description": "Run a leak check on collected usernames. Usage: !leakcheck [all|number]"
     },
     {
       "name": "leakcheckstop",
       "description": "Stop a running leak check."
-    },
-    {
-      "name": "setapikey",
-      "description": "Sets the LeakCheck API key. Usage: !setapikey YOUR_API_KEY"
-    },
-    {
-      "name": "testapikey",
-      "description": "Tests if the current LeakCheck API key is valid."
-    },
-    {
-      "name": "setindex",
-      "description": "Sets the leak check index to a specific position. Usage: !setindex 1234"
-    },
-    {
-      "name": "trimprocessed",
-      "description": "Remove processed usernames from the collected list and reset index."
-    },
-    {
-      "name": "usercount",
-      "description": "Display the number of usernames in the collected username files."
     }
   ],
   "runInBackground": true

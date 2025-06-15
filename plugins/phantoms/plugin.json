@@ -1,6 +1,14 @@
-  {
-    "name": "Return of the Phantoms",
-    "description": "Farm ROTP and collect prizes! (use `off` to disable filtering).",
-    "author": "Nosmile",
-    "game": "animal-jam-classic"
-  }
+{
+  "name": "Return of the Phantoms",
+  "version": "1.0.0",
+  "description": "Farm ROTP and collect prizes!",
+  "author": "Nosmile",
+  "main": "index.js",
+  "type": "game",
+  "commands": [
+    {
+      "name": "phantoms",
+      "description": "Toggles the ROTP farm. Use 'off' to disable prize filtering."
+    }
+  ]
+}

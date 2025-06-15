@@ -5,6 +5,5 @@
   "description": "Automates The Forgotten Desert adventure",
   "type": "ui",
   "tags": ["automation", "adventure", "tfd"],
-  "main": "index.html",
-  "game": "*"
+  "main": "index.html"
 }

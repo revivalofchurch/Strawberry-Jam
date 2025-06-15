@@ -4,5 +4,12 @@
   "description": "Toggle invisibility using the AJC mod command. Use at your own risk.",
   "main": "index.js",
   "author": "Glockoma",
-  "license": "MIT"
+  "license": "MIT",
+  "type": "game",
+  "commands": [
+    {
+      "name": "invis",
+      "description": "Toggles your character's visibility in the game."
+    }
+  ]
 }

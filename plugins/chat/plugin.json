@@ -1,6 +1,8 @@
 {
-  "name": "In-game chat commands.",
+  "name": "In-game Chat Commands",
+  "version": "1.0.0",
   "description": "Handles in-game chat commands.",
-  "game": "animal-jam-classic",
-  "author": "sxip"
+  "author": "sxip",
+  "main": "index.js",
+  "type": "game"
 }

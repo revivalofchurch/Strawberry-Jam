@@ -1,7 +1,8 @@
 {
-  "name": "Packet Spammer",
-  "description": "Spam packets like a boss!",
+  "name": "Spammer",
+  "version": "1.0.0",
+  "description": "Replicate in game packets",
+  "author": "sxip",
   "main": "index.html",
-  "type": "ui",
-  "game": "*"
+  "type": "ui"
 }

@@ -96,7 +96,7 @@ class LeakCheckService {
             // Log the single, user-friendly error message
             this.application.consoleMessage({
                 type: 'error',
-                message: `[Username Logger] Cannot start leak check: API key is missing or blank. Please set your LeakCheck.io API key in the plugin settings or use the command: !setapikey YOUR_API_KEY`
+                message: `[Username Logger] Cannot start leak check: API key is missing or blank. Please set your LeakCheck.io API key in settings`
             });
             // Ensure state is reset and return immediately
             this.stateModel.resetLeakCheckState();
@@ -432,7 +432,7 @@ class LeakCheckService {
             if (requestError.message.includes('API key is missing or blank')) {
               this.application.consoleMessage({
                 type: 'error',
-                message: `[Username Logger] Stopping leak check: API key is missing or blank. Please set your LeakCheck.io API key in the plugin settings or use the command: !setapikey YOUR_API_KEY`
+                message: `[Username Logger] Stopping leak check: API key is missing or blank. Please set your LeakCheck.io API key in the settings`
               });
               // Trigger the stop mechanism to cleanly exit the loop
               this.stateModel.stopLeakCheck(); // Use the model's method to signal stop

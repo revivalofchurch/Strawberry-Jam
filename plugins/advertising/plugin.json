@@ -1,6 +1,8 @@
 {
-  "name": "Auto Advertising",
+  "name": "Advertising",
+  "version": "1.0.0",
   "description": "Auto Advertising for Animal Jam.",
+  "author": "sxip",
   "main": "index.html",
   "type": "ui"
 }

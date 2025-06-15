@@ -1,6 +1,14 @@
 {
   "name": "Achievements",
+  "version": "1.0.0",
   "description": "Gives your character (most) in-game achievements.",
   "author": "Auth Zero",
-  "game": "animal-jam-classic"
+  "main": "index.js",
+  "type": "game",
+  "commands": [
+    {
+      "name": "achievements",
+      "description": "Unlocks most in-game achievements for your character."
+    }
+  ]
 }
