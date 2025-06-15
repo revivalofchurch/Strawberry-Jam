@@ -58,9 +58,17 @@ class ApiService {
         }
         // Ignore other types or null/undefined apiKeyResponse
 
-        // Ensure the final result is either a string or null
-        const finalApiKey = (typeof extractedValue === 'string') ? extractedValue : null;
+        // Trim the key if it's a string, otherwise keep it null
+        const finalApiKey = (typeof extractedValue === 'string') ? extractedValue.trim() : null;
 
+        // If the key becomes empty after trimming, treat it as null
+        if (finalApiKey === '') {
+          if (process.env.NODE_ENV === 'development') {
+            this.application.consoleMessage({ type: 'logger', message: `[Username Logger] API key became empty after trimming, treating as null.` });
+          }
+          return null;
+        }
+        
         // Log the final extracted key in dev mode
         if (process.env.NODE_ENV === 'development') {
           this.application.consoleMessage({ type: 'logger', message: `[Username Logger] Final extracted API key: ${finalApiKey === null ? 'null' : (finalApiKey.length > 8 ? finalApiKey.substring(0, 4) + '...' + finalApiKey.substring(finalApiKey.length - 4) : '********')}` });
@@ -92,17 +100,20 @@ class ApiService {
    */
   async setApiKey(apiKey) {
     try {
+      // Trim the API key first
+      const trimmedApiKey = (typeof apiKey === 'string') ? apiKey.trim() : '';
+
       // Validate API key format (basic validation)
-      if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+      if (!trimmedApiKey) {
         this.application.consoleMessage({
           type: 'error',
-          message: `[Username Logger] Invalid API key format. Please provide a valid API key.`
+          message: `[Username Logger] Invalid API key: cannot be empty. Please provide a valid API key.`
         });
         return false;
       }
       
-      // Use IPC to save the API key (consistent with how we retrieve it)
-      await ipcRenderer.invoke('set-setting', 'plugins.usernameLogger.apiKey', apiKey); // Corrected key
+      // Use IPC to save the trimmed API key (consistent with how we retrieve it)
+      await ipcRenderer.invoke('set-setting', 'plugins.usernameLogger.apiKey', trimmedApiKey); // Corrected key
       
       this.application.consoleMessage({
         type: 'success',

@@ -19,16 +19,16 @@ class CommandHandlers {
    * @param {Object} options.fileService - The file service for file operations
    * @param {Object} options.apiService - The API service for API operations
    * @param {Object} options.leakCheckService - The leak check service for leak checking
-   * @param {string} options.dataPath - The application data path
+   * @param {string} options.pluginStoragePath - The dedicated storage path for the plugin
    */
-  constructor({ application, configModel, stateModel, fileService, apiService, leakCheckService, dataPath }) {
+  constructor({ application, configModel, stateModel, fileService, apiService, leakCheckService, pluginStoragePath }) {
     this.application = application;
     this.configModel = configModel;
     this.stateModel = stateModel;
     this.fileService = fileService;
     this.apiService = apiService;
     this.leakCheckService = leakCheckService;
-    this.dataPath = dataPath;
+    this.pluginStoragePath = pluginStoragePath;
     
     // Bind methods to ensure 'this' context is correct
     this.handleLogCommand = this.handleLogCommand.bind(this);
@@ -92,10 +92,8 @@ class CommandHandlers {
     if (parameters.length === 0) {
       // Display current settings
       const config = await this.configModel.getConfig(); // Now async
-      const mainAppSettings = this.application.settings || { get: () => undefined }; // Graceful fallback
-      const customOutputDir = mainAppSettings.get('leakCheckOutputDir');
-      const paths = getFilePaths(this.dataPath, customOutputDir);
-      const effectiveOutputDir = customOutputDir && customOutputDir.trim() !== '' ? customOutputDir : path.dirname(paths.potentialAccountsPath);
+      const paths = getFilePaths(this.pluginStoragePath);
+      const effectiveOutputDir = path.dirname(paths.potentialAccountsPath);
 
       const apiKey = await this.apiService.getApiKey();
       const apiKeyStatus = apiKey && apiKey.trim() !== '' ? 'Set' : 'Not Set';
@@ -109,8 +107,7 @@ class CommandHandlers {
       this.application.consoleMessage({ type: 'logger', message: `- Collect Buddies: ${config.collectBuddies ? 'Yes' : 'No'}` });
       this.application.consoleMessage({ type: 'logger', message: `- Auto Leak Check: ${config.autoLeakCheck ? 'Enabled' : 'Disabled'}` });
       this.application.consoleMessage({ type: 'logger', message: `- Auto Leak Check Threshold: ${config.autoLeakCheckThreshold} usernames` });
-      this.application.consoleMessage({ type: 'logger', message: `- Input/Processed Files Directory: ${path.dirname(paths.collectedUsernamesPath)}` });
-      this.application.consoleMessage({ type: 'logger', message: `- Leak Check Output Directory: ${effectiveOutputDir}` });
+      this.application.consoleMessage({ type: 'logger', message: `- Plugin Data Directory: ${effectiveOutputDir}` });
       this.application.consoleMessage({ type: 'logger', message: `- LeakCheck API Key: ${apiKeyStatus}` });
       
       this.application.consoleMessage({
@@ -261,7 +258,7 @@ class CommandHandlers {
    */
   async handleTrimProcessedCommand() {
     try {
-      const { collectedUsernamesPath } = getFilePaths(this.dataPath);
+      const { collectedUsernamesPath } = getFilePaths(this.pluginStoragePath);
       const processedIndex = this.configModel.getLeakCheckIndex();
       const isDevMode = this._isDevMode();
       
@@ -425,9 +422,7 @@ class CommandHandlers {
    */
   async getUserCountData() {
     try {
-      const mainAppSettings = this.application.settings || { get: () => undefined };
-      const customOutputDir = mainAppSettings.get('leakCheckOutputDir');
-      const { collectedUsernamesPath, processedUsernamesPath, foundAccountsPath, ajcAccountsPath, potentialAccountsPath, workingAccountsPath } = getFilePaths(this.dataPath, customOutputDir);
+      const { collectedUsernamesPath, processedUsernamesPath, foundAccountsPath, ajcAccountsPath, potentialAccountsPath } = getFilePaths(this.pluginStoragePath);
 
       const counts = {};
       const collectedUsernames = await this.fileService.readUsernamesFromLog(collectedUsernamesPath);
@@ -440,8 +435,7 @@ class CommandHandlers {
       counts.foundAjc = foundAjc.length;
       const potentialInvalid = await this.fileService.readLinesFromFile(potentialAccountsPath);
       counts.potentialInvalid = potentialInvalid.length;
-      const working = await this.fileService.readLinesFromFile(workingAccountsPath);
-      counts.working = working.length;
+      counts.working = 0; // Deprecated
       counts.totalUnique = new Set([...collectedUsernames, ...processedUsernames]).size;
       counts.currentIndex = this.configModel.getLeakCheckIndex();
       

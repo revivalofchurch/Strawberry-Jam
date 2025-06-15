@@ -18,12 +18,9 @@ window.__init__ = __init__
 
 document.addEventListener('DOMContentLoaded', window.__init__)
 
-console.log('[Preload] Main application preload script executed (contextIsolation: false).'); // Added note
-
 // Expose jam.onPacket for UI plugins to receive live packet events
 try {
   const { ipcRenderer } = require('electron');
-  console.log("[Preload] Setting up window.jam.onPacket...");
   
   // Ensure window.jam exists
   window.jam = window.jam || {};
@@ -51,15 +48,11 @@ try {
       return function unsubscribe() {
         try {
           ipcRenderer.removeListener('packet-event', listener);
-          console.log("[Preload] Unsubscribed listener from packet-event.");
         } catch (e) {
            console.error("[Preload] Error removing packet-event listener:", e);
         }
       };
-    }; 
-    console.log("[Preload] Successfully set up window.jam.onPacket.");
-  } else {
-    console.log("[Preload] window.jam.onPacket already exists, skipping setup.");
+    };
   }
 } catch (e) {
   console.error("[Preload] Error setting up window.jam.onPacket:", e);
@@ -68,7 +61,6 @@ try {
 // Expose room tracking utilities needed by plugins
 try {
   const roomUtils = require('../utils/room-tracking'); // Adjust path relative to preload.js
-  console.log("[Preload] Setting up window.jam.roomUtils...");
 
   // Ensure window.jam exists
   window.jam = window.jam || {};
@@ -81,8 +73,6 @@ try {
     parseRoomPacket: roomUtils.parseRoomPacket,
     updateRoomStateFromPacket: roomUtils.updateRoomStateFromPacket
   };
-
-  console.log("[Preload] Successfully set up window.jam.roomUtils.");
 } catch (e) {
   console.error("[Preload] Error setting up window.jam.roomUtils:", e);
 }
@@ -90,7 +80,6 @@ try {
 // Expose room state management utilities
 try {
   const { RoomState } = require('../utils/room-state');
-  console.log("[Preload] Setting up window.jam.roomState...");
   
   // Ensure window.jam exists
   window.jam = window.jam || {};
@@ -99,8 +88,6 @@ try {
   // Note: This will work without the dispatch, but will be initialized properly
   // when dispatch becomes available
   window.jam.roomState = new RoomState();
-  
-  console.log("[Preload] Successfully set up window.jam.roomState.");
 } catch (e) {
   console.error("[Preload] Error setting up window.jam.roomState:", e);
 }
@@ -119,7 +106,6 @@ try {
   // If `process` is not available, this will error, and we default to false.
   const nodeEnv = typeof process !== 'undefined' && process.env && process.env.NODE_ENV;
   window.IS_DEV = nodeEnv === 'development';
-  console.log(`[Preload] IS_DEV set to: ${window.IS_DEV} (NODE_ENV: ${nodeEnv})`);
 } catch (e) {
   console.error("[Preload] Error setting up IS_DEV global variable:", e);
   window.IS_DEV = false; // Default to false on error
@@ -128,7 +114,6 @@ try {
 // Expose a limited dispatch interface for UI plugins
 try {
   const { ipcRenderer } = require('electron');
-  console.log("[Preload] Setting up window.jam.dispatch for UI plugins...");
 
   window.jam = window.jam || {};
   window.jam.dispatch = window.jam.dispatch || {};
@@ -196,7 +181,6 @@ try {
       });
     };
   }
-  console.log("[Preload] Successfully set up window.jam.dispatch for UI plugins.");
 } catch (e) {
   console.error("[Preload] Error setting up window.jam.dispatch for UI plugins:", e);
 }

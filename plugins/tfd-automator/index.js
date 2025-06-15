@@ -1,5 +1,5 @@
 /**
- * TFD Automator Plugin Logic
+ * TFD Automator Plugin Logic - Updated for Modern Room Tracking
  */
 
 // Wait for the dispatch object to be ready
@@ -8,96 +8,518 @@ function waitForDispatch(callback) {
         callback();
     } else {
         console.log('TFD Automator: Waiting for dispatch...');
-        setTimeout(() => waitForDispatch(callback), 100); // Check again shortly
+        setTimeout(() => waitForDispatch(callback), 100);
     }
 }
 
 // --- Global Variables ---
 let packets = [];
 let isAutomating = false;
-let isPaused = false; // Added pause state
+let isPaused = false;
 let currentPacketIndex = 0;
 let timeoutId = null;
 let currentSpeed = 500; // Default speed in ms
-let crystalPacketCounts = { yellow: 0, green: 0, white: 0, blue: 0 }; // Store counts per crystal
-let currentCrystalProgress = { yellow: 0, green: 0, white: 0, blue: 0 }; // Store current progress
-let autoStartEnabled = false; // Auto-start flag
-let fullAutomationEnabled = false; // Full automation toggle
+let crystalPacketCounts = { yellow: 0, green: 0, white: 0, blue: 0 };
+let currentCrystalProgress = { yellow: 0, green: 0, white: 0, blue: 0 };
+let autoStartEnabled = false;
+let fullAutomationEnabled = false;
 let currentAutomationPhase = 'none'; // Tracks which phase we're in (join, gems, rewards, leave)
-let fullAutomationCycles = 0; // Number of completed cycles
-let currentUserId = null; // Will store the current user's ID
-let currentDenId = null; // Will store the current user's den ID
-let loggedInUserId = null; // Store the confirmed logged-in user's ID
-let isReady = false; // Flag to indicate if plugin is ready (user in den)
-let isBackgroundMode = false; // Track if the application is minimized
+let fullAutomationCycles = 0;
+let currentUserId = null;
+let currentDenId = null;
+let isReady = false;
+let isBackgroundMode = false;
+let statusCheckInterval = null; // For periodic status checking
+let adventureRoomId = null;
 
-const THE_FORGOTTEN_DESERT_QUEST_ID = "201"; // Standard Quest ID for The Forgotten Desert
+// Packet template arrays
+let joinTfdPackets = [];
+let startTfdPackets = [];
+let collectRewardsPackets = [];
+let leaveTfdPackets = [];
 
-// --- Predefined Packet Sequences - these will be populated dynamically ---
-let denEntrySequence = []; // For %xt%o%dj% sequence
-let joinTfdPackets = [];   // For Adventure Start sequence (gl, qjc)
-let startTfdPackets = [];  // For actions within TFD (qs, qmi, etc.) - To be reviewed later
-let collectRewardsPackets = []; // For TFD treasures - To be reviewed later
-let leaveTfdPackets = [];  // For Adventure Completion sequence (qx)
+// Fallback room tracking
+let lastKnownRoomId = null;
+let lastKnownRoomName = null;
+let lastKnownUserName = null; // Capture actual username from packets
+
+const IS_DEV = true; // Set to true for debugging
 
 /**
- * Initialize the packet templates with dynamic user values
- * ASSUMES currentUserId and currentDenId are correctly set globally
- * before this function is called by the packet listener.
+ * Simple packet listener to capture room information as fallback
  */
-function initializePacketTemplates() {
-    // User ID and den check are now done in handleJoinRoom before calling this
+function simplePacketListener(packetData) {
+    try {
+        // Accept raw string or wrapper object {raw, message, data}
+        const message = typeof packetData === 'string'
+            ? packetData
+            : (packetData?.raw || packetData?.message || packetData?.data || '');
+        if (!message || typeof message !== 'string') {
+            if (IS_DEV && packetData) {
+                console.log(`TFD: Packet listener called with non-string data:`, typeof packetData, packetData);
+            }
+            return;
+        }
+        
+        // Debug: Log all packets to see what's coming through
+        if (IS_DEV && (message.includes('dj') || message.includes('rj') || message.includes('drc') || message.includes('den') || message.includes('%qjc%') || message.includes('%qw%') || message.includes('%qs%'))) {
+            console.log(`TFD: Packet received: ${message.substring(0, 100)}...`);
+        }
+        
+        // Extra diagnostics: host-lobby handshake and quest start responses
+        if (IS_DEV) {
+            if (message.includes('%qjc%')) {
+                console.log('[TFD DEBUG] SERVER qjc reply ▶', message);
+            }
+            if (message.includes('%qw%')) {
+                console.log('[TFD DEBUG] SERVER qw reply ▶', message);
+            }
+            if (message.includes('%qs%')) {
+                console.log('[TFD DEBUG] SERVER qs reply ▶', message);
+            }
+        }
+        
+        // Look for room join packets (%xt%rj%)
+        if (message.startsWith('%xt%rj%')) {
+            const parts = message.split('%');
+            if (parts.length >= 6) {
+                const numericId = parseInt(parts[3], 10);
+                const textualRoom = parts[5];
+                if (textualRoom) {
+                    lastKnownRoomName = textualRoom;
+                }
+                if (textualRoom && /^quest_/i.test(textualRoom) && !isNaN(numericId)) {
+                    adventureRoomId = numericId;
+                    if (IS_DEV) {
+                        console.log(`TFD: Captured adventure room id: ${adventureRoomId}`);
+                    }
+                }
+            }
+        }
+        
+        // Look for den join packets (%xt%o%dj%)
+        if (message.startsWith('%xt%o%dj%')) {
+            const parts = message.split('%');
+            if (IS_DEV) {
+                console.log(`TFD: dj packet parts:`, parts);
+            }
+            if (parts.length >= 5) {
+                const roomName = parts[4]; // Den name
+                if (roomName) {
+                    lastKnownRoomName = roomName;
+                    if (IS_DEV) {
+                        console.log(`TFD: Captured den name from dj packet: ${roomName}`);
+                    }
+                    
+                    // Extract username from den name (e.g., "denladyliya" -> "ladyliya")
+                    if (roomName.startsWith('den')) {
+                        lastKnownUserName = roomName.substring(3); // Remove "den" prefix
+                        if (IS_DEV) {
+                            console.log(`TFD: Extracted username from den: ${lastKnownUserName}`);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Look for ANY packet that contains "den" followed by letters - more flexible approach
+        if (message.includes('den') && !lastKnownRoomName) {
+            const denMatch = message.match(/den([a-zA-Z0-9_]+)/);
+            if (denMatch && denMatch[0]) {
+                lastKnownRoomName = denMatch[0]; // e.g., "denladyliya"
+                lastKnownUserName = denMatch[1]; // e.g., "ladyliya"
+                if (IS_DEV) {
+                    console.log(`TFD: Captured den via regex: ${lastKnownRoomName}, user: ${lastKnownUserName}`);
+                }
+            }
+        }
+        
+        // Look for user data in various packet types - UNIVERSAL approach
+        if (message.includes('drc')) {
+            if (IS_DEV) {
+                console.log(`TFD: Processing drc packet for username`);
+            }
+            // drc packets often contain username: %xt%drc%-1%1%1%USERNAME%
+            const parts = message.split('%');
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                // Look for a part that looks like a username (letters/numbers, not commands)
+                if (part && part.length > 2 && part.match(/^[a-zA-Z0-9_]+$/) && 
+                    !['xt', 'drc', 'o', 'rj', 'dj', 'ds', 'rp', 'au'].includes(part) &&
+                    !part.match(/^\d+$/)) { // Not just numbers
+                    
+                    if (!lastKnownUserName || lastKnownUserName !== part) {
+                        lastKnownUserName = part;
+                        if (IS_DEV) {
+                            console.log(`TFD: Captured username from drc packet: ${lastKnownUserName}`);
+                        }
+                    }
+                    break; // Take the first valid username we find
+                }
+            }
+        }
+        
+        // Also look in room info packets that might contain the den owner's name
+        if (message.includes('Den') && message.includes('%xt%rj%')) {
+            const parts = message.split('%');
+            // Look for den owner name in room description
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                if (part && part.includes('Den') && part.includes("'s")) {
+                    // Extract username from "username's Den"
+                    const match = part.match(/^(.+)'s\s+Den$/i);
+                    if (match && match[1]) {
+                        const extractedUser = match[1];
+                        if (!lastKnownUserName || lastKnownUserName !== extractedUser) {
+                            lastKnownUserName = extractedUser;
+                            if (IS_DEV) {
+                                console.log(`TFD: Captured username from den description: ${lastKnownUserName}`);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        
+    } catch (error) {
+        // Log packet parsing errors in dev mode
+        if (IS_DEV) {
+            console.log(`TFD: Packet parsing error: ${error.message}`);
+        }
+    }
+}
 
+/**
+ * Get current room ID using modern dispatch system with multiple fallbacks
+ */
+async function getCurrentRoomId() {
+    if (!window.jam || !window.jam.dispatch) {
+        if (IS_DEV) console.log(`TFD: [RoomState] No dispatch available, using captured room: ${lastKnownRoomName}`);
+        return lastKnownRoomName; // Return captured room name as fallback
+    }
+    
+    // Try multiple methods to get room ID - prioritize textual room name for den detection
+    let roomId = null;
+    
+    // Method 1: Try textual room name first (better for den detection)
+    try {
+        roomId = await window.jam.dispatch.getState('room');
+        if (roomId && IS_DEV) {
+            console.log(`TFD: Got textual room: ${roomId}`);
+        }
+    } catch (e) {
+        if (IS_DEV) console.log(`TFD: textual room failed: ${e.message}`);
+    }
+    
+    // Method 2: Fallback to numeric room ID if no textual room
+    if (!roomId) {
+        try {
+            roomId = await window.jam.dispatch.getState('internalRoomId');
+            if (roomId && IS_DEV) {
+                console.log(`TFD: Got internalRoomId: ${roomId}`);
+            }
+        } catch (e) {
+            if (IS_DEV) console.log(`TFD: internalRoomId failed: ${e.message}`);
+        }
+    }
+    
+    // Method 3: Try room state
+    if (!roomId && window.jam && window.jam.roomState) {
+        try {
+            const roomInfo = window.jam.roomState.getCurrentRoom();
+            if (roomInfo) {
+                roomId = roomInfo.id || roomInfo.name;
+                if (roomId && IS_DEV) {
+                    console.log(`TFD: Got room from roomState: ${roomId}`);
+                }
+            }
+        } catch (e) {
+            if (IS_DEV) console.log(`TFD: roomState failed: ${e.message}`);
+        }
+    }
+    
+    // Method 4: Use captured room name as final fallback
+    if (!roomId && lastKnownRoomName) {
+        roomId = lastKnownRoomName;
+        if (IS_DEV) {
+            console.log(`TFD: Using captured room name: ${roomId}`);
+        }
+    }
+    
+    if (!roomId && IS_DEV) {
+        console.log(`TFD: [RoomState] No room available from any source method`);
+    }
+    
+    return roomId;
+}
+
+/**
+ * Extract username from den room name (e.g., "denladyliya" -> "ladyliya")
+ */
+function extractUsernameFromDenName(roomName) {
+    if (!roomName || typeof roomName !== 'string') return null;
+    
+    // Check if room name starts with "den"
+    if (roomName.startsWith('den') && roomName.length > 3) {
+        const username = roomName.substring(3); // Remove "den" prefix
+        if (IS_DEV) {
+            console.log(`TFD: Extracted username from room name '${roomName}': ${username}`);
+        }
+        return username;
+    }
+    
+    return null;
+}
+
+/**
+ * Get current user data using modern dispatch system with fallback
+ */
+async function getCurrentUser() {
+    // First, try to extract username from current room if it's a den
+    const roomId = await getCurrentRoomId();
+    if (roomId && typeof roomId === 'string') {
+        const extractedUsername = extractUsernameFromDenName(roomId);
+        if (extractedUsername) {
+            return { 
+                userId: extractedUsername, 
+                username: extractedUsername,
+                source: 'extracted_from_den'
+            };
+        }
+    }
+    
+    if (!window.jam || !window.jam.dispatch) {
+        // Return captured username as fallback
+        if (lastKnownUserName) {
+            return { userId: lastKnownUserName, username: lastKnownUserName };
+        }
+        return null;
+    }
+    
+    let user = null;
+    try {
+        user = await window.jam.dispatch.getState('player');
+    } catch (e) {
+        if (IS_DEV) console.log(`TFD: getState('player') failed: ${e.message}`);
+    }
+    
+    // If we have a captured username that's different from dispatch, prefer the captured one
+    if (lastKnownUserName && user) {
+        // The dispatch might return numeric ID, but we want the actual username
+        if (user.userId !== lastKnownUserName) {
+            if (IS_DEV) {
+                console.log(`TFD: Using captured username '${lastKnownUserName}' instead of dispatch ID '${user.userId}'`);
+            }
+            return { 
+                userId: lastKnownUserName, 
+                username: lastKnownUserName,
+                originalUserId: user.userId 
+            };
+        }
+    }
+    
+    // If no captured username but we have dispatch user, use that
+    if (user) {
+        return user;
+    }
+    
+    // Final fallback to captured username
+    if (lastKnownUserName) {
+        return { userId: lastKnownUserName, username: lastKnownUserName };
+    }
+    
+    return null;
+}
+
+/**
+ * Check if user is in their den
+ */
+async function isUserInDen() {
+    const roomId = await getCurrentRoomId();
+    const user = await getCurrentUser();
+    
+    if (!roomId || !user || !user.userId) {
+        if (IS_DEV) console.log(`TFD: isUserInDen check failed - roomId: ${roomId}, user: ${user?.userId}`);
+        return false;
+    }
+    
+    // Use the actual username to construct expected den name
+    const expectedDenId = 'den' + user.userId;
+    
+    let isDen = false;
+    
+    // Method 1: Direct textual match (for textual room names like "denladyliya")
+    if (typeof roomId === 'string' && (roomId === expectedDenId || roomId.startsWith(expectedDenId))) {
+        isDen = true;
+        if (IS_DEV) console.log(`TFD: Den detected via textual match: ${roomId}`);
+    }
+    
+    // Method 2: Compare with captured room name if we have it
+    if (!isDen && lastKnownRoomName) {
+        if (lastKnownRoomName === expectedDenId || lastKnownRoomName.startsWith(expectedDenId)) {
+            isDen = true;
+            if (IS_DEV) console.log(`TFD: Den detected via captured room name: ${lastKnownRoomName}`);
+        }
+    }
+     
+    // Method 3: Check room state for den indicators
+    if (!isDen && window.jam && window.jam.roomState) {
+        try {
+            const roomInfo = window.jam.roomState.getCurrentRoom();
+            if (roomInfo) {
+                // Check if room name contains "den"
+                if (roomInfo.name && roomInfo.name.toLowerCase().includes('den')) {
+                    isDen = true;
+                    if (IS_DEV) console.log(`TFD: Den detected via roomState name: ${roomInfo.name}`);
+                }
+                // Check if room type or category indicates den
+                if (roomInfo.type === 'den' || roomInfo.category === 'den') {
+                    isDen = true;
+                    if (IS_DEV) console.log(`TFD: Den detected via roomState type/category`);
+                }
+            }
+        } catch (e) {
+            if (IS_DEV) console.log(`TFD: roomState den check failed: ${e.message}`);
+        }
+    }
+    
+    // Method 4: For numeric room IDs, check if we have other indicators
+    if (!isDen && typeof roomId === 'number') {
+        // Check if the captured room name matches expected den
+        if (lastKnownRoomName && lastKnownRoomName === expectedDenId) {
+            isDen = true;
+            if (IS_DEV) console.log(`TFD: Den detected via numeric room ID with matching captured name`);
+        }
+    }
+    
+    if (IS_DEV) {
+        console.log(`TFD: Den check - roomId: ${roomId}, expectedDen: ${expectedDenId}, capturedRoom: ${lastKnownRoomName}, isDen: ${isDen}`);
+    }
+    
+    return isDen;
+}
+
+/**
+ * Periodic status check - modern approach like advertising plugin
+ */
+async function checkStatusAndUpdateUI() {
+    try {
+        const user = await getCurrentUser();
+        const roomId = await getCurrentRoomId();
+        const userInDen = await isUserInDen();
+        
+        if (IS_DEV) {
+            console.log(`TFD: Status check - user: ${user?.userId}, room: ${roomId}, inDen: ${userInDen}, isAutomating: ${isAutomating}`);
+        }
+        
+        // Update current user/room info
+        if (user && user.userId) {
+            currentUserId = user.userId;
+        }
+        
+        if (roomId) {
+            if (userInDen) {
+                currentDenId = roomId;
+            }
+        }
+        
+        // Update ready state based on current status - removed den requirement
+        const wasReady = isReady;
+        isReady = !!(user && user.userId && !isAutomating);
+        
+        // Update UI if ready state changed OR if we're ready and button is still disabled
+        const shouldUpdateUI = (wasReady !== isReady) || (isReady && startButton && startButton.disabled);
+        
+        if (shouldUpdateUI) {
+            if (startButton) {
+                startButton.disabled = !isReady;
+            }
+            
+            if (isReady) {
+                if (userInDen) {
+                    updateStatus('Ready', 'Press Start to begin', 'success');
+                    logActivity(`Ready: User ${currentUserId} in den ${currentDenId}`);
+                } else {
+                    updateStatus('Ready', 'Press Start to begin (in adventure)', 'success');
+                    logActivity(`Ready: User ${currentUserId} in adventure ${roomId}`);
+                }
+            } else {
+                if (!user || !user.userId) {
+                    updateStatus('Waiting', 'Login data not found', 'warning');
+                } else if (isAutomating) {
+                    // Don't change status if we're automating
+                } else {
+                    updateStatus('Waiting', 'Checking status...', 'info');
+                }
+            }
+        }
+        
+        // Initialize packet templates if we have user data but templates aren't ready
+        if (user && user.userId && joinTfdPackets.length === 0) {
+            await initializePacketTemplates();
+        }
+        
+    } catch (error) {
+        console.error('TFD Automator: Error in status check:', error);
+        logActivity(`Status check error: ${error.message}`);
+    }
+}
+
+/**
+ * Initialize packet templates with current user/room data
+ */
+async function initializePacketTemplates() {
+    const user = await getCurrentUser();
+    const roomId = await getCurrentRoomId();
+    
+    if (!user || !user.userId) {
+        throw new Error('User data not available');
+    }
+    
+    if (!roomId) {
+        throw new Error('Room ID not available');
+    }
+    
+    currentUserId = user.userId;
+    currentDenId = roomId;
+    
     logActivity(`Initializing templates for User ID: ${currentUserId}`);
-    logActivity(`Using Den ID: ${currentDenId}`);
+    logActivity(`Using Room ID: ${currentDenId}`);
 
-    // Now initialize the packet templates with these values
-
-    // Den Entry Sequence (as per things-to-address.md and dev/packets.md I.A)
-    // This sequence is defined but not currently used by startAutomationPhase.
-    // The {userIdentifier} is currentUserId. {denId} in the example is the username.
-    denEntrySequence = [
-        { type: "aj", content: `%xt%o%dj%${currentUserId}%1%-1%`, delay: "1.0" }
-    ];
-
-    // Adventure Start Sequence (replaces the old joinTfdPackets)
-    // As per things-to-address.md I.E.25-29 and dev/packets.md I.B
-    // {roomId} here refers to THE_FORGOTTEN_DESERT_QUEST_ID
-    // {userIdentifier} is currentUserId
+    // Get numeric room ID for packet routing
+    const numericRoomId = await window.jam.dispatch.getState('internalRoomId');
+    
+    if (IS_DEV) {
+        console.log(`TFD: Template init -> numericRoomId=${numericRoomId}, currentDenId=${currentDenId}, user=${currentUserId}`);
+    }
+    
+    // Host (create) the adventure requires two packets:
+    // 1) qjc to create lobby, 2) pubMsg on%11 to switch to ON state
     joinTfdPackets = [
-        { type: "aj", content: `%xt%o%gl%${THE_FORGOTTEN_DESERT_QUEST_ID}%201%`, delay: "1.0" },
-        { type: "aj", content: `%xt%o%qjc%${THE_FORGOTTEN_DESERT_QUEST_ID}%${currentUserId}%23%0%`, delay: "1.0" }
+        { type: "aj", content: `%xt%o%qjc%${numericRoomId}%${currentDenId}%23%0%`, delay: "0.8" },
+        { type: "connection", content: `<msg t=\"sys\"><body action=\"pubMsg\" r=\"${numericRoomId}\"><txt><![CDATA[on%11]]></txt></body></msg>`, delay: "0.8" }
     ];
 
-    // startTfdPackets: For actions *within* TFD. To be reviewed based on full packet research.
-    // Keeping existing definition for now.
     startTfdPackets = [
-        { type: "aj", content: `%xt%o%qs%{room}%${currentDenId}%`, delay: "1.0" }, // Parameter {currentDenId} here is likely incorrect for qs, needs review.
-        { type: "connection", content: "<msg t=\"sys\"><body action=\"pubMsg\" r=\"{room}\"><txt><![CDATA[off%11]]></txt></body></msg>", delay: "1.0" },
-        { type: "aj", content: "%xt%o%qmi%{room}%", delay: "1.0" },
-        { type: "aj", content: "%xt%o%au%{room}%1%111%5544%14%0%", delay: "1.0" },
-        { type: "aj", content: "%xt%o%gl%{room}%47%", delay: "0.5" }, // These gl packets are for sub-locations within TFD
-        { type: "aj", content: "%xt%o%gl%{room}%66%", delay: "0.5" },
-        { type: "aj", content: "%xt%o%gl%{room}%158%", delay: "0.5" },
-        { type: "aj", content: "%xt%o%gl%{room}%170%", delay: "0.5" },
-        { type: "aj", content: "%xt%o%gl%{room}%333%", delay: "0.5" }
+        { type: "aj", content: `%xt%o%qs%${numericRoomId}%${currentDenId}%`, delay: "1.0" },
+        { type: "connection", content: `<msg t=\"sys\"><body action=\"pubMsg\" r=\"${numericRoomId}\"><txt><![CDATA[off%11]]></txt></body></msg>`, delay: "1.0" }
     ];
 
-    // collectRewardsPackets: For TFD treasures. Keeping existing definition for now.
+    // Reward Collection Sequence - Based on packets.txt "Opening chests" section
+    // Note: These will use current room ID when sent (will be in TFD adventure)
     collectRewardsPackets = [
         { type: "aj", content: "%xt%o%qpgift%{room}%0%0%0%", delay: "0.8" },
         { type: "aj", content: "%xt%o%qpgift%{room}%1%0%0%", delay: "0.8" },
-        { type: "aj", content: "%xt%o%qpgift%{room}%2%0%0%", delay: "0.8" },
-        { type: "aj", content: "%xt%o%qpgift%{room}%3%0%0%", delay: "0.8" },
+        { type: "aj", content: "%xt%o%qpgift%{room}%-1%0%1%", delay: "0.8" },
+        { type: "aj", content: "%xt%o%qpgift%{room}%-1%0%1%", delay: "0.8" },
         { type: "aj", content: "%xt%o%qpgiftdone%{room}%1%", delay: "1.0" }
     ];
 
-    // Adventure Completion Sequence (replaces the old leaveTfdPackets)
-    // As per things-to-address.md I.E.30-33 and dev/packets.md I.C
-    // {roomId} will be the current TFD adventure instance ID.
-    // dev/packets.md suggests client sends only one param for qx.
+    // Adventure Leave Sequence - Based on packets.txt "Left adventure" section
+    // Note: This will use current room ID when sent (will be in TFD adventure)
     leaveTfdPackets = [
-        { type: "aj", content: `%xt%o%qx%{room}%`, delay: "1.0" }
+        { type: "aj", content: "%xt%o%qx%{room}%", delay: "1.0" }
     ];
 }
 
@@ -122,7 +544,7 @@ let currentPhaseText;
 let cycleCountText;
 let automationProgress;
 // Full automation toggle
-let fullAutoButton; // Renamed from fullAutoToggle to match HTML id
+let fullAutoButton;
 let fullAutoText;
 // Activity Log
 let activityLog;
@@ -131,15 +553,10 @@ let activityLog;
 
 /**
  * Extracts a readable identifier from the packet content.
- * Example: "%xt%o%qat%{room}%1crystal_05a%0%" -> "crystal_05a"
- * @param {string} packetContent The raw packet string.
- * @returns {string} A readable identifier or 'Unknown Packet'.
  */
 function getPacketIdentifier(packetContent) {
     try {
         const parts = packetContent.split('%');
-        
-        // Look for specific packet types in order:
         
         // Crystal packets (1crystal_, 2crystal_, 3crystal_, 4crystal_)
         const crystalPart = parts.find(part => /^[1234]crystal_\d+[ab]$/.test(part));
@@ -153,12 +570,11 @@ function getPacketIdentifier(packetContent) {
         if (waterPart) return waterPart;
         
         // Socvol (cactus) packets
-        const socvolPart = parts.find(part => /^4socvol/.test(part));
+        const socvolPart = parts.find(part => /^[45]socvol/.test(part));
         if (socvolPart) return socvolPart;
         
         // TFD Treasure packets
         if (parts.includes('qpgift')) {
-            // Extract gift number if available
             const giftNumIndex = parts.indexOf('qpgift') + 2;
             if (parts.length > giftNumIndex && !isNaN(parseInt(parts[giftNumIndex]))) {
                 return `tfd-treasure-${parts[giftNumIndex]}`;
@@ -170,35 +586,16 @@ function getPacketIdentifier(packetContent) {
             return 'tfd-treasure-done';
         }
         
-        // Treasure packets (adventure plugin style)
-        const treasurePart = parts.find(part => /^treasure_\d+$/.test(part));
-        if (treasurePart) {
-            // Check if this is a spawn or claim packet
-            if (parts.includes('qat')) {
-                return `spawn-${treasurePart}`;
-            } else if (parts.includes('qatt')) {
-                return `claim-${treasurePart}`;
-            }
-            return treasurePart;
-        }
+        // Adventure control packets
+        if (parts.includes('qx')) return 'leave-adventure';
+        if (parts.includes('qjc')) return 'join-adventure';
+        if (parts.includes('qs')) return 'start-adventure';
         
-        // Check for common packet types by command
-        if (parts.includes('qx')) {
-            return 'leave-adventure';
-        }
-        
-        if (parts.includes('qjc')) {
-            return 'join-adventure';
-        }
-        
-        if (parts.includes('qs')) {
-            return 'start-adventure';
-        }
-        
+        return 'Unknown Packet';
     } catch (error) {
         console.error('TFD Automator: Error parsing packet identifier:', error);
-    }
     return 'Unknown Packet';
+    }
 }
 
 /**
@@ -271,12 +668,7 @@ function getFriendlyActionName(identifier) {
  * Sends the next packet in the sequence.
  */
 async function sendNextPacket() {
-    if (!isAutomating || isPaused || !isReady) {
-        if (IS_DEV) {
-            if (!isAutomating) logActivity("sendNextPacket: Not automating.");
-            if (isPaused) logActivity("sendNextPacket: Automation paused.");
-            if (!isReady) logActivity("sendNextPacket: Not ready (not in den or templates not init).");
-        }
+    if (!isAutomating || isPaused) {
         return;
     }
 
@@ -284,138 +676,95 @@ async function sendNextPacket() {
     if (!packets || packets.length === 0) {
         logActivity("Error: No TFD packets loaded. Cannot send.");
         updateStatus("Error", "No packets loaded", "error");
-        handleStop(); // Stop automation if no packets
+        handleStop();
         return;
     }
 
-    // Ensure currentPacketIndex is valid
-    if (currentPacketIndex < 0 || currentPacketIndex >= packets.length) {
-        logActivity(`Error: Invalid packet index: ${currentPacketIndex}. Resetting.`);
-        currentPacketIndex = 0; // Reset to first packet
-        // Potentially stop or pause automation here depending on desired behavior
+    // Check if we've completed the sequence
+    if (currentPacketIndex >= packets.length) {
+        if (fullAutomationEnabled) {
+            handlePhaseCompletion();
+        } else {
+            logActivity('Packet sequence completed');
+            handleStop();
+        }
+        return;
     }
 
     const packetInfo = packets[currentPacketIndex];
     if (!packetInfo || !packetInfo.content) {
-        logActivity(`Error: Packet at index ${currentPacketIndex} is invalid or has no content.`);
-        // Skip this packet and try the next one, or stop
-        currentPacketIndex = (currentPacketIndex + 1) % packets.length;
-        if (timeoutId) clearTimeout(timeoutId);
-        timeoutId = setTimeout(sendNextPacket, currentSpeed); 
+        logActivity(`Error: Packet at index ${currentPacketIndex} is invalid.`);
+        currentPacketIndex++;
+        setTimeout(sendNextPacket, currentSpeed);
         return;
     }
 
     try {
-        const roomId = await window.jam.dispatch.getState('room');
+        // Get current room using modern dispatch system
+        let roomId;
+        const NEED_ADVENTURE_ID = ['gems', 'rewards', 'leave'].includes(currentAutomationPhase);
+
+        if (NEED_ADVENTURE_ID && adventureRoomId) {
+            roomId = adventureRoomId;
+        } else {
+            // Prefer numeric internalRoomId when available
+            try {
+                roomId = await window.jam.dispatch.getState('internalRoomId');
+            } catch {}
+
+            if (!roomId) {
+                roomId = await getCurrentRoomId();
+            }
+        }
 
         if (!roomId) {
-            logActivity("Error: Cannot get room ID. Ensure you are in a room. Pausing automation.");
-            handlePauseResume(); // Pause automation
+            logActivity("Error: Cannot get room ID. Pausing automation.");
+            handlePauseResume();
             updateStatus("Error", "Room ID not found. Paused.", "error");
             return;
         }
-        if (IS_DEV) logActivity(`[TFD] Got room '${roomId}' from dispatch.getState`);
 
-        // --- Room State Validation based on Automation Phase ---
-        if (fullAutomationEnabled && window.jam && window.jam.roomUtils) {
-            const isUserInDen = roomId === currentDenId;
-            const isUserInAdventure = window.jam.roomUtils.isAdventureRoom(roomId);
+        // Relaxed phase validation – only ensure we are in some room. Strict
+        // room-phase checks previously caused pauses if server lagged.
 
-            let expectedRoomType = null; // 'den', 'adventure', or null if any is fine for the phase
-            let phaseErrorMessage = '';
-
-            switch (currentAutomationPhase) {
-                case 'start':
-                case 'gems':
-                case 'rewards':
-                    expectedRoomType = 'adventure';
-                    if (!isUserInAdventure) {
-                        phaseErrorMessage = `Expected to be in an adventure for '${currentAutomationPhase}' phase, but in room ${roomId}.`;
-                    }
-                    break;
-                case 'leave':
-                    expectedRoomType = 'adventure';
-                    if (!isUserInAdventure) {
-                        phaseErrorMessage = `Expected to be in an adventure for 'leave' phase, but in room ${roomId}.`;
-                    }
-                    break;
-                case 'join':
-                    // 'join' phase starts in den and transitions. The initial 'isReady' (in den) check covers the start.
-                    // Packets in this phase handle the actual room changes.
-                    // No specific room type check here as it's a transitional phase.
-                    break;
-                case 'none': // Should not happen if automation is running correctly
-                    logActivity(`Warning: Full automation active but phase is 'none'. Current room: ${roomId}`);
-                    break;
-            }
-
-            if (phaseErrorMessage) {
-                logActivity(`Room State Error: ${phaseErrorMessage}`);
-                updateStatus("Room Error", `Incorrect room for ${currentAutomationPhase}. Paused.`, "error");
-                handlePauseResume(); // Pause automation
-                return;
-            }
-        }
-        // --- End Room State Validation ---
-
-        // Replace {room} placeholder
+        // Replace {room} placeholder and send packet, log result
         const packetContent = packetInfo.content.replace(/{room}/g, roomId);
-        const packetIdentifier = getPacketIdentifier(packetContent); // Get identifier for logging
+        if (IS_DEV) {
+            console.log(`[TFD DEBUG] (${currentAutomationPhase}) Packet #${currentPacketIndex+1}/${packets.length} → ${packetContent}`);
+        }
+        const packetIdentifier = getPacketIdentifier(packetContent);
 
-        // Send the packet using the dispatch system
-        if (window.jam && window.jam.dispatch && typeof window.jam.dispatch.sendRemoteMessage === 'function') {
+        // Send the packet
+        if (packetInfo.type === 'aj') {
+            // Send AJ packet using the correct method
             window.jam.dispatch.sendRemoteMessage(packetContent);
-            if (!shouldSkipUIUpdates()) {
-                logActivity(`Sent: ${getFriendlyActionName(packetIdentifier)} (Room: ${roomId})`);
-            } else if (IS_DEV) {
-                // Minimal log for background mode if needed
-                 if (Math.random() < 0.05) logActivity(`(BG) Sent: ${packetIdentifier}`);
-            }
-        } else {
-            logActivity("Error: Dispatch system not available to send packet.");
-            updateStatus("Error", "Dispatch not ready", "error");
-            handleStop(); // Stop if dispatch is not working
-            return;
+        } else if (packetInfo.type === 'connection') {
+            // Send connection packet using the correct method
+            window.jam.dispatch.sendRemoteMessage(packetContent);
         }
 
-        // Update crystal progress if it's a crystal packet
+            if (!shouldSkipUIUpdates()) {
+            logActivity(`Sent: ${getFriendlyActionName(packetIdentifier)} (${currentPacketIndex + 1}/${packets.length})`);
+        }
+
+        // Update crystal progress
         const crystalType = getCrystalType(packetIdentifier);
         if (crystalType) {
             currentCrystalProgress[crystalType]++;
-            updateCrystalProgressUI(); // Update UI if not in background
+            updateCrystalProgressUI();
         }
 
-        // Move to the next packet
-        currentPacketIndex = (currentPacketIndex + 1) % packets.length;
+        currentPacketIndex++;
 
-        // Schedule the next packet send
-        if (timeoutId) clearTimeout(timeoutId); // Clear existing timeout
-
-        let actualDelay = currentSpeed;
-        // When currentSpeed is 500ms, it signifies using individual packet delays.
-        // The value 500 is used as a sentinel based on the speedSlider's default and handleStart logic.
-        if (currentSpeed === 500 && packetInfo.delay) {
-            const parsedDelay = parseFloat(packetInfo.delay);
-            if (!isNaN(parsedDelay) && parsedDelay >= 0) { // Allow 0 delay
-                actualDelay = parsedDelay * 1000;
-                if (IS_DEV && actualDelay !== currentSpeed) {
-                    // Log only if the actualDelay is different from the default currentSpeed, to avoid spam for 0.5s delays
-                    // logActivity(`Using packet-specific delay: ${actualDelay}ms for ${packetIdentifier}`);
-                }
-            } else {
-                logActivity(`Warning: Invalid or missing delay for packet ${packetIdentifier} ('${packetInfo.delay}'). Using default speed ${currentSpeed}ms.`);
-                // actualDelay remains currentSpeed (500ms in this branch)
-            }
-        }
-        // If currentSpeed is not 500, actualDelay is already set to currentSpeed (the fixed value from slider).
-        
-        timeoutId = setTimeout(sendNextPacket, actualDelay);
+        // Schedule next packet
+        const delay = parseFloat(packetInfo.delay) * 1000 * (currentSpeed / 500);
+        timeoutId = setTimeout(sendNextPacket, delay);
 
     } catch (error) {
         logActivity(`Error in sendNextPacket: ${error.message}`);
-        if (IS_DEV) console.error("[TFD Automator] sendNextPacket error details:", error);
-        handlePauseResume(); // Pause on error
-        updateStatus("Error", `Runtime error. Paused.`, "error");
+        if (IS_DEV) console.error("[TFD Automator] sendNextPacket error:", error);
+        handlePauseResume();
+        updateStatus("Error", "Runtime error. Paused.", "error");
     }
 }
 
@@ -506,13 +855,11 @@ function updateStatus(message, submessage = '', type = 'success') {
 /**
  * Handles starting the automation sequence.
  */
-function handleStart() {
-    // Add check if the plugin is ready (user confirmed in den)
-    if (!isReady) {
-        updateStatus('Error', 'Must be in den to start', 'error');
-        logActivity('Cannot start: User not confirmed in den.');
-        return;
-    }
+async function handleStart() {
+    try {
+        // Initialize packet templates with current user/room data
+        await initializePacketTemplates();
+        
     if (packets.length === 0 && !fullAutomationEnabled) {
         updateStatus('Error: No packets loaded', 'Please load TFD first', 'error');
         logActivity('Cannot start: No packets loaded');
@@ -533,7 +880,6 @@ function handleStart() {
     // Otherwise (Full Automation OFF), proceed with manual gem collection mode
     logActivity("Full Automation OFF: Starting manual gem collection sequence.");
     currentAutomationPhase = 'gems'; // Assume user is in TFD for gem collection
-                                     // Room validation in sendNextPacket will check if in adventure.
     currentPacketIndex = 0;
     
     // Reset crystal progress for the manual gem run
@@ -559,6 +905,11 @@ function handleStart() {
     logActivity(`Starting automation sequence (${timingInfo})`);
     
     sendNextPacket();
+    } catch (error) {
+        logActivity(`Error starting automation: ${error.message}`);
+        updateStatus('Error', 'Failed to start automation', 'error');
+        console.error('TFD Automator: Start error:', error);
+    }
 }
 
 /**
@@ -852,7 +1203,7 @@ function handleFullAutomationToggle() {
  * @param {string} phase - The phase to start ('join', 'start', 'gems', 'rewards', 'leave')
  */
 function startAutomationPhase(phase) {
-    if (!fullAutomationEnabled || isPaused || !isReady) return; // Also check isReady
+    if (!fullAutomationEnabled || isPaused) return; // Remove isReady check for full automation
     
     currentAutomationPhase = phase;
     let phasePackets = [];
@@ -969,7 +1320,7 @@ function startAutomationPhase(phase) {
  * Handle the completion of a phase in the full automation process
  */
 function handlePhaseCompletion() {
-    if (!fullAutomationEnabled || !isReady) return; // Also check isReady
+    if (!fullAutomationEnabled) return; // Remove isReady check for full automation
     
     // Determine the next phase based on the current one
     let nextPhase;
@@ -1008,10 +1359,10 @@ function handlePhaseCompletion() {
     // Short delay before starting next phase
     setTimeout(() => {
         // Re-check flags before starting next phase
-        if (fullAutomationEnabled && !isPaused && isReady) {
+        if (fullAutomationEnabled && !isPaused) {
             startAutomationPhase(nextPhase);
         } else {
-            logActivity(`Full automation next phase (${nextPhase}) aborted due to state change (enabled: ${fullAutomationEnabled}, paused: ${isPaused}, ready: ${isReady})`);
+            logActivity(`Full automation next phase (${nextPhase}) aborted due to state change (enabled: ${fullAutomationEnabled}, paused: ${isPaused})`);
             // If automation was stopped or paused during the delay, ensure status reflects this.
             if (!isAutomating) {
                  handleStop(); // This will set appropriate status
@@ -1020,161 +1371,6 @@ function handlePhaseCompletion() {
             }
         }
     }, 2000); // 2 second pause between phases
-}
-
-/**
- * Processes the room join packet to confirm user ID and den location.
- */
-async function handleJoinRoom(packetData) {
-    try {
-        const message = packetData?.message || packetData?.data; // Handle potential different structures
-        
-        // Use room utils if available for better parsing
-        if (window.jam && window.jam.roomUtils) {
-            const roomData = window.jam.roomUtils.parseRoomPacket(message);
-            
-            if (roomData && roomData.type === 'room_join_response') {
-                if (roomData.status === '1') { // Successfully joined room
-                    let actualRoomId = roomData.roomId; // Get room ID from parsed packet initially
-
-                    
-                    if (!actualRoomId && IS_DEV) { // If still no room ID
-                        logActivity(`handleJoinRoom: Could not determine actualRoomId even after roomState check.`);
-                        // Fallback to parts[4] will happen later if this path is taken.
-                    }
- 
-                    // Attempt to get the logged-in user ID using standardized utilities
-                    if (!loggedInUserId && window.jam && window.jam.dispatch) {
-                        const player = await dispatch.getState('player');
-                        loggedInUserId = player?.userId;
-                    }
-                    
-                    if (!loggedInUserId) {
-                        logActivity("Listener Error: Could not get logged-in User ID yet.");
-                        updateStatus('Waiting', 'Login data not found yet', 'warning');
-                        isReady = false;
-                        startButton.disabled = true;
-                        return;
-                    }
-                    
-                    const expectedDenId = 'den' + loggedInUserId;
-                    
-                    // Check if the joined room is the user's den
-                    if (actualRoomId && actualRoomId.startsWith(expectedDenId)) {
-                        logActivity(`Confirmed user ${loggedInUserId} entered den ${actualRoomId}. Ready.`);
-                        currentUserId = loggedInUserId; // Set global ID for templates
-                        currentDenId = actualRoomId;   // Set global den ID
-                        initializePacketTemplates();   // Initialize templates now
-                        updateStatus('Ready', 'In den. Ready to start.', 'success');
-                        isReady = true;
-                        if (startButton) startButton.disabled = false;  // Enable start button
-                    } else {
-                        // User joined a different room that is NOT their den
-                        logActivity(`User in room: ${actualRoomId}. This is not the den. Waiting for den entry.`);
-                        updateStatus('Waiting', 'Please enter your den', 'warning');
-                        isReady = false;
-                        // currentUserId and currentDenId should only be nullified if we are certain they are invalid.
-                        // If they were set from a previous den entry, they might still be needed if user quickly returns.
-                        // However, for starting automation, isReady=false is the key.
-                        if (startButton) startButton.disabled = true;
-                    }
-                } else {
-                    // Failed to join room (status !== '1')
-                     logActivity(`Failed to join room ${roomData.roomId} (status: ${roomData.status}). Waiting for den entry.`);
-                     updateStatus('Error Joining Room', 'Please enter your den', 'error');
-                     isReady = false;
-                     if (startButton) startButton.disabled = true;
-                }
-                return; // Handled by roomUtils
-            }
-        }
-        
-        // Fall back to original parsing if room utils not available or packet was not j#jr
-        // This part will also execute if roomUtils.parseRoomPacket didn't return a valid room_join_response
-        if (!message || typeof message !== 'string' || !message.startsWith('%xt%j#jr%')) {
-            if (IS_DEV && message && typeof message === 'string' && !message.startsWith('%xt%j#jr%')) {
-                // Log if it's a message but not j#jr, to ensure we're not missing other relevant packets for room state.
-                // logActivity(`handleJoinRoom: Received non-j#jr packet: ${message.substring(0, 50)}`);
-            }
-            return;
-        }
-        
-        // If we reached here, it means roomUtils parsing might have failed or wasn't applicable,
-        // and we are dealing with a raw j#jr packet.
-
-        // Attempt to get the logged-in user ID if we haven't already
-        if (!loggedInUserId && window.jam && window.jam.dispatch) {
-            const player = await dispatch.getState('player');
-            loggedInUserId = player?.userId;
-        }
-
-        if (!loggedInUserId) {
-            logActivity("Listener Error: Could not get logged-in User ID yet (fallback path).");
-            updateStatus('Waiting', 'Login data not found yet', 'warning');
-            isReady = false;
-            if (startButton) startButton.disabled = true;
-            return;
-        }
-
-        const parts = message.split('%');
-        let actualRoomId = parts[4]; // Room ID from raw packet
-
-
-        if (!actualRoomId) {
-            logActivity(`Listener Error: Could not parse/confirm room ID from j#jr (fallback): ${message}`);
-            updateStatus('Error', 'Room ID parse failed. Paused.', 'error');
-            isReady = false;
-            if(startButton) startButton.disabled = true;
-            return;
-        }
-
-        const expectedDenId = 'den' + loggedInUserId;
-
-        // Check if the joined room is the user's den
-        if (actualRoomId === expectedDenId) {
-            // Now, confirm the user ID is present in the player list
-            // Player data string is complex, typically starts after room ID
-            const playerDataString = parts.slice(5).join('%');
-            // Player data format: id:name:type:colors:x:y:frame:flags%...
-            const players = playerDataString.split('%');
-            let userFoundInDen = false;
-            for (const player of players) {
-                const playerData = player.split(':');
-                const playerId = playerData[0]; // Assuming ID is the first part
-                if (playerId === loggedInUserId) {
-                    userFoundInDen = true;
-                    break;
-                }
-            }
-
-            if (userFoundInDen) {
-                logActivity(`Confirmed user ${loggedInUserId} entered den ${actualRoomId}. Ready.`);
-                currentUserId = loggedInUserId; // Set global ID for templates
-                currentDenId = actualRoomId;   // Set global den ID
-                initializePacketTemplates();   // Initialize templates now
-                updateStatus('Ready', 'In den. Ready to start.', 'success');
-                isReady = true;
-                if (startButton) startButton.disabled = false;  // Enable start button
-            } else {
-                logActivity(`Listener Warn: Joined den ${actualRoomId}, but user ${loggedInUserId} not found in player list.`);
-                 updateStatus('Error', 'User data mismatch in den', 'error');
-                 isReady = false;
-                 if (startButton) startButton.disabled = true;
-            }
-        } else {
-            // User joined a different room that is NOT their den
-            logActivity(`User in room: ${actualRoomId}. This is not the den. Waiting for den entry.`);
-            updateStatus('Waiting', 'Please enter your den', 'warning');
-            isReady = false;
-            if (startButton) startButton.disabled = true;
-        }
-    } catch (error) {
-        console.error("TFD Automator: Error processing room join packet:", error);
-        logActivity(`Listener Error: Failed processing room join - ${error.message}`);
-        updateStatus('Error', 'Packet processing failed', 'error');
-        isReady = false;
-        if (startButton) startButton.disabled = true;
-    }
 }
 
 /**
@@ -1216,16 +1412,16 @@ function handleBackgroundModeChange(background) {
             }
         } else {
             // If not automating, reflect the true current state
-            if (!isReady && loggedInUserId && currentDenId) { // Was stopped (or left den), needs den re-entry
+            if (!isReady && currentUserId && currentDenId) { // Was stopped (or left den), needs den re-entry
                 updateStatus('Stopped', 'Please enter your den', 'warning');
-            } else if (!loggedInUserId) { // Not logged in or user ID lost
+            } else if (!currentUserId) { // Not logged in or user ID lost
                  updateStatus('Waiting', 'Login data not found', 'warning');
             } else if (packets.length === 0 && !fullAutomationEnabled) { // Ready but no packets loaded for single mode
                 updateStatus('Ready', 'Load TFD sequence', 'info');
             } else if (isReady) { // Properly ready to start (in den, user ID known)
                  updateStatus('Ready', 'Press Start to begin', 'success');
             } else { // Default/fallback if other states don't match (e.g. just initialized, no den entry yet)
-                updateStatus('Initialized', 'Waiting for den entry', 'info');
+                updateStatus('Waiting', 'Please enter your den', 'warning');
             }
         }
     }
@@ -1401,25 +1597,28 @@ async function initialize() {
     }
     // --- End UI element check ---
 
-    // Listen for room join packets to confirm user ID and den state
-    // This is crucial for initializing packet templates correctly.
+    // Start periodic status checking - modern approach like advertising plugin
+    if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+    }
+    
+    // Check status every 2 seconds
+    statusCheckInterval = setInterval(checkStatusAndUpdateUI, 2000);
+    
+    // Do an initial status check
+    await checkStatusAndUpdateUI();
+    
+    logActivity("Started modern status checking system.");
+
+    // Attach simple packet listener as fallback for room detection
     if (window.jam && typeof window.jam.onPacket === 'function') {
         try {
-            // Corrected: window.jam.onPacket in preload.js expects only a single callback.
-            // The handleJoinRoom function itself will filter for 'j#jr' packets.
-            // The listener ID 'TFD-Automator-RJ' is not used by the current preload script's onPacket.
-            window.jam.onPacket(handleJoinRoom);
-            if (IS_DEV) console.log("[TFD Automator] Attached generic packet listener (will filter for j#jr in handleJoinRoom).");
-            logActivity("Attached packet listener for room joins.");
+            window.jam.onPacket(simplePacketListener);
+            logActivity("Attached fallback packet listener for room detection.");
         } catch (err) {
-            if (IS_DEV) console.error("[TFD Automator] Error attaching rj listener:", err);
-            logActivity("Error: Could not attach room join listener.");
+            logActivity("Warning: Could not attach fallback packet listener.");
         }
-    } else {
-        if (IS_DEV) console.warn("[TFD Automator] window.jam.onPacket not available for rj.");
-        logActivity("Warning: Packet listener system not available.");
     }
-
 
     // Background mode detection
     if (window.jam && typeof window.jam.isAppMinimized === 'function') {
@@ -1456,3 +1655,27 @@ async function initialize() {
 waitForDispatch(async () => {
     await initialize();
 });
+
+// Clean up intervals when page unloads
+window.addEventListener('beforeunload', () => {
+    if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+        statusCheckInterval = null;
+    }
+    if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+    }
+});
+
+// ---- Monkey-patch sendRemoteMessage once for deep diagnostics ----
+if (!window.__tfdRemotePatched && window.jam && window.jam.dispatch) {
+    window.__tfdRemotePatched = true;
+    const originalSend = window.jam.dispatch.sendRemoteMessage;
+    window.jam.dispatch.sendRemoteMessage = function(msg) {
+        if (IS_DEV) {
+            console.log(`[TFD DEBUG] sendRemoteMessage → ${msg.substring(0,120)}...`);
+        }
+        return originalSend.call(this, msg);
+    };
+}

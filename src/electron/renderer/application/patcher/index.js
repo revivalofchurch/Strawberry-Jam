@@ -3,6 +3,7 @@ const os = require('os')
 const { rename, copyFile, rm, mkdir, cp } = require('fs/promises') // Keep only one declaration
 const { existsSync } = require('fs') // Keep only one declaration
 const { spawn } = require('child_process')
+const { ipcRenderer } = require('electron')
 // Removed treeKill as it's not used in the restore logic directly
 const { promisify } = require('util')
 // Removed execFileAsync as we'll use spawn and handle exit differently
@@ -92,65 +93,8 @@ module.exports = class Patcher {
       // Patch the application (no need to mention ASAR patching)
       await this.patchApplication()
 
-      // Get the path to the executable in the copied installation
-      const exePath = process.platform === 'win32'
-        ? path.join(STRAWBERRY_JAM_CLASSIC_BASE_PATH, 'AJ Classic.exe')
-        : process.platform === 'darwin'
-          ? path.join(STRAWBERRY_JAM_CLASSIC_BASE_PATH, 'MacOS', 'AJ Classic')
-          : undefined
-
-      // Get the data path from the application instance
-      const dataPath = this._application.dataPath;
-      if (!dataPath) {
-        // Log the error and throw, as the path is crucial for the tester logic
-        const errorMsg = "Strawberry Jam data path is not available. Cannot launch game.";
-        if (this._application) {
-          this._application.consoleMessage({ message: errorMsg, type: 'error' });
-        } else {
-          console.error(errorMsg);
-        }
-        throw new Error(errorMsg);
-      }
-
-      // Prepare environment variables for the spawned process
-      const spawnEnv = {
-        ...process.env, // Inherit current environment variables
-        STRAWBERRY_JAM_DATA_PATH: dataPath // Add the data path
-      };
-
-      // Launch the game process using spawn with the custom environment
-      this._animalJamProcess = spawn(exePath, [], {
-        detached: false,
-        stdio: 'ignore',
-        env: spawnEnv // Pass the environment variables
-      });
-      
-      // Add listeners for process exit/error
-      this._animalJamProcess.on('close', (code) => {
-        const closeMessage = 'Animal Jam Classic closed.';
-        if (this._application) {
-          this._application.consoleMessage({
-            message: closeMessage,
-            type: 'notify'
-          });
-        } else {
-          console.log(closeMessage);
-        }
-        this._animalJamProcess = null; // Clear the reference
-      });
-      
-      this._animalJamProcess.on('error', (err) => {
-        const errorMessage = `Error with Animal Jam Classic process: ${err.message}`;
-        if (this._application) {
-          this._application.consoleMessage({
-            message: errorMessage,
-            type: 'error'
-          });
-        } else {
-          console.error(errorMessage);
-        }
-        this._animalJamProcess = null; // Clear the reference
-      });
+      // Request the main process to launch the game client
+      ipcRenderer.send('launch-game-client');
 
       // No need for restoration on quit since we're using a separate installation
     } catch (error) {

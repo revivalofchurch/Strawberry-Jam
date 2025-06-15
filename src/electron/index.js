@@ -7,6 +7,7 @@ const { fork, spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 const Store = require('electron-store');
 const os = require('os');
+const processManager = require('../utils/ProcessManager');
 // const keytar = require('keytar'); // Will be required in constructor
 
 // Suppress Electron security warnings
@@ -24,16 +25,16 @@ const logManager = require('../utils/LogManager');
 const isDevelopment = process.env.NODE_ENV === 'development'
 
 // Helper: Only log in development
-function devLog(...args) {
-  if (isDevelopment) console.log(...args);
-}
-function devWarn(...args) {
-  if (isDevelopment) console.warn(...args);
-}
+function devLog(...args) {}
+function devWarn(...args) {}
 const USER_DATA_PATH = app.getPath('userData');
 const STATE_FILE_PATH = path.join(USER_DATA_PATH, 'jam_state.json');
-const defaultDataDir = path.resolve('data');
-const LOGGED_USERNAMES_FILE = 'logged_usernames.txt';
+
+const STRAWBERRY_JAM_CLASSIC_BASE_PATH = process.platform === 'win32'
+  ? path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'strawberry-jam-classic')
+  : process.platform === 'darwin'
+    ? path.join('/', 'Applications', 'Strawberry Jam Classic.app', 'Contents')
+    : undefined;
 
 const schema = {
   network: {
@@ -170,14 +171,10 @@ class Electron {
 
     const appNameForKeytar = app.getName();
     KEYTAR_SERVICE_LEAK_CHECK_API_KEY = `${appNameForKeytar}-leak-check-api-key`;
-    console.log(`[Keytar Init] app.getName() resolved to: "${appNameForKeytar}"`);
-    console.log(`[Keytar Init] KEYTAR_SERVICE_LEAK_CHECK_API_KEY set to: "${KEYTAR_SERVICE_LEAK_CHECK_API_KEY}"`);
 
     // Handler registration moved to _onReady for later initialization.
     // global.console.log('[IPC Main CONSTRUCTOR Setup] DIAGNOSTIC: "get-main-log-path" handler registration REMOVED from constructor start.');
 
-    console.log(`[ElectronStore Init] Value of 'ui.promptOnExit' after store initialization: ${this._store.get('ui.promptOnExit')}`);
-    
     this._migrateLeakCheckApiKeyToKeytar().catch(err => {
       console.error('[Migration] Error during leak check API key migration:', err);
     });
@@ -196,12 +193,9 @@ class Electron {
     // Original _setupIPC content starts here, the 'get-main-log-path' handler is now in the constructor
     ipcMain.on('open-directory', (event, filePath) => {
       if (!filePath) {
-        console.error('[IPC open-directory] Received request with no filePath.');
         return;
       }
-      console.log(`[IPC open-directory] Attempting to open path: ${filePath}`);
       shell.openPath(filePath).catch(err => {
-         console.error(`[IPC open-directory] Error opening path '${filePath}':`, err);
          if (event && event.sender && !event.sender.isDestroyed()) {
             event.sender.send('directory-open-error', { path: filePath, error: err.message });
          }
@@ -209,29 +203,22 @@ class Electron {
     })
 
     ipcMain.on('window-close', () => {
-      console.log(`[window-close] Value of 'ui.promptOnExit' from store before 'shouldPrompt' check: ${this._store.get('ui.promptOnExit', true)}`);
       const shouldPrompt = this._store.get('ui.promptOnExit', true);
       
       if (shouldPrompt && this._window && !this._window.isDestroyed()) {
-        devLog('[IPC window-close] Showing exit confirmation modal');
         this._window.webContents.send('show-exit-confirmation');
       } else {
-        devLog('[IPC window-close] Closing window directly (no prompt)');
         this._window.close();
       }
     })
     
     ipcMain.on('exit-confirmation-response', (event, { confirmed, dontAskAgain }) => {
-      devLog(`[IPC exit-confirmation-response] Received: confirmed=${confirmed}, dontAskAgain=${dontAskAgain}`);
       
       if (dontAskAgain) {
-        devLog('[IPC exit-confirmation-response] Setting promptOnExit to false');
         this._store.set('ui.promptOnExit', false);
-        console.log(`[exit-confirmation-response] Value of 'ui.promptOnExit' after set: ${this._store.get('ui.promptOnExit')}`);
       }
       
       if (confirmed) {
-        devLog('[IPC exit-confirmation-response] Confirmed exit, closing window');
         this._window.close();
       }
     })
@@ -252,7 +239,6 @@ class Electron {
           bounds,
           isMaximized: this._window.isMaximized()
         }
-        devLog('[IPC window-toggle-fullscreen] Saving window state before fullscreen:', this._savedWindowState)
       }
       
       this._window.setFullScreen(!this._window.isFullScreen())
@@ -265,18 +251,15 @@ class Electron {
       
       if (this._window.isMaximized()) {
         this._window.unmaximize()
-        devLog('[IPC window-toggle-maximize] Window unmaximized')
       } else {
         if (!this._savedWindowState) {
           this._savedWindowState = {
             bounds: this._window.getBounds(),
             isMaximized: false
           }
-          devLog('[IPC window-toggle-maximize] Saving window state before maximize:', this._savedWindowState)
         }
         
         this._window.maximize()
-        devLog('[IPC window-toggle-maximize] Window maximized')
       }
       
       this._window.webContents.send('maximize-changed', this._window.isMaximized())
@@ -289,22 +272,18 @@ class Electron {
     ipcMain.on('plugin-window-minimize', (event) => {
       const senderWindow = BrowserWindow.fromWebContents(event.sender)
       if (senderWindow && !senderWindow.isDestroyed()) {
-        devLog(`[IPC plugin-window-minimize] Minimizing window: ${senderWindow.getTitle()}`);
         senderWindow.minimize()
       } else {
-        devWarn('[IPC plugin-window-minimize] Sender window not found or already destroyed.');
       }
     })
 
     ipcMain.handle('get-app-version', () => {
-      devLog('[IPC] Handling get-app-version');
       return app.getVersion();
     });
 
     ipcMain.handle('get-setting', async (event, key) => {
       try {
         if (key === 'plugins.usernameLogger.apiKey') {
-          devLog('[IPC get-setting] Attempting to get plugins.usernameLogger.apiKey from Keytar.');
           const apiKey = await this.keytar.getPassword(KEYTAR_SERVICE_LEAK_CHECK_API_KEY, KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY);
           return apiKey || '';
         }
@@ -312,8 +291,6 @@ class Electron {
         return valueFromStore;
       } catch (error) {
         if (isDevelopment) {
-           console.error(`[Store/Keytar GET] Error getting setting '${key}': ${error.message}`);
-           console.error(`[Store/Keytar GET] Stack: ${error.stack}`);
         }
         // Ensure consistent return for the specific key on error, otherwise undefined
         return key === 'plugins.usernameLogger.apiKey' ? '' : undefined;
@@ -323,7 +300,6 @@ class Electron {
     ipcMain.handle('set-setting', async (event, key, value) => {
       try {
         if (key === 'plugins.usernameLogger.apiKey') {
-          devLog('[IPC set-setting] Attempting to set plugins.usernameLogger.apiKey in Keytar.');
           if (typeof value === 'string' && value.trim() !== '') {
             await this.keytar.setPassword(KEYTAR_SERVICE_LEAK_CHECK_API_KEY, KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY, value);
           } else {
@@ -335,15 +311,12 @@ class Electron {
         return { success: true };
       } catch (error) {
         if (isDevelopment) {
-           console.error(`[Store/Keytar SET] Error setting setting '${key}' with value '${value}': ${error.message}`);
-           console.error(`[Store/Keytar SET] Stack: ${error.stack}`);
         }
         return { success: false, error: error.message };
       }
     });
 
     ipcMain.handle('select-output-directory', async (event) => {
-      devLog(`[IPC] Handling 'select-output-directory'`);
       if (!this._window) {
         if (isDevelopment) console.error('[Dialog] Cannot show dialog, main window not available.');
         return { canceled: true, error: 'Main window not available' };
@@ -355,11 +328,9 @@ class Electron {
         });
 
         if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
-          devLog('[Dialog] Directory selection canceled.');
           return { canceled: true };
         } else {
           const selectedPath = result.filePaths[0];
-          devLog(`[Dialog] Directory selected: ${selectedPath}`);
           return { canceled: false, path: selectedPath };
         }
       } catch (error) {
@@ -369,10 +340,8 @@ class Electron {
     });
 
     ipcMain.handle('save-text-file', async (event, options) => {
-      devLog(`[IPC save-text-file] Handling request to save text file: ${options.suggestedFilename}`);
       
       if (!this._window) {
-        devLog('[IPC save-text-file] Cannot show dialog, main window not available');
         return { success: false, canceled: true };
       }
       
@@ -387,23 +356,18 @@ class Electron {
         });
         
         if (result.canceled || !result.filePath) {
-          devLog('[IPC save-text-file] Save dialog was canceled');
           return { success: false, canceled: true };
         }
         
-        devLog(`[IPC save-text-file] Writing content to file: ${result.filePath}`);
         await fsPromises.writeFile(result.filePath, options.content, 'utf-8');
         
-        devLog('[IPC save-text-file] File saved successfully');
         return { success: true, filePath: result.filePath };
       } catch (error) {
-        console.error('[IPC save-text-file] Error saving file:', error);
         return { success: false, error: error.message };
       }
     });
 
     ipcMain.on('app-restart', () => {
-      console.log('[IPC] Received app-restart signal.');
       app.relaunch();
       app.exit(0);
     });
@@ -414,12 +378,10 @@ class Electron {
 
     // --- App State IPC Handlers ---
     ipcMain.handle('get-app-state', (async () => {
-        devLog(`[IPC] Handling direct 'get-app-state' request.`);
         return this.getAppState();
     }).bind(this));
 
     ipcMain.handle('set-app-state', (async (event, newState) => {
-        devLog(`[IPC] Handling direct 'set-app-state' request.`);
         return this.setAppState(newState);
     }).bind(this));
 
@@ -465,30 +427,23 @@ class Electron {
 
     // --- Renderer Ready Listener (for Auto-Resume) ---
     ipcMain.once('renderer-ready', (async () => {
-      devLog('[IPC] Received renderer-ready signal.');
     }).bind(this));
 
     // --- Danger Zone IPC Handlers ---
     ipcMain.handle('danger-zone:clear-cache', async () => {
-      devLog('[IPC] Handling danger-zone:clear-cache');
       const continueClear = await this._confirmNoOtherInstances('clear the cache');
       if (!continueClear) {
         return { success: false, message: 'Cache clearing cancelled by user.' };
       }
 
       try {
-        devLog('[Clear Cache] Clearing Electron session cache...');
         await session.defaultSession.clearCache();
-        devLog('[Clear Cache] Clearing Electron session storage data (cookies, localstorage)...');
         await session.defaultSession.clearStorageData({ storages: ['cookies', 'localstorage'] });
-        devLog('[Clear Cache] Electron session data cleared.');
 
         const cachePaths = this._getCachePaths();
         if (!cachePaths || cachePaths.length === 0) {
-           devLog('[Clear Cache] Could not determine cache paths. Skipping helper script.');
         } else {
           const helperScriptPath = path.join(__dirname, 'clear-cache-helper.js');
-          devLog(`[Clear Cache] Spawning helper script: ${helperScriptPath} with paths:`, cachePaths);
 
            let resolvedHelperPath;
            if (app.isPackaged) {
@@ -496,7 +451,6 @@ class Electron {
            } else {
              resolvedHelperPath = helperScriptPath;
            }
-           devLog(`[Clear Cache] Resolved helper path: ${resolvedHelperPath}`);
 
            try {
                await fsPromises.access(resolvedHelperPath);
@@ -505,20 +459,17 @@ class Electron {
                  detached: true,
                  stdio: 'ignore'
                });
-               child.on('error', (err) => { console.error('[Clear Cache] Failed to spawn helper script:', err); });
+               processManager.add(child);
+               child.on('error', (err) => { });
                child.unref();
-               devLog('[Clear Cache] Helper script spawned.');
            } catch (accessError) {
-                console.error(`[Clear Cache] Helper script not found at: ${resolvedHelperPath}`, accessError);
            }
         }
 
-        devLog('[Clear Cache] Quitting application.');
         app.quit();
         return { success: true, message: 'Internal cache cleared. External cache clearing scheduled. Application will close.' };
 
       } catch (error) {
-        console.error('[Clear Cache] Error clearing cache, spawning helper, or quitting:', error);
         dialog.showMessageBoxSync(this._window, {
           type: 'error',
           title: 'Clear Cache Error',
@@ -529,14 +480,12 @@ class Electron {
       }
 
       this._isClearingCacheAndQuitting = true;
-      devLog('[Clear Cache] Flag set. Quitting application to trigger will-quit handler.');
       app.quit();
       return { success: true, message: 'Cache clearing initiated. Application will close.' };
 
     });
 
     ipcMain.handle('danger-zone:uninstall', async () => {
-      devLog('[IPC] Handling danger-zone:uninstall');
       const continueUninstall = await this._confirmNoOtherInstances('uninstall Strawberry Jam');
       if (!continueUninstall) {
         return { success: false, message: 'Uninstall cancelled by user.' };
@@ -549,20 +498,19 @@ class Electron {
         }
 
         await fsPromises.access(uninstallerPath);
-        devLog(`[Uninstall] Found uninstaller at: ${uninstallerPath}`);
 
-        spawn(uninstallerPath, [], {
+        const child = spawn(uninstallerPath, [], {
           detached: true,
           stdio: 'ignore'
-        }).unref();
+        });
+        processManager.add(child);
+        child.unref();
 
-        devLog('[Uninstall] Uninstaller process spawned. Quitting application.');
 
         app.quit();
         return { success: true };
 
       } catch (error) {
-        console.error('[Uninstall] Error:', error);
         const errorMsg = error.code === 'ENOENT' ? 'Uninstaller executable not found.' : error.message;
         dialog.showMessageBoxSync(this._window, {
           type: 'error',
@@ -612,7 +560,6 @@ class Electron {
                 try {
                   logManager.error(`Error reading plugin config for ${dir}: ${err.message}`);
                 } catch (logErr) {
-                  console.error(`Error reading plugin config for ${dir}: ${err.message}`);
                 }
               }
             }
@@ -624,14 +571,12 @@ class Electron {
         try {
           logManager.error('Error getting enabled plugins:', error.message);
         } catch (logErr) {
-          console.error('Error getting enabled plugins:', error.message);
         }
         return [];
       }
     });
 
     ipcMain.handle('get-cache-size', async () => {
-      devLog('[IPC] Handling get-cache-size');
       const cachePaths = this._getCachePaths();
       const sizes = { total: 0, directories: {} };
 
@@ -657,7 +602,6 @@ class Electron {
                 const stats = await fsPromises.stat(filePath);
                 size += stats.size;
               } catch (error) {
-                devLog(`[Cache Size] Error getting size for ${filePath}: ${error.message}`);
               }
             }
           }
@@ -672,21 +616,17 @@ class Electron {
             sizes.directories[dirName] = size;
             sizes.total += size;
           } catch (error) {
-            devLog(`[Cache Size] Error calculating size for ${cachePath}: ${error.message}`);
             sizes.directories[path.basename(cachePath)] = 0;
           }
         }
 
-        devLog(`[Cache Size] Total size: ${sizes.total} bytes`);
         return sizes;
       } catch (error) {
-        console.error('[Cache Size] Error calculating cache sizes:', error);
         return { total: 0, directories: {} };
       }
     });
 
     ipcMain.on('direct-close-window', () => {
-      devLog('[IPC direct-close-window] Received request to close window directly.');
       if (this._window && !this._window.isDestroyed()) {
         this._window.close();
       }
@@ -696,44 +636,35 @@ class Electron {
     ipcMain.on('winapp-generate-report', (event, reportData) => {
       if (reportData && reportData.logs) {
         logManager.addGameClientLogs(reportData.logs);
-        devLog(`[IPC Main] Received ${reportData.logs.length} logs from winapp.asar.`);
         // Optionally, send a confirmation back if LoginScreen.js were to use invoke
         // event.reply('winapp-report-received', { status: 'success' });
       } else {
-        devWarn('[IPC Main] Received winapp-generate-report without log data.');
       }
     });
 
     ipcMain.handle('get-username-logger-counts', async (event) => {
-      devLog('[IPC Main] Handling "get-username-logger-counts" request from settings UI.');
       try {
         const pluginWindowEntry = Array.from(this.pluginWindows.entries()).find(([name, win]) => name === 'Username Logger');
         
         if (!pluginWindowEntry) {
-          console.warn('[IPC Main] Username Logger plugin instance not found in pluginWindows map. It might not be loaded or opened yet.');
           // Return a default/empty state or null, as rejecting might still cause unhandled promise issues higher up if not caught.
           return null;
         }
         const pluginWindow = pluginWindowEntry[1];
 
         if (!pluginWindow || pluginWindow.isDestroyed() || !pluginWindow.webContents || pluginWindow.webContents.isDestroyed()) {
-          console.warn('[IPC Main] Username Logger plugin window or its webContents are not available (destroyed or not ready).');
           return null;
         }
 
         // Ensure the function is available on the plugin's window object
         const isFunctionAvailable = await pluginWindow.webContents.executeJavaScript('typeof window.getUsernameLoggerCounts === "function"');
         if (!isFunctionAvailable) {
-          console.warn('[IPC Main] "window.getUsernameLoggerCounts" function not found on Username Logger plugin window. The plugin might not be fully initialized.');
           return null;
         }
         
-        devLog('[IPC Main] Executing "window.getUsernameLoggerCounts()" on plugin window.');
         const counts = await pluginWindow.webContents.executeJavaScript('window.getUsernameLoggerCounts();');
-        devLog('[IPC Main] Received counts from plugin via executeJavaScript:', counts);
         return counts;
       } catch (error) {
-        console.error('[IPC Main] Error in "get-username-logger-counts" handler:', error);
         // Return null or a default error object instead of rejecting, to prevent unhandled rejections if the caller doesn't catch.
         return null;
       }
@@ -743,17 +674,14 @@ class Electron {
     // The diagnostic global.console.log that was here is also effectively moved.
 
     ipcMain.on('plugin-settings-updated', (event) => {
-      devLog('[IPC] Received plugin-settings-updated signal. Broadcasting to renderer.');
       if (this._window && this._window.webContents && !this._window.webContents.isDestroyed()) {
         this._window.webContents.send('broadcast-plugin-settings-updated');
       }
     });
 
     ipcMain.on('check-for-updates', () => {
-      console.log('[IPC] Received check-for-updates signal for manual check.');
       this.manualCheckInProgress = true; // Set flag
       autoUpdater.checkForUpdates().catch(err => {
-        console.error('[Updater] Error during manual update check (IPC):', err.message);
         if (this._window && this._window.webContents && !this._window.isDestroyed()) {
           // Send error status back to renderer via the new manual-update-check-status channel
           this._window.webContents.send('manual-update-check-status', { status: 'error', message: `Manual update check failed: ${err.message}` });
@@ -761,41 +689,73 @@ class Electron {
         this.manualCheckInProgress = false; // Reset flag on error
       });
     });
+
+    ipcMain.on('launch-game-client', () => {
+      const exePath = process.platform === 'win32'
+        ? path.join(STRAWBERRY_JAM_CLASSIC_BASE_PATH, 'AJ Classic.exe')
+        : process.platform === 'darwin'
+          ? path.join(STRAWBERRY_JAM_CLASSIC_BASE_PATH, 'MacOS', 'AJ Classic')
+          : undefined;
+
+      if (!exePath || !fs.existsSync(exePath)) {
+        logManager.error(`[Process] Game client executable not found at: ${exePath}`);
+        dialog.showErrorBox('Launch Error', `Could not find the game client executable. Please ensure it is installed correctly at:\n${exePath}`);
+        return;
+      }
+
+      const dataPath = getDataPath(app);
+      const spawnEnv = {
+        ...process.env,
+        STRAWBERRY_JAM_DATA_PATH: dataPath
+      };
+
+      try {
+        const gameProcess = spawn(exePath, [], {
+          detached: false,
+          stdio: 'ignore',
+          env: spawnEnv
+        });
+
+        processManager.add(gameProcess);
+
+        gameProcess.on('close', (code) => {
+          logManager.log(`Game client process exited with code: ${code}`, 'main', logManager.logLevels.INFO);
+        });
+
+        gameProcess.on('error', (err) => {
+          logManager.error(`[Process] Error with game client process: ${err.message}`);
+        });
+      } catch (error) {
+        logManager.error(`[Process] Failed to spawn game client process: ${error.message}`);
+        dialog.showErrorBox('Launch Error', `Failed to start the game client process:\n${error.message}`);
+      }
+    });
   }
 
   async _migrateLeakCheckApiKeyToKeytar() {
     if (this._store.get(MIGRATION_FLAG_LEAK_CHECK_API_KEY_V1)) {
-      devLog('[Migration LeakCheck] API key migration already performed. Skipping.');
       return;
     }
 
-    devLog('[Migration LeakCheck] Starting Leak Check API key migration to Keytar...');
     const oldApiKey = this._store.get('leakCheck.apiKey');
 
     if (oldApiKey && typeof oldApiKey === 'string' && oldApiKey.trim() !== '') {
       try {
         await this.keytar.setPassword(KEYTAR_SERVICE_LEAK_CHECK_API_KEY, KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY, oldApiKey);
-        devLog('[Migration LeakCheck][Keytar] Successfully migrated API key.');
         this._store.set('leakCheck.apiKey', '');
-        devLog('[Migration LeakCheck] Plaintext API key removed from store.');
         this._store.set(MIGRATION_FLAG_LEAK_CHECK_API_KEY_V1, true);
-        devLog('[Migration LeakCheck] API key migration completed and flag set.');
       } catch (err) {
-        console.error(`[Migration LeakCheck][Keytar] Error migrating API key: ${err.message}`);
         if (isDevelopment) console.error(`[Migration LeakCheck][Keytar] Stack: ${err.stack}`);
       }
     } else {
-      devLog('[Migration LeakCheck] No old API key found in store to migrate or key was empty.');
       this._store.set(MIGRATION_FLAG_LEAK_CHECK_API_KEY_V1, true);
     }
   }
 
   _handleOpenPluginWindow(event, { url, name, pluginPath }) {
-    devLog(`[IPC Main Handler] Handling request to open plugin window for ${name}`);
     
     const existingWindow = this.pluginWindows.get(name);
     if (existingWindow && !existingWindow.isDestroyed()) {
-      devLog(`[IPC Main Handler] Plugin window for ${name} already exists, focusing it`);
       
       if (existingWindow.isMinimized()) {
         existingWindow.restore();
@@ -807,11 +767,9 @@ class Electron {
         this._window.webContents.send('plugin-window-focused', name);
       }
       
-      return; 
+      return;
     }
     
-    devLog(`[IPC Main Handler] Creating new plugin window for ${name}`);
-
     const isDev = process.env.NODE_ENV === 'development';
 
     const configPath = path.join(pluginPath, 'plugin.json');
@@ -824,11 +782,9 @@ class Electron {
         
         if (runInBackground) {
           this._backgroundPlugins.add(name);
-          devLog(`[IPC Main Handler] Plugin ${name} will run in background`);
         }
       }
     } catch (err) {
-      devWarn(`[IPC Main Handler] Error checking if plugin should run in background: ${err.message}`);
     }
 
     const pluginWindow = new BrowserWindow({
@@ -863,8 +819,7 @@ class Electron {
     pluginWindow.loadURL(url);
 
     pluginWindow.webContents.on('did-finish-load', () => {
-      devLog(`[IPC Main Handler] Plugin window ${name} loaded`);
-      pluginWindow.focus(); 
+      pluginWindow.focus();
 
       pluginWindow.webContents.executeJavaScript(`
         (function() {
@@ -935,23 +890,20 @@ class Electron {
     }
 
     pluginWindow.on('closed', () => {
-      devLog(`[IPC Main Handler] Plugin window ${name} closed`);
       if (!this._isQuitting) {
         if (this._window && !this._window.isDestroyed() && this._window.webContents && !this._window.webContents.isDestroyed()) {
           this._window.webContents.send('plugin-window-closed', name);
         }
       }
-      this.pluginWindows.delete(name); 
-      this._backgroundPlugins.delete(name); 
+      this.pluginWindows.delete(name);
+      this._backgroundPlugins.delete(name);
     });
 
     pluginWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-      if (isDevelopment) console.error(`[IPC Main Handler] Plugin window ${name} failed to load:`, errorDescription);
     });
   } 
 
   async getAppState() {
-    console.log(`[State Helper] Reading app state from ${STATE_FILE_PATH}`);
     try {
       await fsPromises.access(STATE_FILE_PATH);
       const data = await fsPromises.readFile(STATE_FILE_PATH, 'utf-8');
@@ -961,27 +913,21 @@ class Electron {
         ...currentState,
         leakCheck: { ...DEFAULT_APP_STATE.leakCheck, ...(currentState.leakCheck || {}) }
       };
-      console.log('[State Helper] Successfully read and merged state file.');
       return mergedState;
     } catch (error) {
       if (error.code === 'ENOENT') {
-        console.log('[State Helper] State file not found, returning default state.');
-        return JSON.parse(JSON.stringify(DEFAULT_APP_STATE)); 
+        return JSON.parse(JSON.stringify(DEFAULT_APP_STATE));
       }
-      console.error('[State Helper] Error reading state file:', error);
-      return JSON.parse(JSON.stringify(DEFAULT_APP_STATE)); 
+      return JSON.parse(JSON.stringify(DEFAULT_APP_STATE));
     }
   }
 
   async setAppState(newState) {
-     console.log(`[State Helper] Writing app state to ${STATE_FILE_PATH}`);
      try {
        await fsPromises.mkdir(USER_DATA_PATH, { recursive: true });
        await fsPromises.writeFile(STATE_FILE_PATH, JSON.stringify(newState, null, 2), 'utf-8');
-       console.log('[State Helper] Successfully wrote state file.');
        return { success: true };
      } catch (error) {
-       console.error('[State Helper] Error writing state file:', error);
        return { success: false, error: error.message };
      }
    }
@@ -1004,7 +950,6 @@ class Electron {
     }
   }
   _getCachePaths() {
-    devLog('[Cache Paths] Getting specific cache paths...');
     const cachePaths = [];
 
     if (process.platform === 'win32') {
@@ -1023,25 +968,19 @@ class Electron {
       cachePaths.push(path.join(libraryPath, 'AJ Classic'));
       
     } else {
-      console.warn('[Cache Paths] Unsupported platform for cache clearing:', process.platform);
     }
 
-    devLog('[Cache Paths] Identified specific cache paths:', cachePaths);
     return cachePaths;
   }
   async _clearAppCache() {
-    devLog('[Cache Clear Method] Starting cache clearing process...');
     const cachePaths = this._getCachePaths();
 
     let errors = [];
     for (const cachePath of cachePaths) {
       try {
-        devLog(`[Cache Clear Method] Attempting to delete: ${cachePath}`);
         await fsPromises.rm(cachePath, { recursive: true, force: true });
-        devLog(`[Cache Clear Method] Successfully deleted: ${cachePath}`);
       } catch (error) {
         if (error.code === 'ENOENT') {
-          devLog(`[Cache Clear Method] Path not found, skipping: ${cachePath}`);
         } else {
           console.error(`[Cache Clear Method] Failed to delete ${cachePath}:`, error);
           errors.push(`Failed to delete ${path.basename(cachePath)}: ${error.message}`);
@@ -1052,54 +991,46 @@ class Electron {
     if (errors.length > 0) {
       console.error('[Cache Clear Method] Finished with errors:', errors.join('; '));
     } else {
-       devLog('[Cache Clear Method] Cache clearing process completed.');
     }
   }
 
-  _getUninstallerPath() { 
+  _getUninstallerPath() {
     if (process.platform === 'win32') {
-      const localAppData = app.getPath('home') + '\\AppData\\Local';
+      const localAppData = app.getPath('localAppData');
       return path.join(localAppData, 'Programs', 'strawberry-jam', 'Uninstall strawberry-jam.exe');
     } else if (process.platform === 'darwin') {
-      console.warn('[Uninstall] Standard uninstaller executable not applicable on macOS.');
       return null;
     } else {
-      console.warn('[Uninstall] Unsupported platform for uninstaller:', process.platform);
-      return null;
+        return null;
+      }
     }
-  }
-
-
-  create () {
-    const consoleLimit = this._store.get('logs.consoleLimit', 1000);
-    const networkLimit = this._store.get('logs.networkLimit', 1000);
-
-    logManager.initialize({
-      appDataPath: app.getPath('userData'),
-      maxMemoryLogs: consoleLimit
-    });
-
-    const originalConsole = {
-      log: console.log,
-      error: console.error,
-      warn: console.warn
-    };
-
-    console.log = (message) => logManager.log(message, 'main', logManager.logLevels.INFO);
-    console.error = (message) => logManager.log(message, 'main', logManager.logLevels.ERROR);
-    console.warn = (message) => logManager.log(message, 'main', logManager.logLevels.WARN);    console.log('Application starting');
-
-    app.whenReady().then(async () => { 
-      console.log('[Startup] Electron app ready, beginning startup sequence...');
-      
-      // Try to clear any problematic cache state early to prevent hangs
+  
+  
+    create () {
+      const consoleLimit = this._store.get('logs.consoleLimit', 1000);
+      const networkLimit = this._store.get('logs.networkLimit', 1000);
+  
+      logManager.initialize({
+        appDataPath: app.getPath('userData'),
+        maxMemoryLogs: consoleLimit
+      });
+  
+      const originalConsole = {
+        log: console.log,
+        error: console.error,
+        warn: console.warn
+      };
+  
+      console.log = (message) => logManager.log(message, 'main', logManager.logLevels.INFO);
+      console.error = (message) => logManager.log(message, 'main', logManager.logLevels.ERROR);
+      console.warn = (message) => logManager.log(message, 'main', logManager.logLevels.WARN);
+  
+      app.whenReady().then(async () => {
+        // Try to clear any problematic cache state early to prevent hangs
       try {
-        devLog('[Startup] Attempting to clear potentially problematic cache...');
         await session.defaultSession.clearCache().catch(err => {
-          devLog('[Startup] Cache clear failed (this is often normal):', err.message);
         });
       } catch (error) {
-        devLog('[Startup] Cache operations not available yet, continuing...');
       }
 
       protocol.handle('app', (request) => {
@@ -1113,7 +1044,6 @@ class Electron {
           filePath = path.normalize(`${__dirname}/../../${url}`);
         }
       
-        devLog(`[Protocol Handler] Serving request for ${request.url} from ${filePath}`);
         return net.fetch(`file://${filePath}`);
       });
 
@@ -1122,17 +1052,13 @@ class Electron {
       
       if (this._window) {
         this._window.on('enter-full-screen', () => {
-          devLog('[Window Event] Entered fullscreen mode')
           this._window.webContents.send('fullscreen-changed', true)
         })
         
         this._window.on('leave-full-screen', () => {
-          devLog('[Window Event] Left fullscreen mode')
           this._window.webContents.send('fullscreen-changed', false)
           
           if (this._savedWindowState) {
-            devLog('[Window Event] Restoring window state:', this._savedWindowState)
-            
             this._window.setBounds(this._savedWindowState.bounds)
             
             if (this._savedWindowState.isMaximized) {
@@ -1142,27 +1068,22 @@ class Electron {
         })
         
         this._window.on('maximize', () => {
-          devLog('[Window Event] Window maximized')
           this._window.webContents.send('maximize-changed', true)
         })
         
         this._window.on('unmaximize', () => {
-          devLog('[Window Event] Window unmaximized')
           this._window.webContents.send('maximize-changed', false)
         })
         
         this._window.on('minimize', () => {
-          devLog('[Window Event] Window minimized')
           this._handleAppMinimized();
         })
         
         this._window.on('restore', () => {
-          devLog('[Window Event] Window restored')
           this._handleAppRestored();
         })
         
         this._window.on('focus', () => {
-          devLog('[Window Event] Window focused')
           this._handleAppRestored();
         })
       }
@@ -1171,82 +1092,6 @@ class Electron {
     app.on('window-all-closed', () => {
       if (process.platform !== 'darwin') app.quit()
     })
-
-    app.on('will-quit', async (event) => {
-      console.log('[App Quit START] Entering will-quit handler.');
-      if (this._isQuitting) {
-        console.log('[App Quit] will-quit handler already running, skipping subsequent calls.');
-        return;
-      }
-      this._isQuitting = true;
-
-      event.preventDefault();
-      console.log('[App Quit] Default quit prevented. Starting graceful shutdown.');
-
-      try {
-        console.log('[App Quit] Entering main cleanup try block.');
-        if (this._isClearingCacheAndQuitting) {
-          console.log('[App Quit] Manual cache clearing requested.');
-          try {
-            console.log('[App Quit] Clearing Electron session cache...');
-            await session.defaultSession.clearCache();
-            console.log('[App Quit] Session cache cleared.');
-            console.log('[App Quit] Clearing Electron session storage data...');
-            await session.defaultSession.clearStorageData({ storages: ['cookies', 'localstorage'] });
-            console.log('[App Quit] Session storage data cleared.');
-
-            const cachePaths = this._getCachePaths();
-            if (cachePaths && cachePaths.length > 0) {
-              let resolvedHelperPath;
-              if (app.isPackaged) {
-                resolvedHelperPath = path.join(process.resourcesPath, 'clear-cache-helper.js');
-              } else {
-                resolvedHelperPath = path.join(__dirname, 'clear-cache-helper.js');
-              }
-              devLog(`[App Quit] Resolved helper path for cache clearing: ${resolvedHelperPath}`);
-              try {
-                await fsPromises.access(resolvedHelperPath);
-                const appExePath = app.getPath('exe');
-                const helperArgs = [resolvedHelperPath, ...cachePaths, '--relaunch-after-clear', appExePath];
-                console.log(`[App Quit] Spawning cache clear helper script detached: node ${helperArgs.join(' ')}`);
-                const child = spawn('node', helperArgs, { detached: true, stdio: 'ignore' });
-                child.on('error', (err) => { console.error('[App Quit] Failed to spawn cache clear helper script:', err); });
-                child.unref();
-                console.log('[App Quit] Cache clear helper script spawned detached.');
-              } catch (helperError) {
-                console.error(`[App Quit] Failed to find or spawn cache clear helper script (${resolvedHelperPath}):`, helperError);
-              }
-            } else {
-              devLog('[App Quit] Could not determine cache paths for manual clear. Skipping helper script.');
-            }
-          } catch (clearError) {
-            console.error('[App Quit] Error during manual cache clearing:', clearError);
-          }
-        }
-
-        console.log('[App Quit] Performing other general cleanup...');
-
-        if (this._apiProcess && !this._apiProcess.killed) {
-          console.log('[App Quit API] Attempting to terminate API process...');
-          this._apiProcess.kill(); // Default SIGTERM
-          // Add a small delay or check for exit event if issues persist
-          console.log('[App Quit API] API process kill signal sent.');
-        } else if (this._apiProcess && this._apiProcess.killed) {
-          console.log('[App Quit API] API process already reported as killed.');
-        } else {
-          console.log('[App Quit API] API process not found or not active.');
-        }
-        console.log('[App Quit] General cleanup finished.');
-
-        console.log('[App Quit] Main cleanup try block finished.');
-        console.log('[App Quit END] All cleanup initiated, calling app.quit() to proceed with termination.');
-        app.quit();
-      } catch (error) {
-        console.error('[App Quit ERROR] Error during will-quit handler execution:', error);
-        console.log('[App Quit ERROR] Error occurred, forcing exit with app.exit(1).');
-        app.exit(1);
-      }
-    });
 
 
     return this
@@ -1288,11 +1133,9 @@ class Electron {
     autoUpdater.allowPrerelease = false
 
     if (enableAutoUpdates) {
-      console.log('[Updater] Automatic updates enabled. Scheduling checks.');
       const checkInterval = 1000 * 60 * 5;
       setTimeout(() => {
         autoUpdater.checkForUpdates().catch(err => {
-          console.error('[Updater] Error during scheduled update check (setTimeout):', err.message);
           // Optionally send an IPC message to renderer about this specific error
           if (this._window && this._window.webContents && !this._window.isDestroyed()) {
             this._window.webContents.send('app-update-status', { status: 'error', message: `Scheduled update check failed: ${err.message}` });
@@ -1301,18 +1144,14 @@ class Electron {
       }, 5000);
       setInterval(() => {
         autoUpdater.checkForUpdates().catch(err => {
-          console.error('[Updater] Error during scheduled update check (setInterval):', err.message);
           if (this._window && this._window.webContents && !this._window.isDestroyed()) {
             this._window.webContents.send('app-update-status', { status: 'error', message: `Scheduled update check failed: ${err.message}` });
           }
         });
       }, checkInterval);
-    } else {
-      console.log('[Updater] Automatic updates disabled by setting.');
     }
 
     autoUpdater.on('checking-for-update', () => {
-      console.log('[Updater] Checking for update...');
       if (this.manualCheckInProgress && this._window && this._window.webContents && !this._window.isDestroyed()) {
         this._window.webContents.send('manual-update-check-status', { status: 'checking', message: 'Checking for updates...' });
       }
@@ -1320,7 +1159,6 @@ class Electron {
     })
 
     autoUpdater.on('update-not-available', (info) => {
-      console.log('[Updater] Update not available.', info);
       if (this.manualCheckInProgress && this._window && this._window.webContents && !this._window.isDestroyed()) {
         this._window.webContents.send('manual-update-check-status', { status: 'no-update', message: 'No new updates available.' });
         this.manualCheckInProgress = false; // Reset flag
@@ -1329,7 +1167,6 @@ class Electron {
     })
 
     autoUpdater.on('error', (err) => {
-      console.error('[Updater] Error in auto-updater.', err);
       if (this.manualCheckInProgress && this._window && this._window.webContents && !this._window.isDestroyed()) {
         this._window.webContents.send('manual-update-check-status', { status: 'error', message: `Error checking for updates: ${err.message}` });
         this.manualCheckInProgress = false; // Reset flag
@@ -1338,7 +1175,6 @@ class Electron {
     })
 
     autoUpdater.on('update-available', (info) => {
-      console.log('[Updater] Update available.', info);
       const messageText = autoUpdater.autoDownload
         ? 'A new update is available. Downloading now...' // This will only happen if enableAutoUpdates is true
         : 'A new update is available. Click "Update Now" to download.'; // For manual checks or if autoDownload is off
@@ -1350,7 +1186,6 @@ class Electron {
     })
 
     autoUpdater.on('update-downloaded', (info) => {
-      console.log('[Updater] Update downloaded.', info);
       if (this.manualCheckInProgress && this._window && this._window.webContents && !this._window.isDestroyed()) {
         this._window.webContents.send('manual-update-check-status', { status: 'downloaded', message: 'Update downloaded. Click "Restart Now" to install.' });
         this.manualCheckInProgress = false; // Reset flag
@@ -1368,16 +1203,12 @@ class Electron {
   async _onReady () {
     // --- REGISTER IPC HANDLER HERE using ipcMain.on and event.sender.send ---
     ipcMain.on('request-main-log-path', (event) => { // Listening for the request
-      global.console.log('[IPC Main _onReady] DIAGNOSTIC: "request-main-log-path" (ipcMain.on) handler invoked.');
       const pathToSend = (logManager && logManager.logPath) ? logManager.logPath : "dummy/path/from/_onReady/sender_send_handler";
-      global.console.log(`[IPC Main _onReady] DIAGNOSTIC: (ipcMain.on) Sending "response-main-log-path" with path: ${pathToSend}`);
       if (event.sender && !event.sender.isDestroyed()) {
         event.sender.send('response-main-log-path', pathToSend); // Sending reply on new channel
       } else {
-        global.console.error('[IPC Main _onReady] DIAGNOSTIC: event.sender is not available or destroyed for "request-main-log-path".');
       }
     });
-    global.console.log('[IPC Main _onReady Setup] DIAGNOSTIC: Attempted to register "request-main-log-path" (ipcMain.on) handler within _onReady.');
     // --- END IPC HANDLER REGISTRATION ---
 
     this._patcher = new Patcher(null, getAssetsPath(app));
@@ -1420,7 +1251,6 @@ class Electron {
     });
     
     const dataPath = getDataPath(app);
-    devLog(`[Main] Calculated data path: ${dataPath}`);
     
     // Note: loadFile is already promise-based, no fsPromises needed here.
     await this._window.loadFile(path.join(__dirname, 'renderer', 'index.html'))
@@ -1429,22 +1259,17 @@ class Electron {
     
     this._window.webContents.send('set-data-path', dataPath)
     this._window.webContents.send('set-assets-path', assetsPath)
-    devLog(`[Main] Sent data path to renderer: ${dataPath}`);
-    devLog(`[Main] Sent assets path to renderer: ${assetsPath}`);
     
     this._window.webContents.setWindowOpenHandler((details) => this._createWindow(details))
 
     this._window.on('closed', () => {
-      devLog('[Main Window Closed START] Main window has been closed. Processing related cleanup.');
       const mainWindowId = this._window ? this._window.id : -1; // Should be null here, but good for clarity
 
-      devLog('[Main Window Closed] Attempting to close/destroy all other plugin windows...');
       let closedCount = 0;
       BrowserWindow.getAllWindows().forEach(win => {
         // Check if it's not the main window (which is already closing/closed)
         // and ensure it's not already destroyed.
         if (win && typeof win.id === 'number' && win.id !== mainWindowId && !win.isDestroyed()) {
-          devLog(`[Main Window Closed] Destroying plugin window: ${win.getTitle()} (ID: ${win.id})`);
           try {
             win.destroy(); // More forceful than close()
             closedCount++;
@@ -1453,33 +1278,24 @@ class Electron {
           }
         }
       });
-      devLog(`[Main Window Closed] Finished attempting to destroy plugin windows. Count: ${closedCount}`);
 
       if (this.pluginWindows) {
-        devLog(`[Main Window Closed] Clearing pluginWindows map (size before: ${this.pluginWindows.size})`);
         this.pluginWindows.clear();
-        devLog(`[Main Window Closed] pluginWindows map cleared (size after: ${this.pluginWindows.size})`);
       }
       if (this._backgroundPlugins) {
-        devLog(`[Main Window Closed] Clearing _backgroundPlugins set (size before: ${this._backgroundPlugins.size})`);
         this._backgroundPlugins.clear();
-        devLog(`[Main Window Closed] _backgroundPlugins set cleared (size after: ${this._backgroundPlugins.size})`);
       }
       
       this._window = null;
-      devLog('[Main Window Closed END] Main window reference nulled and cleanup finished.');
     });
 
     try {
-      const dataPath = getDataPath(app); 
+      const dataPath = getDataPath(app);
       await fsPromises.mkdir(dataPath, { recursive: true });
-      devLog(`[Startup] Ensured data directory exists: ${dataPath}`);
     } catch (error) {
-      console.error(`[Startup] Error ensuring base data directory:`, error);
       dialog.showErrorBox('Startup Error', `Failed to create base data directory. Some features might not work correctly.\n\nError: ${error.message}`);
     }    if (app.isPackaged) {
-      devLog('[Startup] Packaged app detected. Ensuring specific data files exist...');
-      const dataPath = getDataPath(app); 
+      const dataPath = getDataPath(app);
       const filesToEnsure = [
         'working_accounts.txt',
         'collected_usernames.txt',
@@ -1491,60 +1307,50 @@ class Electron {
 
       try {
         await fsPromises.mkdir(dataPath, { recursive: true });
-        devLog(`[Startup] Ensured data directory exists: ${dataPath}`);
 
         // Create all files in parallel for better performance
         const fileCreationPromises = filesToEnsure.map(async (filename) => {
           const filePath = path.join(dataPath, filename);
           try {
-            await fsPromises.access(filePath); 
-            devLog(`[Startup] File already exists: ${filePath}`);
+            await fsPromises.access(filePath);
           } catch (accessError) {
             if (accessError.code === 'ENOENT') {
-              devLog(`[Startup] Creating empty file: ${filePath}`);
               await fsPromises.writeFile(filePath, '', 'utf-8');
             } else {
-              console.warn(`[Startup] Warning: Could not access ${filePath}:`, accessError.message);
             }
           }
         });
 
         // Wait for all file operations to complete, but with a timeout
         await Promise.all(fileCreationPromises).catch((error) => {
-          console.warn('[Startup] Some file operations failed, but continuing startup:', error.message);
         });
       } catch (error) {
-        console.error(`[Startup] Error ensuring data directory/files at ${dataPath}:`, error);
         dialog.showErrorBox('Startup Error', `Failed to create necessary data files in ${dataPath}. Some features might not work correctly.\n\nError: ${error.message}`);
       }    }
     
     // Fork API process with timeout and error handling
-    console.log('[Startup] Starting API server process...');
     try {
       this._apiProcess = fork(path.join(__dirname, '..', 'api', 'index.js'), [], {
         silent: false // Allow child process to log to console
       });
+      processManager.add(this._apiProcess);
 
       // Set up API process event handlers
       this._apiProcess.on('error', (error) => {
-        console.error('[API Process] Failed to start or crashed:', error.message);
       });
 
       this._apiProcess.on('exit', (code, signal) => {
         if (code !== 0) {
-          console.warn(`[API Process] Exited with code ${code} and signal ${signal}`);
         }
       });
 
       // Give API process a moment to start, but don't block the main startup
       setTimeout(() => {
         if (this._apiProcess && !this._apiProcess.killed) {
-          console.log('[Startup] API server process appears to be running successfully');
         }
       }, 1000);
       
     } catch (error) {
-      console.error('[Startup] Failed to fork API process:', error.message);
       // Continue startup even if API process fails - most functionality doesn't depend on it
     }
 
@@ -1560,25 +1366,18 @@ class Electron {
 
     // Always initialize the auto-updater to set feed URL and listeners.
     // _initAutoUpdater internally respects 'updates.enableAutoUpdates' for scheduling automatic checks.
-    console.log('[Updater] Initializing auto-updater system (setting feed URL and listeners)...');
     this._initAutoUpdater();
 
     // Then, if performServerCheckOnLaunch is true, trigger an initial check.
     const performServerCheckOnLaunch = this._store.get('ui.performServerCheckOnLaunch', true);
     if (performServerCheckOnLaunch) {
-      console.log('[Updater] Performing initial update check on launch (ui.performServerCheckOnLaunch is true).');
       autoUpdater.checkForUpdates().catch(err => {
-        console.error('[Updater] Error during initial launch update check:', err.message);
         // No global toast here. Console log is sufficient for background checks.
       });
-    } else {
-      console.log('[Updater] Skipping initial update check on launch (ui.performServerCheckOnLaunch is false).');
     }
   }
 
   _handleAppMinimized() {
-    devLog('[Window Event] Main window minimized, updating plugin windows');
-    
     this.pluginWindows.forEach((window, name) => {
       if (!window.isDestroyed()) {
         try {
@@ -1588,7 +1387,6 @@ class Electron {
             this._enableBackgroundProcessing(window, name);
           }
         } catch (err) {
-          devWarn(`[Window Event] Error updating minimized state for plugin ${name}: ${err.message}`);
         }
       }
     });
@@ -1597,7 +1395,6 @@ class Electron {
   }
   
   _enableBackgroundProcessing(window, name) {
-    devLog(`[Background Processing] Enabling background processing for plugin: ${name}`);
     
     try {
       if (window.webContents && !window.webContents.isDestroyed()) {
@@ -1609,44 +1406,36 @@ class Electron {
           if (!window._backgroundKeepAliveInterval) {
             window._backgroundKeepAliveInterval = setInterval(() => {
               if (typeof window.jam !== 'undefined' && window.jam.dispatch && window.jam.dispatch.runInBackground) {
-                window.dispatchEvent(new CustomEvent('jam-background-tick', { 
-                  detail: { timestamp: Date.now() } 
+                window.dispatchEvent(new CustomEvent('jam-background-tick', {
+                  detail: { timestamp: Date.now() }
                 }));
                 
                 if (Date.now() % 10000 < 1000) {
-                  console.log('[Background Processing] Plugin ${name} is running in background mode');
                 }
               }
             }, 1000);
             
-            console.log('[Background Processing] Background keep-alive enabled for plugin ${name}');
           }
         })();
       `).catch(err => {
-        devWarn(`[Background Processing] Error setting up background processing for ${name}: ${err.message}`);
       });
     } catch (err) {
-      devWarn(`[Background Processing] Failed to enable background processing for ${name}: ${err.message}`);
     }
   }
 
   _handleAppRestored() {
-    devLog('[Window Event] Main window restored, updating plugin windows');
-    
     this.pluginWindows.forEach((window, name) => {
       if (!window.isDestroyed()) {
         try {
           window.webContents.executeJavaScript('window.jam.isAppMinimized = false;');
           
           window.webContents.executeJavaScript(`
-            window.dispatchEvent(new CustomEvent('jam-foreground', { 
-              detail: { timestamp: Date.now() } 
+            window.dispatchEvent(new CustomEvent('jam-foreground', {
+              detail: { timestamp: Date.now() }
             }));
           `).catch(err => {
-            devWarn(`[Window Event] Error dispatching foreground event for plugin ${name}: ${err.message}`);
           });
         } catch (err) {
-          devWarn(`[Window Event] Error updating restored state for plugin ${name}: ${err.message}`);
         }
       }
     });
@@ -1666,27 +1455,22 @@ ipcMain.on('packet-event', (event, packetData) => {
         win.webContents.send('packet-event', packetData);
       }
     } catch (e) {
-      console.error(`[IPC Main] Error sending packet-event to window: ${e.message}`);
     }
   });
 });
 
 ipcMain.on('plugin-remote-message', (event, msg) => { // Changed channel name here
-  console.log(`[IPC Main] Received plugin-remote-message: ${msg}`); // Changed devLog to console.log for visibility and added msg content
   const mainWindow = BrowserWindow.getAllWindows().find(win =>
     win.webContents && !win.webContents.isDestroyed() && win.webContents.getURL().includes('renderer/index.html')
   );
   if (mainWindow && mainWindow.webContents) {
-    console.log(`[IPC Main] Forwarding plugin-remote-message to main window: ${mainWindow.getTitle()}`);
     mainWindow.webContents.send('plugin-remote-message', msg); // Forwarding channel remains the same
   } else {
-    console.error('[IPC Main] Could not find main window to forward plugin-remote-message.');
   }
 });
 
 ipcMain.on('send-connection-message', (event, msg) => {
-  devLog("[IPC Main] Received send-connection-message:", msg);
-  const mainWindow = BrowserWindow.getAllWindows().find(win => 
+  const mainWindow = BrowserWindow.getAllWindows().find(win =>
     win.webContents.getURL().includes('renderer/index.html')
   );
   if (mainWindow && mainWindow.webContents) {
@@ -1695,7 +1479,6 @@ ipcMain.on('send-connection-message', (event, msg) => {
 });
 
 ipcMain.on('console-message', (event, { type, msg }) => {
-  devLog(`[Plugin Console] ${type}: ${msg}`);
 });
 
 ipcMain.on('dispatch-get-state-sync', (event, key) => {
@@ -1704,7 +1487,6 @@ ipcMain.on('dispatch-get-state-sync', (event, key) => {
   );
 
   if (!mainWindow || !mainWindow.webContents) {
-    devLog(`[IPC Main] Cannot handle dispatch-get-state-sync: Main window not found`); 
     event.returnValue = null;
     return;
   }
@@ -1713,17 +1495,14 @@ ipcMain.on('dispatch-get-state-sync', (event, key) => {
     if (global.cachedRoomState !== undefined) {
       event.returnValue = global.cachedRoomState;
     } else {
-      devLog(`[IPC Main] No cached room state available, returning null`); 
       event.returnValue = null;
     }
   } else {
-    devLog(`[IPC Main] Cannot get state synchronously for key: ${key}`); 
     event.returnValue = null;
   }
 });
 
 ipcMain.on('update-room-state', (event, roomState) => {
-  devLog(`[IPC Main] Updating cached room state: ${roomState}`); 
   global.cachedRoomState = roomState;
 });
 

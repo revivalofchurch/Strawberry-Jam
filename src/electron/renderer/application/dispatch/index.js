@@ -134,7 +134,6 @@ module.exports = class Dispatch {
    * @private
    */
   _initializeDefaultStateHandlers() {
-    devLog('[ROOMLOGIC_DEBUG] Dispatch._initializeDefaultStateHandlers: Starting to set up default handlers.');
     this.onMessage({
       type: ConnectionMessageTypes.aj,
       message: 'rj', // Room Join packet
@@ -148,30 +147,17 @@ module.exports = class Dispatch {
         // message.value[5] = textualRoomName (e.g., "balloosh.room_main#94")
         // message.value[6] = numericalInstanceId (e.g., "3695" - needed for pubMsg)
 
-        devLog(`[ROOMLOGIC_DEBUG] Dispatch 'rj' handler: Raw message.value:`, message.value);
-
         if (message.value && message.value.length > 6 && message.value[4] === '1') { // Status '1' is at index 4
           const textualRoomId = message.value[5];         // e.g., "balloosh.room_main#94"
           const numericalInstanceRoomId = message.value[6]; // e.g., "3695"
 
-          devLog(`[ROOMLOGIC_DEBUG] Dispatch 'rj' handler: Extracted textualRoomId: ${textualRoomId}, numericalInstanceRoomId: ${numericalInstanceRoomId}`);
-          
           if (textualRoomId) {
             this.setState('room', textualRoomId);
-            if (isDevelopment) {
-              devLog(`[Dispatch] State 'room' (textual) set by 'rj' packet: ${textualRoomId}`);
-            }
-          } else {
-            devLog(`[ROOMLOGIC_DEBUG] Dispatch 'rj' handler: textualRoomId is undefined or empty.`);
           }
 
           if (numericalInstanceRoomId && !isNaN(parseInt(numericalInstanceRoomId))) {
             this.setState('internalRoomId', numericalInstanceRoomId); // For sending XT packets
-            if (isDevelopment) {
-              devLog(`[Dispatch] State 'internalRoomId' (numeric for pubMsg) set by 'rj' packet: ${numericalInstanceRoomId}`);
-            }
           } else {
-            devLog(`[ROOMLOGIC_DEBUG] Dispatch 'rj' handler: numericalInstanceRoomId ('${numericalInstanceRoomId}') is undefined, empty, or not a number.`);
             // Fallback: if the textualRoomId itself is purely numerical (e.g. for some specific rooms). Unlikely for typical AJ rooms.
             if (textualRoomId && !isNaN(parseInt(textualRoomId))) {
                 this.setState('internalRoomId', textualRoomId);
@@ -182,30 +168,20 @@ module.exports = class Dispatch {
             }
           }
         } else {
-          devLog(`[ROOMLOGIC_DEBUG] Dispatch 'rj' handler: Packet did not match expected structure or status for room ID extraction. Status (at index 4) was: ${message.value && message.value.length > 4 ? message.value[4] : 'N/A'}`);
           this.setState('room', null);
           this.setState('internalRoomId', null);
         }
       }
     });
-    devLog('[ROOMLOGIC_DEBUG] Dispatch._initializeDefaultStateHandlers: "rj" handler setup complete.');
 
     this.onMessage({
       type: ConnectionMessageTypes.aj,
       message: 'login', // Login packet
       callback: ({ message }) => {
-        devLog(`[ROOMLOGIC_DEBUG] Dispatch 'login' handler: Raw message.value:`, message.value);
         // Attempt to extract player data based on @jam-master's structure
         if (message.value && message.value.b && message.value.b.o && message.value.b.o.params) {
           const playerData = message.value.b.o.params;
-          devLog(`[ROOMLOGIC_DEBUG] Dispatch 'login' handler: Extracted playerData:`, playerData);
           this.setState('player', playerData);
-          // Optional: Log player data if in development
-          if (isDevelopment) {
-            devLog('[Dispatch] Player data set by "login" packet.');
-          }
-        } else {
-          devLog(`[ROOMLOGIC_DEBUG] Dispatch 'login' handler: Packet did not match expected structure for player data extraction.`);
         }
       }
     });
@@ -353,7 +329,6 @@ module.exports = class Dispatch {
    * @public
    */
   async load (filter = file => path.basename(file) === 'plugin.json') {
-    devLog('[Dispatch] Starting plugin load sequence...');
     this.clearAll()
     this._application.$pluginList.empty(); // Clear existing plugin list items
 
@@ -364,13 +339,10 @@ module.exports = class Dispatch {
       return;
     }
 
-    devLog(`[Dispatch] Plugin base directory: ${BASE_PATH}`);
-
     try {
       // Check if BASE_PATH exists, no need to create it as it should be part of the app structure
       try {
         await fs.access(BASE_PATH);
-        devLog(`[Dispatch] Plugin directory accessible: ${BASE_PATH}`);
       } catch (accessError) {
         // If BASE_PATH doesn't exist, it's a critical issue with the app deployment/structure.
         this._consoleMessage({ type: 'error', message: `Plugins directory not found at ${BASE_PATH}. Cannot load plugins.` });
@@ -379,10 +351,8 @@ module.exports = class Dispatch {
       }
 
       const files = await Dispatch.readdirRecursive(BASE_PATH); // Use BASE_PATH
-      devLog(`[Dispatch] Found ${files.length} files/folders in plugin directory.`);
 
       const configFiles = files.filter(filter);
-      devLog(`[Dispatch] Found ${configFiles.length} plugin configuration files (plugin.json).`);
 
       if (configFiles.length === 0) {
         this._consoleMessage({ type: 'notify', message: 'No plugins found in the plugins directory.' });
@@ -392,7 +362,6 @@ module.exports = class Dispatch {
 
       const pluginPromises = configFiles.map(async configFile => {
         try {
-          devLog(`[Dispatch] Reading plugin config: ${configFile}`);
           const configuration = JSON.parse(await fs.readFile(configFile, 'utf8'));
           const filepath = path.dirname(configFile);
           // Pass the raw configuration for validation and preparation
@@ -404,15 +373,12 @@ module.exports = class Dispatch {
       });
 
       let loadedPluginConfigs = (await Promise.all(pluginPromises)).filter(r => r !== null);
-      devLog(`[Dispatch] Successfully validated and prepared ${loadedPluginConfigs.length} plugin configurations.`);
               
       // Filter plugins based on ui.hideGamePlugins setting
       const hideGamePlugins = await this._shouldHideGamePlugins();
       if (hideGamePlugins) {
-        devLog('[Dispatch] Filtering out game-specific plugins as ui.hideGamePlugins is true.');
         loadedPluginConfigs = loadedPluginConfigs.filter(p => p.configuration.type !== 'game');
       }
-      devLog(`[Dispatch] ${loadedPluginConfigs.length} plugins remaining after filtering.`);
 
       // Sort plugins: UI plugins first, then game plugins, then alphabetically
       loadedPluginConfigs.sort((a, b) => {
@@ -448,10 +414,8 @@ module.exports = class Dispatch {
       devError('[Dispatch] Detailed error loading plugins:', error);
     } finally {
       this._application._updateEmptyPluginMessage(); // Call this after all processing
-      devLog('[Dispatch] Plugin load sequence finished.');
       this._application.refreshAutoComplete();
       // Ensure default state handlers are re-initialized after all plugins load and clearAll has run
-      devLog('[ROOMLOGIC_DEBUG] Re-initializing default state handlers after plugin load.');
       this._initializeDefaultStateHandlers();
     }
   }
@@ -462,18 +426,13 @@ module.exports = class Dispatch {
    * @public
    */
   async all ({ client, type, message }) {
-    // ROOMLOGIC_DEBUG: Log incoming message details to Dispatch.all
-    devLog(`[ROOMLOGIC_DEBUG] Dispatch.all: Received. ConnectionType: ${type}, MessageType: ${message.type}, RawValue:`, message.value);
-
     const ajHooks = type === ConnectionMessageTypes.aj ? this.hooks.aj.get(message.type) || [] : [];
     const connectionHooks = type === ConnectionMessageTypes.connection ? this.hooks.connection.get(message.type) || [] : [];
     const anyHooks = this.hooks.any.get(ConnectionMessageTypes.any) || [];
 
     const hooks = [...ajHooks, ...connectionHooks, ...anyHooks];
 
-    if (hooks.length > 0) {
-      devLog(`[ROOMLOGIC_DEBUG] Dispatch.all: Found ${hooks.length} hooks for MessageType: ${message.type}. AJ: ${ajHooks.length}, Conn: ${connectionHooks.length}, Any: ${anyHooks.length}`);
-    } else {
+    if (hooks.length > 0) {} else {
       // devLog(`[ROOMLOGIC_DEBUG] Dispatch.all: No hooks found for MessageType: ${message.type}.`);
     }
 
@@ -482,7 +441,6 @@ module.exports = class Dispatch {
         // ROOMLOGIC_DEBUG: Log which hook is about to be called
         // To avoid excessive logging for every packet, we can be selective or add more detail if a specific packet is problematic
         if (message.type === 'rj' || message.type === 'login') { // Example: Log details for rj or login
-            devLog(`[ROOMLOGIC_DEBUG] Dispatch.all: Invoking hook #${index + 1} for MessageType: ${message.type}. Hook function:`, hook.toString().substring(0, 100) + "...");
         }
         await hook({ client, type, dispatch: this, message });
       } catch (error) {
@@ -490,7 +448,6 @@ module.exports = class Dispatch {
           type: 'error',
           message: `Failed hooking packet ${message.type}. ${error.message}`
         });
-        devLog(`[ROOMLOGIC_DEBUG] Dispatch.all: Error in hook for MessageType: ${message.type}. Error:`, error);
       }
     });
 
@@ -669,16 +626,12 @@ module.exports = class Dispatch {
   setState (key, value) {
     // Don't update if value hasn't changed
     if (this.state[key] === value) {
-      if (key === 'room') {
-        devLog(`[ROOMLOGIC_DEBUG] Dispatch setState: Attempted to set 'room' to '${value}', but it's already the current value.`);
-      }
+      if (key === 'room') {}
       return this;
     }
     
     this.state[key] = value;
-    if (key === 'room') {
-      devLog(`[ROOMLOGIC_DEBUG] Dispatch setState: 'room' has been set to '${value}'. Current this.state.room: ${this.state.room}`);
-    }
+    if (key === 'room') {}
     
     // IPC call for 'room' key removed as per reversion plan to align with @jam-master
     return this;
@@ -725,11 +678,7 @@ module.exports = class Dispatch {
    */
   getState (key, defaultValue = null) {
     const value = this.state[key] !== undefined ? this.state[key] : defaultValue;
-    if (key === 'room') {
-      devLog(`[ROOMLOGIC_DEBUG] Dispatch getState: Requesting 'room'. Current this.state.room: ${this.state.key}. Returning: ${value}`);
-    } else if (key === 'player') {
-      devLog(`[ROOMLOGIC_DEBUG] Dispatch getState: Requesting 'player'. Returning:`, value);
-    }
+    if (key === 'room') {} else if (key === 'player') {}
     return value;
   }
 
@@ -862,7 +811,7 @@ module.exports = class Dispatch {
       [ConnectionMessageTypes.aj]: this.hooks.aj,
       [ConnectionMessageTypes.connection]: this.hooks.connection,
       [ConnectionMessageTypes.any]: this.hooks.any
-    }
+    };
 
     const specificHooksMap = hooksMap[type]; // e.g., this.hooks.aj
 
@@ -873,29 +822,11 @@ module.exports = class Dispatch {
         const index = hookList.indexOf(callback);
         if (index !== -1) {
           hookList.splice(index, 1);
-          if (isDevelopment) {
-            devLog(`[Dispatch] Successfully removed hook for type='${type}', message='${message}'. Remaining: ${hookList.length}`);
-          }
-          // If the list becomes empty, optionally delete the key from the map
-          if (hookList.length === 0) {
-            specificHooksMap.delete(message);
-            if (isDevelopment) {
-              devLog(`[Dispatch] Hook list for type='${type}', message='${message}' is now empty. Key deleted.`);
-            }
-          }
-        } else {
-          if (isDevelopment) {
-            devLog(`[Dispatch] Callback not found for type='${type}', message='${message}'. No action taken.`);
-          }
         }
-      } else {
-        if (isDevelopment) {
-          devLog(`[Dispatch] No hook list found for type='${type}', message='${message}'. No action taken.`);
+        // If the list becomes empty, optionally delete the key from the map
+        if (hookList.length === 0) {
+          specificHooksMap.delete(message);
         }
-      }
-    } else {
-      if (isDevelopment) {
-        devLog(`[Dispatch] Invalid hook type '${type}' for offMessage. No action taken.`);
       }
     }
   }
@@ -908,9 +839,7 @@ module.exports = class Dispatch {
  */
   _registerHook (type, { message, callback }) {
     // type is 'aj', message is the specific XT command string like 'rj' or 'login'
-    devLog(`[ROOMLOGIC_DEBUG] Dispatch._registerHook: type='${type}', message='${message}'. Callback:`, callback.toString().substring(0,100)+"...");
     if (!this.hooks[type]) {
-      devLog(`[ROOMLOGIC_DEBUG] Dispatch._registerHook: Invalid hook type array: ${type}`);
       return this._consoleMessage({
         type: 'error',
         message: `Invalid hook type: ${type}`
@@ -920,15 +849,11 @@ module.exports = class Dispatch {
     const hooksMap = this.hooks[type]; // e.g., this.hooks.aj
     if (hooksMap.has(message)) {
       hooksMap.get(message).push(callback);
-      devLog(`[ROOMLOGIC_DEBUG] Dispatch._registerHook: Added callback to existing hook for type='${type}', message='${message}'. New count: ${hooksMap.get(message).length}`);
     } else {
       hooksMap.set(message, [callback]);
-      devLog(`[ROOMLOGIC_DEBUG] Dispatch._registerHook: Set new hook for type='${type}', message='${message}'. Count: 1`);
     }
     // For debugging, let's see the state of this.hooks.aj after registration
-    if (type === 'aj') {
-        devLog(`[ROOMLOGIC_DEBUG] Dispatch._registerHook: Current state of this.hooks.aj:`, this.hooks.aj);
-    }
+    if (type === 'aj') {}
   }
 
   /**
@@ -946,7 +871,6 @@ module.exports = class Dispatch {
  * @private
  */
   _registerAjHook (hook) {
-    devLog(`[ROOMLOGIC_DEBUG] Dispatch._registerAjHook: Registering AJ hook for message type: ${hook.message}`);
     this._registerHook('aj', hook);
   }
 

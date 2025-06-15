@@ -17,7 +17,12 @@
     ]
   },
   "nsis": {
-    "artifactName": "${productName}-Setup-${version}.${ext}"
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": false,
+    "include": "build/installer.nsh"
   },
   "files": [
     "package.json",

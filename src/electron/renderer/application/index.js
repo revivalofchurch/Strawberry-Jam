@@ -93,11 +93,9 @@ module.exports = class Application extends EventEmitter {
      */
     this.pathPromise = new Promise((resolve) => {
       ipcRenderer.once('set-data-path', (event, receivedPath) => {
-        devLog(`[Renderer] Received data path: ${receivedPath}`);
         this.dataPath = receivedPath;
       });
       ipcRenderer.once('set-assets-path', (event, receivedPath) => {
-        devLog(`[Renderer] Received assets path: ${receivedPath}`);
         this.assetsPath = receivedPath;
         resolve();
       });
@@ -315,45 +313,30 @@ module.exports = class Application extends EventEmitter {
         if (window.jam && window.jam.roomState && this.dispatch) {
           // Set the dispatch on the roomState instance
           window.jam.roomState.dispatch = this.dispatch;
-          console.log("[Application] Successfully initialized window.jam.roomState with dispatch");
         }
 
         ipcRenderer.on('plugin-remote-message', async (event, msg) => { // Make handler async
-          devLog('[AppIndex IPC] Received plugin-remote-message in renderer:', msg);
           let processedMsg = msg;
           
           // Check if dispatch is ready and message needs processing
           if (this.dispatch && typeof msg === 'string' && msg.includes('{room}')) {
-            devLog('[AppIndex IPC] Message contains {room}, attempting to replace.');
             try {
               const currentRoom = await this.dispatch.getState('room'); // Await the async call
               if (currentRoom) {
                 processedMsg = msg.replaceAll('{room}', currentRoom);
-                devLog('[AppIndex IPC] Replaced {room}. ProcessedMsg:', processedMsg);
               } else {
-                devWarn('[Application._setupPluginIPC] {room} placeholder found, but current room is null or undefined after await. Message will be sent with placeholder unreplaced.');
               }
             } catch (error) {
-              devError('[Application._setupPluginIPC] Error awaiting room state for {room} replacement:', error);
-              devWarn('[Application._setupPluginIPC] Message will be sent with {room} placeholder unreplaced due to error.');
             }
           }
           
-          devLog(`[AppIndex IPC] this.dispatch is: ${typeof this.dispatch}`);
-          if (this.dispatch) {
-            devLog(`[AppIndex IPC] this.dispatch.sendRemoteMessage is: ${typeof this.dispatch.sendRemoteMessage}`);
-          }
-
           // Send the (potentially processed) message
           if (this.dispatch && typeof this.dispatch.sendRemoteMessage === 'function') {
-            devLog('[AppIndex IPC] Calling this.dispatch.sendRemoteMessage with:', processedMsg);
             this.dispatch.sendRemoteMessage(processedMsg).catch(err => {
               this.consoleMessage({ type: 'error', message: `Error sending remote message from plugin: ${err.message}` });
-              devError('[AppIndex IPC] Error in this.dispatch.sendRemoteMessage:', err); // Changed to devError
             });
           } else {
             this.consoleMessage({ type: 'error', message: 'Cannot send remote message: Dispatch not ready.' });
-            devError('[AppIndex IPC] Dispatch not ready or sendRemoteMessage is not a function.'); // Changed to devError
           }
         });
 
@@ -372,14 +355,11 @@ module.exports = class Application extends EventEmitter {
           if (this.dispatch && typeof this.dispatch.getState === 'function') {
             try {
               const value = this.dispatch.getState(key);
-              devLog(`[ROOMLOGIC_DEBUG] Application 'dispatch-get-state-sync' handler: For key '${key}', returning value:`, value);
               event.returnValue = value; // Set return value for sendSync
             } catch (error) {
-              devError(`[Main Renderer] Error getting sync state for key '${key}':`, error);
               event.returnValue = null; // Return null on error
             }
           } else {
-            devError(`[Main Renderer] Cannot get sync state for key '${key}': Dispatch not ready.`);
             event.returnValue = null; // Return null if dispatch isn't ready
           }
         });
@@ -392,11 +372,9 @@ module.exports = class Application extends EventEmitter {
             try {
               value = this.dispatch.getState(key);
             } catch (error) {
-              devError(`[Main Renderer] Error getting ASYNC state for key '${key}':`, error);
               value = null; // Ensure value is null on error
             }
           } else {
-            devError(`[Main Renderer] Cannot get ASYNC state for key '${key}': Dispatch not ready.`);
             value = null; // Ensure value is null if dispatch isn't ready
           }
           // Send the value back on the unique reply channel
@@ -404,7 +382,6 @@ module.exports = class Application extends EventEmitter {
         });
 
       } catch (e) {
-        devError("[Main Renderer] Error setting up plugin IPC listeners:", e);
       }
 
     }
@@ -420,17 +397,14 @@ module.exports = class Application extends EventEmitter {
         const { ipcRenderer } = require('electron');
 
         ipcRenderer.on('plugin-window-opened', (event, pluginName) => {
-          devLog(`[Renderer IPC] Received plugin-window-opened for: ${pluginName}`);
           this._updatePluginStatusIndicator(pluginName, true);
         });
 
         ipcRenderer.on('plugin-window-closed', (event, pluginName) => {
-          devLog(`[Renderer IPC] Received plugin-window-closed for: ${pluginName}`);
           this._updatePluginStatusIndicator(pluginName, false);
         });
         
         ipcRenderer.on('plugin-window-focused', (event, pluginName) => {
-          devLog(`[Renderer IPC] Received plugin-window-focused for: ${pluginName}`);
           // Blink the indicator to provide visual feedback that the window was focused
           const $listItem = this.$pluginList.find(`li[data-plugin-name="${pluginName}"]`);
           const $indicator = $listItem.find('.plugin-status-indicator');
@@ -444,7 +418,6 @@ module.exports = class Application extends EventEmitter {
         });
 
       } catch (e) {
-        devError("[Renderer IPC] Error setting up status indicator listeners:", e);
       }
     }
   }
@@ -503,7 +476,6 @@ module.exports = class Application extends EventEmitter {
   _updatePluginStatusIndicator(pluginName, isOpen) {
     // Ensure pluginList is available
     if (!this.$pluginList || this.$pluginList.length === 0) {
-        devError(`[Status Update] Cannot update indicator for ${pluginName}: $pluginList not found.`);
         return;
     }
     
@@ -511,13 +483,11 @@ module.exports = class Application extends EventEmitter {
     if ($listItem.length === 0) {
         // It's possible the list hasn't fully rendered yet, or the plugin isn't listed.
         // We could potentially retry or queue the update, but for now, just log.
-        devWarn(`[Status Update] List item for plugin "${pluginName}" not found.`);
         return;
     }
 
     const $indicator = $listItem.find('.plugin-status-indicator');
     if ($indicator.length === 0) {
-        devError(`[Status Update] Status indicator for plugin "${pluginName}" not found within list item.`);
         return;
     }
 
@@ -526,10 +496,8 @@ module.exports = class Application extends EventEmitter {
     if (pluginType === 'ui') {
         if (isOpen) {
             $indicator.removeClass('bg-red-500 bg-yellow-500').addClass('bg-green-500');
-            devLog(`[Status Update] Set indicator for ${pluginName} to GREEN`);
         } else {
             $indicator.removeClass('bg-green-500 bg-yellow-500').addClass('bg-red-500');
-            devLog(`[Status Update] Set indicator for ${pluginName} to RED`);
         }
     } else {
          // Keep game plugins yellow
@@ -606,15 +574,12 @@ module.exports = class Application extends EventEmitter {
     try {
       // Get the 'promptOnExit' setting from the main process
       const promptOnExit = await ipcRenderer.invoke('get-setting', 'ui.promptOnExit');
-      // console.log(`[Renderer Application.close] Value of 'ui.promptOnExit' from main: ${promptOnExit}`);
 
       if (promptOnExit === false) {
         // If promptOnExit is false, tell the main process to close directly
-        console.log('[Renderer Application.close] promptOnExit is false, sending direct-close-window to main.');
         ipcRenderer.send('direct-close-window'); // We'll need to handle this in the main process
       } else {
         // Otherwise, show the exit confirmation modal
-        // console.log('[Renderer Application.close] promptOnExit is true or undefined, showing confirmExitModal.');
         this.modals.show('confirmExitModal');
       }
     } catch (error) {
@@ -665,8 +630,7 @@ module.exports = class Application extends EventEmitter {
             
             // Parse raw message for room state updates
             const rawMessage = message.toMessage();
-            devLog(`[ROOMLOGIC_DEBUG] Application.attachNetworkingEvents: Received packet. Type: ${type}, Raw: ${rawMessage}. Dispatching to Dispatch.all...`);
-            
+
             // Try to update room state if this is an incoming packet
             // Room state (basic room ID and player data) is now set directly by Dispatch.js
             // based on 'rj' and 'login' packets, aligning with @jam-master's logic.
@@ -1129,7 +1093,6 @@ module.exports = class Application extends EventEmitter {
     }
 
     // Developer log about the cleaning (kept)
-    devLog(`Cleaned ${numberToRemove} old log entries from ${isPacketLog ? 'packet log' : 'app messages'}. New count: ${newCount}`);
   }
 
   /**
@@ -1167,9 +1130,7 @@ module.exports = class Application extends EventEmitter {
       // For backward compatibility
       this._maxLogEntries = Math.max(this._consoleLogLimit, this._networkLogLimit);
       
-      devLog(`Log limits set - Console: ${this._consoleLogLimit}, Network: ${this._networkLogLimit}`);
     } catch (error) {
-      devError('Error loading log limit settings:', error);
       // Use defaults if there's an error
       this._consoleLogLimit = 1000;
       this._networkLogLimit = 1000;
@@ -1201,7 +1162,6 @@ module.exports = class Application extends EventEmitter {
     
     if (messageElements && messageElements.length > 0) {
       // Log how many elements we're removing for debugging
-      devLog(`[Renderer] Removing ${messageElements.length} messages with ID: ${messageId}`);
       
       // Remove each matching element
       messageElements.forEach(element => {
@@ -2015,9 +1975,7 @@ module.exports = class Application extends EventEmitter {
    */
   async instantiate () {
     // Wait for the data path to be received from the main process
-    devLog('[Renderer] Waiting for data path from main process...');
     await this.pathPromise;
-    devLog(`[Renderer] Data path received: ${this.dataPath}`);
 
     // Now that paths are available, instantiate the Patcher
     this.patcher = new Patcher(this, this.assetsPath);
@@ -2028,32 +1986,23 @@ module.exports = class Application extends EventEmitter {
       this.dataPath,
       this.consoleMessage.bind(this) // Pass bound function
     );
-    devLog('[Renderer] Dispatch initialized with data path');
     
     // Register core commands
     registerCoreCommands(this.dispatch, this);
-    devLog('[Renderer] Core commands registered');
     
     // Load settings (log only in dev mode)
     await this.settings.load();
     if (isDevelopment) {
-      devLog('[Settings] Settings loaded successfully');
     }
     
     // Load log limit settings from user settings
     await this._loadLogLimitSettings();
-    if (isDevelopment) {
-      devLog('[Settings] Log limit settings loaded');
-    }
     
     // Initialize tooltip system
-    devLog('[Renderer] Initializing tooltip system...');
     Tooltip.init(this);
     
     // Remove title attributes from elements that will have tooltips
     this._removeTitleAttributes();
-    
-    devLog('[Renderer] Tooltip system initialized');
     
     // Initial startup message with timestamp-based unique ID
     const startupMessageId = `startup-message-${Date.now()}`;
@@ -2085,7 +2034,6 @@ module.exports = class Application extends EventEmitter {
     const secureConnection = this.settings.get('secureConnection')
     if (secureConnection) {
       if (isDevelopment) {
-        devLog('[Host] Checking for server host changes...');
       }
       await this._checkForHostChanges()
     }
@@ -2118,7 +2066,6 @@ module.exports = class Application extends EventEmitter {
     this.emit('ready')
 
     // Signal to main process that renderer is ready (for auto-resume logic)
-    devLog('[Renderer] Application instantiated, sending renderer-ready signal.');
     ipcRenderer.send('renderer-ready');
 
     // Set up handlers for the minimize and close buttons
@@ -2127,33 +2074,25 @@ module.exports = class Application extends EventEmitter {
     
     if (minimizeButton) {
       minimizeButton.addEventListener('click', () => {
-        devLog('[Renderer] Minimize button clicked.');
         this.minimize();
       });
-      devLog('[Renderer] Minimize button handler set up.');
     } else {
-      devWarn('[Renderer] Minimize button element (#minimizeButton) not found!');
     }
 
     if (mainCloseButton) {
       mainCloseButton.addEventListener('click', () => {
-        devLog('[Renderer] Close button clicked.');
         this.close();
       });
-      devLog('[Renderer] Close button handler set up.');
     } else {
-      devWarn('[Renderer] Close button element (#mainCloseButton) not found!');
     }
     
     // Apply tooltips to all UI elements after a short delay to ensure DOM is ready
     setTimeout(() => {
       this._applyTooltips();
-      devLog('[Renderer] Tooltips applied to UI elements');
     }, 500);
     
     // Listen for exit confirmation request from main process
     ipcRenderer.on('show-exit-confirmation', () => {
-      devLog('[Renderer] Received show-exit-confirmation request.');
       this.modals.show('confirmExitModal');
     });
 
@@ -2198,20 +2137,17 @@ module.exports = class Application extends EventEmitter {
       
       // If significant changes were detected, reapply tooltips
       if (shouldReapplyTooltips) {
-        devLog('[Renderer] Detected DOM changes, reapplying tooltips...');
         setTimeout(() => this._applyTooltips(), 100);
       }
     });
     
     // Start observing the document with specified configuration
-    observer.observe(document.body, { 
+    observer.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: false,
       characterData: false
     });
-    
-    devLog('[Renderer] Tooltip observer initialized');
   }
 
   /**
@@ -2239,7 +2175,6 @@ module.exports = class Application extends EventEmitter {
         'transform': ''
       });
     });
-    devLog('[Renderer] Modal close button hover styles initialized.');
   }
   
   /**
@@ -2320,7 +2255,6 @@ module.exports = class Application extends EventEmitter {
    */
   reloadLogLimitSettings() {
     this._loadLogLimitSettings();
-    devLog('Log limit settings reloaded from settings.');
   }
 
   /**

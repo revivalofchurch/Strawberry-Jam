@@ -442,9 +442,6 @@ module.exports = class Client {
    * @public
    */
   sendRemoteMessage (message, options = {}) { // From jam-master (passes options)
-    if (window.IS_DEV) {
-      console.log(`[Client] sendRemoteMessage called. Socket writable: ${this._aj && this._aj.writable}, Socket destroyed: ${this._aj && this._aj.destroyed}. Message:`, message);
-    }
     if (!this._aj || !this._aj.writable || this._aj.destroyed) {
       console.error(`[Client] Attempted to send remote message, but AJ socket is not writable or is destroyed.`);
       if (this._server && this._server.application) {
@@ -470,13 +467,6 @@ module.exports = class Client {
     const finalMessageString = message + '\x00';
     const messageBuffer = Buffer.from(finalMessageString);
 
-    if (window.IS_DEV) {
-      console.log(`[Client SEND_DEBUG] Attempting to write to ${socket === this._aj ? 'AJ_SOCKET' : 'CONN_SOCKET'}.`);
-      console.log(`[Client SEND_DEBUG] Original Message: ${message}`);
-      console.log(`[Client SEND_DEBUG] Final String (with \\x00): ${finalMessageString.replace('\x00', '\\x00')}`); // Log \x00 visibly
-      console.log(`[Client SEND_DEBUG] Hex Buffer: ${messageBuffer.toString('hex')}`);
-      console.log(`[Client SEND_DEBUG] Socket writable: ${socket.writable}, destroyed: ${socket.destroyed}`);
-    }
     
     if (!socket.writable || socket.destroyed) {
       console.error(`[Client] _attemptSendInternal: Socket not writable or destroyed. Writable: ${socket.writable}, Destroyed: ${socket.destroyed}`);
@@ -492,25 +482,16 @@ module.exports = class Client {
 
       const onError = (err) => {
         cleanup();
-        if (window.IS_DEV) {
-          console.error(`[Client SEND_DEBUG] _attemptSendInternal socket error:`, err);
-        }
         reject(err);
       };
 
       const onDrain = () => {
         cleanup();
-        if (window.IS_DEV) {
-          console.log(`[Client SEND_DEBUG] _attemptSendInternal socket drain.`);
-        }
         resolve(messageBuffer.length); // Length of what was intended to be written
       };
 
       const onClose = () => {
         cleanup();
-        if (window.IS_DEV) {
-          console.log(`[Client SEND_DEBUG] _attemptSendInternal socket close.`);
-        }
         reject(new Error('Socket closed before the message could be sent'));
       };
 
@@ -526,20 +507,11 @@ module.exports = class Client {
       socket.once('close', onClose);
 
       const writable = socket.write(messageBuffer); // Write the single, combined buffer
-      if (window.IS_DEV) {
-        console.log(`[Client SEND_DEBUG] socket.write(Buffer) executed. Writable status after write: ${writable}`);
-      }
 
       if (writable) {
-        if (window.IS_DEV) {
-          console.log(`[Client SEND_DEBUG] Message sent synchronously (Buffer write, writable was true).`);
-        }
         cleanup();
         resolve(messageBuffer.length);
       } else {
-        if (window.IS_DEV) {
-          console.log(`[Client SEND_DEBUG] Message queued (Buffer write, writable was false), waiting for drain or close.`);
-        }
       }
     });
   }

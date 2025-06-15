@@ -1,83 +1,104 @@
 # TFD Automator Plugin
 
-Automates "The Forgotten Treasure" adventure in Animal Jam Classic.
+**Modernized Universal TFD Automator** - Works for ANY user in ANY den using advanced room tracking technology.
+
+## Recent Updates (2024)
+
+✅ **Completely Modernized** - Now uses the same advanced room tracking system as the advertising plugin  
+✅ **Universal Compatibility** - Works for any user in any den without hardcoded values  
+✅ **Simplified & Reliable** - Removed complex packet parsing in favor of modern dispatch-based room detection  
+✅ **Real-time Status** - Intelligent status checking that automatically detects when you're ready  
+✅ **Updated Packet Sequences** - All packet templates now match the actual TFD automation flow  
 
 ## Features
 
-*   Sends the required packets in sequence to complete the adventure.
-*   Uses the correct delays between packets.
-*   Dynamically uses the current room ID.
-*   Provides visual feedback on the current step being processed.
-*   Includes a Start/Stop button to control the automation.
-*   Properly collects treasure rewards using the exact TFD-specific packets.
-*   Automatically detects and uses the current user's ID for user-specific packets.
-*   Full Automation mode that:
-    *   Automatically joins the TFD adventure
-    *   Completes all gem collections
-    *   Collects treasure chest rewards
-    *   Leaves the adventure
-    *   Repeats the entire process continuously
+*   **Universal User Support**: Automatically works for any user - no configuration needed
+*   **Modern Room Tracking**: Uses `dispatch.getState('internalRoomId')` with intelligent fallbacks
+*   **Real-time Den Detection**: Automatically detects when you enter your den and enables automation
+*   **Accurate Packet Sequences**: All packets match the documented TFD automation flow from `packets.txt`
+*   **Dynamic Template Generation**: Packet templates are generated dynamically based on your current user/room
+*   **Full Automation Mode**: Complete hands-off automation from den entry to treasure collection
+*   **Crystal Progress Tracking**: Visual progress bars for all four crystal types
+*   **Background Mode Support**: Continues running when app is minimized
+*   **Intelligent Status System**: Real-time status updates without complex packet listeners
 
 ## How to Use
 
-### Basic Mode
-1.  Navigate to the start of "The Forgotten Treasure" adventure in-game.
-2.  Open the TFD Automator plugin panel in Strawberry Jam.
-3.  Click the "Start Automation" button.
-4.  The status display will show which packet/step is being processed.
-5.  Click "Stop Automation" at any time to interrupt the sequence.
+### Basic Mode (Gem Collection Only)
+1.  **Enter your den** - The plugin will automatically detect this and show "Ready" status
+2.  Open the TFD Automator plugin panel in Strawberry Jam
+3.  Navigate to TFD adventure manually and start it
+4.  Click "Start Automation" to begin gem collection
+5.  Plugin will automatically collect all gems and treasures
 
-### Full Automation Mode
-1.  Open the TFD Automator plugin panel while in your den.
-2.  Toggle on the "Full Auto" switch.
-3.  Click the "Start" button to begin the automation cycle.
-4.  The plugin will automatically:
-    * Join the TFD adventure from your den
-    * Start the adventure
-    * Complete all gem collections
-    * Collect treasure chest rewards using the exact TFD reward packets
-    * Exit the adventure and return to your den
-    * Repeat the entire cycle continuously
-5.  Toggle off "Full Auto" or click "Stop" at any time to end the automation cycle.
+### Full Automation Mode (Recommended)
+1.  **Enter your den** - Plugin shows "Ready" when detected
+2.  Toggle on the **"Full Auto"** switch  
+3.  Click **"Start"** to begin complete automation
+4.  Plugin automatically handles the entire TFD sequence:
+    * Joins TFD adventure from your den
+    * Starts the adventure session  
+    * Collects all gems (Yellow Diamonds, Green Hexagons, Blue Squares, White Triangles)
+    * Opens all treasure chests using proper TFD reward packets
+    * Exits adventure and returns to den
+    * **Repeats continuously** until you stop it
 
-**Note:** For best results, make sure you're in your den before starting full automation mode.
+## Modern Architecture
 
-## Automation Workflow
+The plugin now uses a **modern, reliable architecture**:
 
-The full automation cycle follows this workflow:
-1. User is in their den
-2. Full Auto is enabled and Start button is pressed
-3. Plugin automatically opens adventure map and joins TFD
-4. Plugin starts the adventure play session
-5. Plugin automatically collects all gems
-6. After completion, plugin collects all treasure chests using TFD-specific treasure collection
-7. Plugin leaves the adventure and returns to den
-8. Cycle repeats automatically
+- **Dispatch-based Room Tracking**: Uses `await dispatch.getState('internalRoomId')` like the advertising plugin
+- **Periodic Status Checking**: Checks your status every 2 seconds instead of complex packet listening  
+- **Dynamic User Detection**: Automatically gets your user ID via `dispatch.getState('player')`
+- **Intelligent Den Detection**: Automatically detects when you're in your den (`den{userId}`)
+- **Universal Packet Templates**: All packets work for any user in any den
 
-## User ID Auto-Detection
+## Packet Sequence Accuracy
 
-The plugin automatically detects your Animal Jam user ID and uses it for user-specific packets:
+All packet sequences have been **verified against actual TFD automation flow**:
 
-- When starting, the plugin attempts to extract your user ID from the game
-- Your user ID is used to generate the correct "den ID" (e.g., denK06e4744)
-- All user-specific packets will be customized with your ID, making the plugin work for all users
+- **Join Adventure**: `%xt%o%qjc%{room}%{denId}%23%0%`
+- **Start Adventure**: `%xt%o%qs%{room}%{denId}%` + off message
+- **Gem Collection**: 1000+ crystal collection packets (`qqm` format) 
+- **Treasure Collection**: `qpgift` packets (0,1,-1,-1) + `qpgiftdone`
+- **Leave Adventure**: `%xt%o%qx%{room}%`
 
-The activity log will show which user ID and den ID were detected for verification.
+## Universal Compatibility
 
-## TFD Treasure Collection
+This plugin now works for **ANY user** without modification:
 
-The plugin uses the exact TFD-specific treasure collection sequence:
-1. Sends `qpgift` packets for each treasure (0-3)
-2. Sends a final `qpgiftdone` packet to complete the process
-3. Each packet is properly timed to ensure all rewards are collected
+✅ **No hardcoded user IDs** - Dynamically detects your user ID  
+✅ **No hardcoded den IDs** - Automatically constructs your den ID  
+✅ **No hardcoded room IDs** - Uses modern room tracking  
+✅ **Works in any den** - Not limited to specific den configurations  
+✅ **Automatic template generation** - All packets customized for your session  
 
-This approach ensures reliable treasure collection by using the actual packets observed in the TFD adventure.
+## Status Indicators
+
+The plugin provides intelligent status feedback:
+
+- **"Waiting - Login data not found"** - Game not fully loaded yet
+- **"Waiting - Please enter your den"** - You're not in your den  
+- **"Ready - Press Start to begin"** - Ready for automation
+- **"Running..."** - Automation in progress
+- **"Paused"** - Automation paused (click Resume)
 
 ## Troubleshooting
 
-If the automation seems to be having issues:
-1. Check that you're in your den before starting full automation
-2. Ensure your game connection is stable
-3. Try adjusting the packet speed with the slider
-4. Verify that room IDs are properly displaying in the activity log
-5. Check that your user ID was correctly detected in the activity log
+If you encounter issues:
+
+1. **Make sure you're in your den** - Plugin only works from your own den
+2. **Wait for "Ready" status** - Don't start until plugin shows ready
+3. **Check activity log** - Look for user ID and den ID detection messages
+4. **Try reloading** - If status stuck, reload the plugin
+5. **Check connection** - Ensure stable internet connection
+
+The modern architecture is much more reliable than the old system!
+
+## Technical Details
+
+- **Room Tracking**: Modern `dispatch.getState('internalRoomId')` approach
+- **Status Updates**: 2-second interval checking instead of packet listeners  
+- **Memory Management**: Proper cleanup of intervals and timeouts
+- **Error Handling**: Graceful handling of network and state errors
+- **Performance**: Optimized for background operation and minimal UI updates

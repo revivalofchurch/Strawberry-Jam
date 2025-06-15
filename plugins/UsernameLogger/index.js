@@ -31,19 +31,20 @@ class UsernameLogger {
   constructor({ application, dispatch, dataPath }) {
     this.application = application;
     this.dispatch = dispatch;
-    this.dataPath = dataPath;
-    
-    // Set up configuration path within the user data directory
-    this.configFilePath = path.join(this.dataPath, 'UsernameLogger', 'config.json');
+    this.dataPath = dataPath; // Keep the original dataPath for migration purposes.
+
+    // Establish the dedicated storage path for the plugin.
+    const appRoamingPath = path.resolve(this.dataPath, '..');
+    this.pluginStoragePath = path.join(appRoamingPath, 'UsernameLogger');
+
+    // The main config file now resides in our dedicated folder.
+    this.configFilePath = path.join(this.pluginStoragePath, 'config.json');
     this.isLoggingCurrentlyEnabled = null;
-    // this.wasCollectingNearby = null; // No longer needed
-    // this.wasCollectingBuddies = null; // No longer needed
-    // this.isInitialPluginLoad = true; // No longer needed with simplified logic
-    
-    // Initialize components
+
+    // Initialize components, now using the new centralized path.
     this._initializeComponents();
-    
-    // Initialize plugin
+
+    // Initialize plugin.
     this._initialize();
   }
   
@@ -62,47 +63,49 @@ class UsernameLogger {
       application: this.application
     });
     
-    // Create services
+    // Create services, passing the new pluginStoragePath to them.
     this.fileService = new FileService({
-      application: this.application,
-      dataPath: this.dataPath
+      application: this.application
     });
-    
+
     this.apiService = new ApiService({
       application: this.application
     });
-    
+
     this.batchLogger = new BatchLogger({
       application: this.application,
-      dataPath: this.dataPath
+      pluginStoragePath: this.pluginStoragePath,
+      fileService: this.fileService
     });
-    
+
     this.leakCheckService = new LeakCheckService({
       application: this.application,
       fileService: this.fileService,
       apiService: this.apiService,
       configModel: this.configModel,
       stateModel: this.stateModel,
-      dataPath: this.dataPath
+      pluginStoragePath: this.pluginStoragePath
     });
-    
+
     this.migrationService = new MigrationService({
       application: this.application,
       fileService: this.fileService,
       configModel: this.configModel,
-      dataPath: this.dataPath
+      // Pass both old and new paths for migration purposes.
+      originalDataPath: this.dataPath, // Now correctly passed
+      pluginStoragePath: this.pluginStoragePath
     });
     
-    // Create handlers
+    // Create handlers, passing the new pluginStoragePath.
     this.messageHandlers = new MessageHandlers({
       application: this.application,
       configModel: this.configModel,
       stateModel: this.stateModel,
       fileService: this.fileService,
       batchLogger: this.batchLogger,
-      dataPath: this.dataPath
+      pluginStoragePath: this.pluginStoragePath
     });
-    
+
     this.commandHandlers = new CommandHandlers({
       application: this.application,
       configModel: this.configModel,
@@ -110,7 +113,7 @@ class UsernameLogger {
       fileService: this.fileService,
       apiService: this.apiService,
       leakCheckService: this.leakCheckService,
-      dataPath: this.dataPath
+      pluginStoragePath: this.pluginStoragePath
     });
     
     // Set up auto leak check callback
@@ -125,13 +128,16 @@ class UsernameLogger {
    */
   async _initialize() {
     try {
-      // Load plugin-specific configuration (like last processed index)
+      // First, ensure the dedicated plugin directory exists.
+      await this.fileService.ensureDirectoryExists(this.pluginStoragePath);
+
+      // Load plugin-specific configuration from the new centralized location.
       await this.configModel.loadConfig();
-      
-      // Run data migration if needed
-      await this.migrationService.migrateFromOldPath();
-      
-      // Load ignore list
+
+      // Run data migration if needed, AFTER loading config, so the status flag is available.
+      await this.migrationService.runMigration();
+
+      // Load ignore list (this can stay as is if it doesn't depend on old paths)
       await this.migrationService.loadIgnoreList(this.stateModel);
       
       // Register command handlers, which should always be active
@@ -177,9 +183,9 @@ class UsernameLogger {
   async onSettingsUpdated() {
     try {
       // Get the latest UI settings from the main application settings store
-      const currentEnableLogging = await this.application.settings.get('plugins.usernameLogger.collection.enabled');
-      const currentCollectNearby = await this.application.settings.get('plugins.usernameLogger.collection.collectNearby');
-      const currentCollectBuddies = await this.application.settings.get('plugins.usernameLogger.collection.collectBuddies');
+      const currentEnableLogging = await this.application.settings.get('plugins.usernameLogger.collection.enabled', true);
+      const currentCollectNearby = await this.application.settings.get('plugins.usernameLogger.collection.collectNearby', true);
+      const currentCollectBuddies = await this.application.settings.get('plugins.usernameLogger.collection.collectBuddies', true);
       
       // For other features, not part of this specific logging request but needed for handler config
       const autoCheckEnabled = await this.application.settings.get('plugins.usernameLogger.autoCheck.enabled');

@@ -24,7 +24,8 @@ class ConfigModel {
     // DEFAULT_CONFIG is now empty.
     this.config = { ...DEFAULT_CONFIG };
     this.leakCheckLastProcessedIndex = -1;
-    this.migrationCompleted = false; // Initialize migration status
+    this.migrationCompleted = false; // For V1 migration from aj-classic
+    this.migrationV2Completed = false; // For V2 migration to centralized folder
   }
 
   /**
@@ -37,8 +38,9 @@ class ConfigModel {
       const configData = await fs.readFile(this.configFilePath, 'utf8');
       const savedState = JSON.parse(configData);
       this.leakCheckLastProcessedIndex = savedState.leakCheckLastProcessedIndex ?? -1;
-      this.migrationCompleted = savedState.migrationCompleted ?? false; // Load migration status
-      
+      this.migrationCompleted = savedState.migrationCompleted ?? false;
+      this.migrationV2Completed = savedState.migrationV2Completed ?? false; // Load V2 migration status
+
       if (process.env.NODE_ENV === 'development') {
         this.application.consoleMessage({
           type: 'logger',
@@ -62,9 +64,10 @@ class ConfigModel {
           });
         }
       }
-      this.leakCheckLastProcessedIndex = -1; // Default on any error
-      this.migrationCompleted = false; // Default on any error
-      return false; // Indicate defaults were used or loading failed
+      this.leakCheckLastProcessedIndex = -1;
+      this.migrationCompleted = false;
+      this.migrationV2Completed = false; // Default on any error
+      return false;
     }
   }
   
@@ -76,7 +79,8 @@ class ConfigModel {
     try {
       const stateToSave = {
         leakCheckLastProcessedIndex: this.leakCheckLastProcessedIndex,
-        migrationCompleted: this.migrationCompleted // Save migration status
+        migrationCompleted: this.migrationCompleted,
+        migrationV2Completed: this.migrationV2Completed // Save V2 migration status
       };
 
       const configDir = path.dirname(this.configFilePath);
@@ -200,6 +204,26 @@ class ConfigModel {
   }
 
   /**
+   * Gets the V2 migration completed status.
+   * @returns {boolean} True if V2 migration has been completed.
+   */
+  getMigrationV2Status() {
+    return this.migrationV2Completed;
+  }
+
+  /**
+   * Sets the V2 migration completed status.
+   * @param {boolean} status - The new V2 migration status.
+   */
+  setMigrationV2Status(status) {
+    if (typeof status === 'boolean') {
+      this.migrationV2Completed = status;
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Resets configuration to defaults
    * @param {boolean} preserveApiKey - Whether to preserve the API key
    */
@@ -208,7 +232,8 @@ class ConfigModel {
     this.config = { ...DEFAULT_CONFIG };
     // Reset internal state too
     this.leakCheckLastProcessedIndex = -1;
-    this.migrationCompleted = false; // Should be reset if config is fully reset
+    this.migrationCompleted = false;
+    this.migrationV2Completed = false; // Also reset V2 status
 
     if (preserveApiKey && apiKey) {
       this.config.leakCheckApiKey = apiKey; // This key is deprecated from this.config

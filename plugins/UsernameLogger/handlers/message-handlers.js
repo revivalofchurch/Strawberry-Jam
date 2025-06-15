@@ -18,15 +18,15 @@ class MessageHandlers {
    * @param {Object} options.stateModel - The state model for state management
    * @param {Object} options.fileService - The file service for file operations
    * @param {Object} options.batchLogger - The batch logger for console messages
-   * @param {string} options.dataPath - The application data path
+   * @param {string} options.pluginStoragePath - The dedicated storage path for the plugin
    */
-  constructor({ application, configModel, stateModel, fileService, batchLogger, dataPath }) {
+  constructor({ application, configModel, stateModel, fileService, batchLogger, pluginStoragePath }) {
     this.application = application;
     this.configModel = configModel;
     this.stateModel = stateModel;
     this.fileService = fileService;
     this.batchLogger = batchLogger;
-    this.dataPath = dataPath;
+    this.pluginStoragePath = pluginStoragePath;
 
     // Default collection settings
     this.enableLogging = false; // Added master toggle
@@ -96,8 +96,8 @@ class MessageHandlers {
     // Add to console batch log
     this.batchLogger.logUsername(username, source);
     
-    // Get current file paths using the utility and dataPath
-    const { collectedUsernamesPath } = getFilePaths(this.dataPath);
+    // Get current file paths using the centralized plugin storage path
+    const { collectedUsernamesPath } = getFilePaths(this.pluginStoragePath);
     
     // Append to collected usernames file
     await this.fileService.appendUsernameToLog(collectedUsernamesPath, username);

@@ -6,63 +6,48 @@
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { 
+const {
   COLLECTED_USERNAMES_FILE,
   POTENTIAL_ACCOUNTS_FILE,
   PROCESSED_FILE,
   FOUND_GENERAL_FILE,
-  FOUND_AJC_FILE,
-  WORKING_ACCOUNTS_FILE
+  FOUND_AJC_FILE
 } = require('../constants/constants');
 
 /**
- * Determines the base path for Username Logger specific files.
- * This should be the application's main data path (already including /data).
- * @param {string} appDataPath - The application's main data path (e.g., .../strawberry-jam/data).
+ * Determines the base path for all Username Logger files.
+ * This path is now the dedicated 'UsernameLogger' directory within the app's roaming data folder.
+ * @param {string} pluginStoragePath - The dedicated storage path for the plugin (e.g., .../strawberry-jam/UsernameLogger).
  * @returns {string} The base path for Username Logger files.
  */
-function getBasePath(appDataPath) {
-  // The provided appDataPath should already point to the desired /data directory.
-  if (!appDataPath) {
-    console.error("[Username Logger] Error: getBasePath called without appDataPath!");
-    return path.resolve('.', 'username_logger_data_error'); 
+function getBasePath(pluginStoragePath) {
+  if (!pluginStoragePath) {
+    console.error("[Username Logger] Error: getBasePath called without pluginStoragePath!");
+    // Provide a fallback path to prevent crashes, though this indicates a severe issue.
+    return path.resolve('.', 'username_logger_data_error');
   }
-  // Removed creation of 'UsernameLogger' subdirectory and ensureDirectoryExists call.
-  // Files will be created directly in the provided appDataPath.
-  return appDataPath;
+  // The calling context is now responsible for ensuring this directory exists.
+  return pluginStoragePath;
 }
 
 /**
- * Gets file paths based on the provided application data path.
- * @param {string} appDataPath - The application's main data path (e.g., .../strawberry-jam/data).
- * @param {string} [leakCheckOutputDirPath] - Optional custom output directory for leak check results.
- * @returns {Object} An object containing file paths.
+ * Gets file paths, all centralized within the plugin's dedicated storage directory.
+ * @param {string} pluginStoragePath - The plugin's dedicated storage path (e.g., .../strawberry-jam/UsernameLogger).
+ * @returns {Object} An object containing all necessary file paths.
  */
-function getFilePaths(appDataPath, leakCheckOutputDirPath) {
-  const inputFilesBasePath = getBasePath(appDataPath); // For collected/processed files
-  
-  let outputFilesBasePath = inputFilesBasePath; // Default output to same as input
-  if (leakCheckOutputDirPath && typeof leakCheckOutputDirPath === 'string' && leakCheckOutputDirPath.trim() !== '') {
-    // If a custom output path is provided and valid, use it.
-    // Ensure this directory exists before trying to use it.
-    // Note: ensureDirectoryExists is synchronous, consider async if called in async context elsewhere.
-    if (ensureDirectoryExists(leakCheckOutputDirPath)) {
-      outputFilesBasePath = leakCheckOutputDirPath;
-    } else {
-      console.warn(`[Username Logger] Custom leak check output directory '${leakCheckOutputDirPath}' could not be ensured. Falling back to default.`);
-    }
-  }
+function getFilePaths(pluginStoragePath) {
+  // All files now use the same centralized base path.
+  const basePath = getBasePath(pluginStoragePath);
 
   const paths = {
-    collectedUsernamesPath: path.join(inputFilesBasePath, COLLECTED_USERNAMES_FILE),
-    processedUsernamesPath: path.join(inputFilesBasePath, PROCESSED_FILE),
-    // Output files use the potentially custom outputFilesBasePath
-    potentialAccountsPath: path.join(outputFilesBasePath, POTENTIAL_ACCOUNTS_FILE),
-    foundAccountsPath: path.join(outputFilesBasePath, FOUND_GENERAL_FILE),
-    ajcAccountsPath: path.join(outputFilesBasePath, FOUND_AJC_FILE),
-    workingAccountsPath: path.join(outputFilesBasePath, WORKING_ACCOUNTS_FILE)
+    collectedUsernamesPath: path.join(basePath, COLLECTED_USERNAMES_FILE),
+    processedUsernamesPath: path.join(basePath, PROCESSED_FILE),
+    potentialAccountsPath: path.join(basePath, POTENTIAL_ACCOUNTS_FILE),
+    foundAccountsPath: path.join(basePath, FOUND_GENERAL_FILE),
+    ajcAccountsPath: path.join(basePath, FOUND_AJC_FILE)
+    // workingAccountsPath has been removed as it is deprecated.
   };
-  
+
   return paths;
 }
 

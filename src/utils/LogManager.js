@@ -63,11 +63,6 @@ class LogManager {
     this.collectSystemInfo();
     
     this.initialized = true;
-    this.log('LogManager initialized', 'system', this.logLevels.INFO);
-    
-    this.log(`System: ${os.platform()} ${os.release()} ${os.arch()}`, 'system', this.logLevels.INFO);
-    this.log(`Memory: ${Math.round(os.totalmem() / (1024 * 1024 * 1024))} GB`, 'system', this.logLevels.INFO);
-    this.log(`CPUs: ${os.cpus().length} cores`, 'system', this.logLevels.INFO);
     
     if (app) {
       this.setupDevToolsListener();
@@ -145,16 +140,12 @@ class LogManager {
     try {
       const rawWindowTitle = windowInstance ? (windowInstance.getTitle() || 'unknown-title') : 'unknown-window-instance';
       const currentUrl = webContents.getURL();
-      this.originalConsole.log(`[LogManager Check] Checking window: Title='${rawWindowTitle}', URL='${currentUrl}'`);
-
       if (currentUrl.includes('winapp.asar')) {
         windowTitleContext = 'winapp-url';
         identifiedAsWinApp = true;
-        this.originalConsole.log(`[LogManager Check] Identified '${windowTitleContext}' by URL: ${currentUrl}`);
       } else if (rawWindowTitle.toLowerCase().includes('animal jam') || rawWindowTitle.toLowerCase().includes('aj classic')) {
         windowTitleContext = 'winapp-title';
         identifiedAsWinApp = true;
-        this.originalConsole.log(`[LogManager Check] Identified '${windowTitleContext}' by title: ${rawWindowTitle}`);
       } else if (rawWindowTitle.includes('index.html') && !rawWindowTitle.includes('/plugins/')) {
         windowTitleContext = 'main-client-ui';
       } else if (rawWindowTitle.includes('/plugins/')) {
@@ -165,7 +156,6 @@ class LogManager {
       }
 
       if (identifiedAsWinApp) {
-        this.originalConsole.log(`[LogManager Check] Sending log path to ${windowTitleContext} window: ${this.logPath}`);
         webContents.send('set-main-log-path', this.logPath);
       }
     } catch (e) {
@@ -183,10 +173,8 @@ class LogManager {
     if (!window || !window.webContents) return;
     
     const initialContext = this._checkAndSendLogPath(window.webContents, window);
-    this.originalConsole.log(`[LogManager Attach] Initial check for window (Context: ${initialContext}), attaching console logger.`);
 
     const didNavigateListener = (event, url) => {
-      this.originalConsole.log(`[LogManager Attach] Window (Context: ${initialContext}) navigated to URL: ${url}`);
       this._checkAndSendLogPath(window.webContents, window);
     };
     window.webContents.on('did-navigate', didNavigateListener);
@@ -198,7 +186,6 @@ class LogManager {
         if (window && window.webContents && !window.webContents.isDestroyed()) {
              window.webContents.removeListener('destroyed', webContentsDestroyedListener);
         }
-        this.originalConsole.log(`[LogManager Attach] WebContents for window (Initial Context: ${initialContext}) destroyed. Cleaned up 'did-navigate' listener.`);
     };
     window.webContents.on('destroyed', webContentsDestroyedListener);
       
@@ -310,7 +297,6 @@ class LogManager {
     if (this.gameClientLogs.length > this.maxGameClientLogs) {
       this.gameClientLogs = this.gameClientLogs.slice(-Math.floor(this.maxGameClientLogs * 0.8));
     }
-    this.originalConsole.log(`[LogManager] Added ${processedLogs.length} logs from game client. Total: ${this.gameClientLogs.length}`);
   }
   
   /**
@@ -516,7 +502,6 @@ class LogManager {
     const MAX_EXPORT_FILES = 20;
 
     try {
-      this.originalConsole.log('[LogManager] Performing auto-cleanup of old log files...');
       const files = fs.readdirSync(this.logPath);
 
       // Cleanup for main process session logs (if any exist from past versions or if re-enabled)
@@ -533,11 +518,9 @@ class LogManager {
       const deleteOldFiles = (fileList, maxFiles, type) => {
         if (fileList.length > maxFiles) {
           const filesToDelete = fileList.slice(0, fileList.length - maxFiles);
-          this.originalConsole.log(`[LogManager] Deleting ${filesToDelete.length} old ${type} log(s)...`);
           filesToDelete.forEach(file => {
             try {
               fs.unlinkSync(path.join(this.logPath, file.name));
-              this.originalConsole.log(`[LogManager] Deleted old log: ${file.name}`);
             } catch (e) {
               this.originalConsole.error(`[LogManager] Error deleting old log ${file.name}:`, e);
             }
@@ -548,8 +531,6 @@ class LogManager {
       deleteOldFiles(sessionLogs, MAX_SESSION_LOGS, 'main-session'); // Clarified type
       deleteOldFiles(exportFiles, MAX_EXPORT_FILES, 'export');
       // Note: winapp-session-*.log files are managed by LoginScreen.js's rotation logic
-
-      this.originalConsole.log('[LogManager] Auto-cleanup finished.');
 
     } catch (error) {
       this.originalConsole.error('[LogManager] Error during auto-cleanup of old log files:', error);

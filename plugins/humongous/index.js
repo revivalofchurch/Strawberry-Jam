@@ -7,15 +7,11 @@ module.exports = function ({ dispatch, application }) {
    * @returns
    */
   const handleHumongousCommand = async ({ parameters }) => {
-    console.log(`[Humongous Plugin] handleHumongousCommand: Called. Current active state: ${active}`);
     active = !active;
-    console.log(`[Humongous Plugin] handleHumongousCommand: Toggled active state to: ${active}`);
 
     // Check room presence when command is toggled
     const textualRoomId = await dispatch.getState('room');
-    console.log(`[Humongous Plugin] handleHumongousCommand: textualRoomId from getState: ${textualRoomId}`);
     if (!textualRoomId) { // For the initial check, textualRoomId is sufficient to know if in a room
-      console.log('[Humongous Plugin] handleHumongousCommand: Not in a room, setting active to false.');
       active = false; // Ensure plugin is not active if not in a room
       return application.consoleMessage({
         message: 'Humongous: You must be in a room to use this plugin.',
@@ -28,7 +24,6 @@ module.exports = function ({ dispatch, application }) {
     }
 
     size = parseInt(parameters[0]) || 13;
-    console.log(`[Humongous Plugin] handleHumongousCommand: Parameters: ${parameters[0]}, Size set to: ${size}`);
   }
 
   /**
@@ -38,9 +33,6 @@ module.exports = function ({ dispatch, application }) {
    * @returns
    */
   const handleMovementUpdate = async ({ message }) => {
-    if (window.IS_DEV) {
-      console.log(`[Humongous Plugin] handleMovementUpdate: Called. Current active state: ${active}`);
-    }
     if (!active) return
 
     const textualRoomId = await dispatch.getState('room');

@@ -18,15 +18,15 @@ class LeakCheckService {
    * @param {Object} options.apiService - The API service for API operations
    * @param {Object} options.configModel - The config model for accessing configuration
    * @param {Object} options.stateModel - The state model for managing state
-   * @param {string} options.dataPath - The application data path
+   * @param {string} options.pluginStoragePath - The dedicated storage path for the plugin
    */
-  constructor({ application, fileService, apiService, configModel, stateModel, dataPath }) {
+  constructor({ application, fileService, apiService, configModel, stateModel, pluginStoragePath }) {
     this.application = application;
     this.fileService = fileService;
     this.apiService = apiService;
     this.configModel = configModel;
     this.stateModel = stateModel;
-    this.dataPath = dataPath;
+    this.pluginStoragePath = pluginStoragePath;
   }
 
   /**
@@ -140,10 +140,8 @@ class LeakCheckService {
           });
         }
 
-        // Get file paths using the utility and stored dataPath
-        const mainAppSettings = this.application.settings || { get: () => undefined }; // Graceful fallback
-        const customOutputDir = mainAppSettings.get('plugins.usernameLogger.outputDir'); // Corrected key
-        const paths = getFilePaths(this.dataPath, customOutputDir);
+        // Get file paths, which are now centralized in the plugin's storage directory.
+        const paths = getFilePaths(this.pluginStoragePath);
 
         // Read logged usernames from the collected usernames file
         const allUsernames = await this.fileService.readUsernamesFromLog(paths.collectedUsernamesPath);
@@ -697,7 +695,7 @@ class LeakCheckService {
   async _writeBatches(paths, processedBatch, foundGeneralBatch, foundAjcBatch, potentialBatch) {
     try {
       const writePromises = [];
-      
+
       if (processedBatch.length > 0) {
         const isDevMode = this._isDevMode();
         if (isDevMode) {
@@ -715,28 +713,29 @@ class LeakCheckService {
       
       if (foundGeneralBatch.length > 0) {
         writePromises.push(this.fileService.writeLinesToFile(
-          paths.foundAccountsPath, 
-          foundGeneralBatch, 
+          paths.foundAccountsPath,
+          foundGeneralBatch,
           true
         ));
       }
-      
+
       if (foundAjcBatch.length > 0) {
         writePromises.push(this.fileService.writeLinesToFile(
-          paths.ajcAccountsPath, 
-          foundAjcBatch, 
+          paths.ajcAccountsPath,
+          foundAjcBatch,
           true
         ));
       }
-      
+
       if (potentialBatch.length > 0) {
         writePromises.push(this.fileService.writeLinesToFile(
-          paths.potentialAccountsPath, 
-          potentialBatch, 
+          paths.potentialAccountsPath,
+          potentialBatch,
           true
         ));
       }
-      
+      // Logic for writing to working_accounts.txt has been removed.
+
       await Promise.all(writePromises);
     } catch (writeError) {
       this.application.consoleMessage({
