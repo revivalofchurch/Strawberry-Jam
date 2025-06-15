@@ -159,6 +159,11 @@
             /* Inherits from .icon-button-top-left */
             font-size: 16px; /* Slightly smaller for bug icon if needed */
           }
+
+          :host(.fullscreen-active) #report-problem-btn {
+            top: 52px; /* Position below settings button */
+            left: 10px; /* Align with settings button */
+          }
           
           #settings-panel {
             position: absolute;
@@ -853,10 +858,13 @@
       });
       window.ipc.on("screenChange", (event, state) => {
         const buttonTray = this.shadowRoot.getElementById("button-tray");
+        const hostElement = this.shadowRoot.host;
         if (state === "fullScreen" && globals.systemData.platform === "win32") {
           buttonTray.classList.remove("hidden");
+          hostElement.classList.add("fullscreen-active");
         } else {
           buttonTray.classList.add("hidden");
+          hostElement.classList.remove("fullscreen-active");
         }
       });
 

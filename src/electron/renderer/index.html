@@ -16,7 +16,7 @@
 <body class="bg-primary-bg text-sidebar-text h-screen flex font-sans">
   <!-- Sidebar -->
   <div id="sidebar"
-    class="w-64 h-full bg-sidebar-bg p-4 fixed top-0 left-0 transform -translate-x-full transition-transform duration-300 border-r border-sidebar-border z-30 flex flex-col shadow-lg">
+    class="w-64 h-full bg-sidebar-bg p-4 fixed top-0 left-0 transform translate-x-0 transition-transform duration-300 border-r border-sidebar-border z-30 flex flex-col shadow-lg">
 
     <!-- Main Navigation -->
     <div class="px-2 py-2">
@@ -112,13 +112,13 @@
   </div>
 
   <!-- Main Content -->
-  <div id="mainContent" class="flex-1 ml-0 transition-margin duration-300 flex flex-col bg-primary-bg">
+  <div id="mainContent" class="flex-1 ml-64 transition-margin duration-300 flex flex-col bg-primary-bg">
 
     <!-- Header -->
     <header id="header" class="flex items-center p-4 bg-secondary-bg border-b border-sidebar-border shadow relative">
       <div class="z-10">
         <button id="menuButton" class="text-lg text-sidebar-text focus:outline-none p-2 rounded hover:bg-tertiary-bg transition-colors">
-          <i id="menuIcon" class="fas fa-bars"></i>
+          <i id="menuIcon" class="fas fa-bars-staggered"></i>
         </button>
       </div>
       
