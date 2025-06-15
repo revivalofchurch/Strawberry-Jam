@@ -251,6 +251,7 @@ class Electron {
       width: 800,
       height: 600,
       frame: false,
+      icon: path.join(getAssetsPath(app), 'images', 'icon.png'), // Set the icon for plugin windows
       webPreferences: {
         ...defaultWindowOptions.webPreferences,
         devTools: true, 

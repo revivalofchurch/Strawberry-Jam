@@ -72,3 +72,12 @@
             *   **Targeted Tests:** Test specific TFD actions that were previously failing (e.g., entering TFD, collecting items, moving between TFD rooms).
             *   **Full Workflow Test:** Once individual packet issues seem resolved, test the entire TFD automation workflow supported by the plugin.
             *   **Monitor for Side Effects:** Ensure that fixes do not introduce new issues or break other functionalities.
+
+## Completed Tasks
+
+### 5. **Fix Plugin Window Icon [COMPLETED]**
+*   **Problem Description:** Plugin windows were displaying the default Electron icon instead of the custom Strawberry Jam icon (`assets/images/icon.png`).
+*   **Implementation:**
+    *   Modified `src/electron/index.js`.
+    *   In the `_handleOpenPluginWindow` method, added the `icon` property to the `BrowserWindow` options, setting its value to `path.join(getAssetsPath(app), 'images', 'icon.png')`.
+*   **Result:** Plugin windows now correctly display the Strawberry Jam icon, providing a consistent branding experience across all application windows.
