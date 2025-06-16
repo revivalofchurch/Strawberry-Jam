@@ -1,9 +1,0 @@
-{
-  "name": "TFD Automator",
-  "author": "Glockoma",
-  "version": "1.0.0",
-  "description": "Automates The Forgotten Desert adventure",
-  "type": "ui",
-  "tags": ["automation", "adventure", "tfd"],
-  "main": "index.html"
-}

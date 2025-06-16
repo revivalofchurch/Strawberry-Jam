@@ -21,7 +21,7 @@
     "oneClick": false,
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
-    "allowElevation": false,
+    "allowElevation": true,
     "include": "build/installer.nsh"
   },
   "files": [

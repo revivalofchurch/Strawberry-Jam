@@ -210,7 +210,7 @@ const checkServerStatus = async () => {
         } else if (result.accessStatus === 'blocked') {
           message = `AJ Servers are online but your access appears to be blocked. ${displayServer} (${result.statusCode})`;
           messageType = 'warn';
-        } else if (result.accessStatus === 'limited') {
+        } else if (result.accessStatus === 'limited' || result.statusCode === 503) {
           message = `AJ Servers are online but you appear to be rate limited. ${displayServer} (${result.statusCode})`;
           messageType = 'warn';
         } else {
@@ -260,6 +260,56 @@ const checkServerStatus = async () => {
 document.addEventListener('DOMContentLoaded', () => {
   serverStatus.isChecking = true;
   updateConnectionStatus(false);
+
+  // Copy Packet Logs functionality
+  const copyPacketLogsButton = document.getElementById('copyPacketLogsButton');
+  const messageLog = document.getElementById('message-log');
+
+  if (copyPacketLogsButton && messageLog) {
+    copyPacketLogsButton.addEventListener('click', async () => {
+      const originalButtonText = copyPacketLogsButton.innerHTML;
+      const originalButtonClasses = copyPacketLogsButton.className;
+
+      try {
+        let logsToCopy = [];
+        const logEntries = messageLog.querySelectorAll('div');
+
+        logEntries.forEach(entry => {
+          const isIncoming = entry.querySelector('.fa-arrow-down');
+          const isOutgoing = entry.querySelector('.fa-arrow-up');
+          const logText = entry.textContent.trim();
+
+          if (logText) {
+            if (isIncoming) {
+              logsToCopy.push(`In: ${logText}`);
+            } else if (isOutgoing) {
+              logsToCopy.push(`Out: ${logText}`);
+            } else {
+              logsToCopy.push(logText);
+            }
+          }
+        });
+
+        if (logsToCopy.length > 0) {
+          await navigator.clipboard.writeText(logsToCopy.join('\n'));
+          copyPacketLogsButton.innerHTML = '<i class="fas fa-check mr-1"></i>Copied!';
+          copyPacketLogsButton.className = 'bg-highlight-green text-white px-2 py-1 rounded text-xs transition min-w-[40px] ml-2';
+        } else {
+          copyPacketLogsButton.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i>No Logs';
+          copyPacketLogsButton.className = 'bg-error-red text-white px-2 py-1 rounded text-xs transition min-w-[40px] ml-2';
+        }
+      } catch (err) {
+        console.error('Failed to copy logs:', err);
+        copyPacketLogsButton.innerHTML = '<i class="fas fa-times mr-1"></i>Error';
+        copyPacketLogsButton.className = 'bg-error-red text-white px-2 py-1 rounded text-xs transition min-w-[40px] ml-2';
+      } finally {
+        setTimeout(() => {
+          copyPacketLogsButton.innerHTML = originalButtonText;
+          copyPacketLogsButton.className = originalButtonClasses;
+        }, 2000);
+      }
+    });
+  }
 })
 
 const initializeApp = async () => {

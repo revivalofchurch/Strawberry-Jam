@@ -2,6 +2,16 @@
 
 ## II. Medium
 
+### 1. **Fix LeakCheck API Key Error in Build Version [COMPLETED]**
+*   **Problem Description:** A valid LeakCheck API key failed with a generic "API error" in the build version but worked correctly in the development environment. This prevented users from using the `!leakcheck` command in the released application.
+*   **Implementation:**
+    *   **Initial Investigation:** Enabled detailed error logging in `plugins/UsernameLogger/services/api-service.js` to diagnose the issue in the build version.
+    *   **Root Cause Analysis:** The logs from the build revealed two key issues:
+        1.  `require('axios')` was failing, causing the `api-service` to fall back to the `fetch` API.
+        2.  The `fetch` call was failing with a `Failed to execute 'fetch' on 'Window': Illegal invocation` error. This was because `fetch` was being called with an incorrect `this` context.
+    *   **Final Fix:** Modified the `loadHttpClient` method in `plugins/UsernameLogger/services/api-service.js`. The `fetch` function is now explicitly bound to the `window` object (`fetch.bind(window)`) before being assigned as the HTTP client. This ensures `fetch` is always called with the correct context.
+*   **Result:** The "Illegal invocation" error is resolved. The `api-service` can now successfully use the `fetch` fallback in the build version to make API requests. The `!leakcheck` command is now fully functional in both development and build environments.
+
 3.  **Full-Den Screenshot Tool [RESEARCHED]:**
     *   Add an option to capture a single screenshot of the entire den, regardless of screen size or zoom level.
     *   Implement as a one-click action or a dedicated shortcut key to export the full den view.
@@ -47,37 +57,33 @@
             *   Register in `app.whenReady()`.
             *   Unregister in `app.on('will-quit')`.
 
-### 4. **Fix `tfd-automator` Plugin Packet Issues [RESEARCHED]**
-    *   **Problem Description:** The `tfd-automator` plugin is currently non-functional due to issues with network packet transmission. It is reportedly sending invalid packets, utilizing incorrect packet structures, and/or using erroneous room IDs. This prevents the plugin from interacting correctly with the game server.
-    *   **Investigation & Resolution Plan (Updated with Research Findings):**
-        1.  **Packet Analysis & Documentation Review:**
-            *   **Examine `plugins/tfd-automator/tfd-packets.json` and `packets.txt`:** Thoroughly review these files to understand the expected packet structures, types, and relevant data fields for The Forgotten Desert (TFD) feature. `packets.txt` is likely a definition or log of network packets, crucial for understanding the protocol.
-            *   **Cross-reference with Game Client (using Proxy Tools):** Utilize network proxy tools (e.g., Charles Proxy, Fiddler, Wireshark) to intercept and analyze legitimate TFD packet exchanges from the live game client. This is critical for comparing actual traffic with defined structures and plugin-generated packets. Pay attention to the underlying protocol (likely custom binary or AMF over RTMP).
-        2.  **`tfd-automator` Code Review (`plugins/tfd-automator/index.js`):**
-            *   **Packet Construction Logic:** Identify and meticulously review the functions or code blocks responsible for creating and serializing packets. Pay close attention to how data (room IDs, item IDs, coordinates, actions) is encoded into the packet format.
-            *   **Room ID Management:** Investigate how the plugin determines and uses Room IDs. Verify if it's correctly tracking the player's current room or the target room for TFD actions.
-            *   **State Management:** Analyze how the plugin manages its state related to TFD progression, and how this state influences packet generation.
-            *   **Error Handling:** Check if there's any error handling related to packet sending or server responses that might provide clues.
-        3.  **Debugging & Logging Implementation:**
-            *   **Enhanced Logging:** Modify `plugins/tfd-automator/index.js` to implement detailed logging of all outgoing packets. Log the raw packet data (e.g., as a hex string or byte array) just before it's sent. This will be visible in Electron's DevTools console.
-            *   **Contextual Logging:** Log relevant contextual information alongside packets, such as the intended action, current game state (as perceived by the plugin), and any parameters used for packet creation.
-        4.  **Packet Validation & Correction:**
-            *   **Compare Logged Packets:** Compare the logged packets from the plugin with the known-correct structures identified in step 1 (from `packets.txt`, `tfd-packets.json`, and proxy captures).
-            *   **Identify Discrepancies:** Pinpoint specific areas where the plugin's packets deviate (e.g., incorrect opcodes, field lengths, data types, byte order, room IDs).
-            *   **Iterative Refinement:**
-                *   Correct the packet construction logic in `plugins/tfd-automator/index.js` based on the identified discrepancies.
-                *   Test each correction by attempting the relevant TFD actions in-game and observing the new logged packets and server responses (if any).
-                *   Focus on one type of packet or one part of the structure at a time to isolate fixes.
-        5.  **Testing & Verification:**
-            *   **Targeted Tests:** Test specific TFD actions that were previously failing (e.g., entering TFD, collecting items, moving between TFD rooms).
-            *   **Full Workflow Test:** Once individual packet issues seem resolved, test the entire TFD automation workflow supported by the plugin.
-            *   **Monitor for Side Effects:** Ensure that fixes do not introduce new issues or break other functionalities.
+### 4. **Fix `tfd-automator` Plugin Packet Issues [COMPLETED]**
+*   **Problem Description:** The `tfd-automator` plugin was non-functional because it used hardcoded or incorrectly resolved user and room IDs, preventing it from working for any user other than the one whose data was captured in `packets.txt`. The logic for obtaining dynamic room and user information was not robust enough to handle the different types of IDs (textual vs. numeric) used by the game.
+*   **Implementation:**
+    *   Modified `plugins/tfd-automator/index.js` to overhaul the user and room ID acquisition logic.
+    *   **Refined `getCurrentUser()`:** The function was updated to prioritize `window.jam.dispatch.getState('player').username` to get the current player's actual username, ensuring consistency. It now falls back to extracting the username from den names or `drc` packets.
+    *   **Separated Room ID Functions:**
+        *   Created `getTextualRoomId()` to specifically retrieve textual room names (e.g., `denladyliya`).
+        *   Created `getNumericRoomId()` to specifically retrieve numeric room IDs (e.g., `1793945`), which is crucial for packet construction.
+    *   **Updated `initializePacketTemplates()`:** This function was modified to use the new `getTextualRoomId()` and `getNumericRoomId()` functions. This ensures that packets requiring both a numeric ID and a textual den name (like `qjc` and `qs`) are constructed correctly and dynamically for the current user.
+    *   **Improved `sendNextPacket()`:** The logic was updated to use the correct room ID type (numeric adventure ID vs. den ID) based on the current automation phase.
+*   **Result:** The `tfd-automator` plugin is now fully functional and works for any user in any den. The packet construction is now correctly based on dynamically and reliably acquired user and room information, resolving the issue of invalid packets and erroneous room IDs. The full automation cycle (joining, starting, collecting gems, claiming rewards, and leaving) now operates as intended.
 
 ## Completed Tasks
 
 ### 5. **Fix Plugin Window Icon [COMPLETED]**
-*   **Problem Description:** Plugin windows were displaying the default Electron icon instead of the custom Strawberry Jam icon (`assets/images/icon.png`).
+*   **Problem Description:** Plugin windows were displaying the ault Electron icon instead of the custom Strawberry Jam icon (`assets/images/icon.png`).
 *   **Implementation:**
     *   Modified `src/electron/index.js`.
     *   In the `_handleOpenPluginWindow` method, added the `icon` property to the `BrowserWindow` options, setting its value to `path.join(getAssetsPath(app), 'images', 'icon.png')`.
 *   **Result:** Plugin windows now correctly display the Strawberry Jam icon, providing a consistent branding experience across all application windows.
+
+### 6. **Fix Auto-Update Functionality [COMPLETED]**
+*   **Problem Description:** The auto-update mechanism was not functioning correctly due to a hardcoded feed URL in `src/electron/index.js`, which prevented `electron-updater` from using the correct configuration files (`dev-app-update.yml` for development and `electron-builder.json` for production). The startup logic also contained redundant update checks.
+*   **Implementation:**
+    *   Modified `src/electron/index.js` to refactor the `_initAutoUpdater` function.
+    *   **Removed Hardcoded URL:** Deleted the `autoUpdater.setFeedURL()` call to allow `electron-updater` to automatically detect the correct update source.
+    *   **Conditional Initialization:** Wrapped the updater logic in an `if (app.isPackaged)` block to ensure it only runs in the production environment.
+    *   **Improved Logging:** Added `console.log` and `console.error` statements to all `autoUpdater` event listeners to provide clear feedback in the main process logs.
+    *   **Streamlined Update Checks:** Replaced multiple `checkForUpdates()` calls with a single, robust `checkForUpdatesAndNotify()` call on a timer, simplifying the logic and preventing redundant checks.
+*   **Result:** The auto-update functionality is now correctly configured. It will use the appropriate settings for both development and production environments, and the main process logs will provide clear, actionable information regarding the update status.

@@ -224,7 +224,7 @@ class ApiService {
           });
           this._cachedHttpClient = { 
             isAxios: false,
-            client: fetch 
+            client: fetch.bind(window) 
           };
           return this._cachedHttpClient;
         } else {

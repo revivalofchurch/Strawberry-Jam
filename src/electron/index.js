@@ -580,77 +580,71 @@ class Electron {
   }
 
   _initAutoUpdater () {
-    autoUpdater.setFeedURL({
-      provider: 'github',
-      owner: 'glvckoma',
-      repo: 'Strawberry-Jam'
-    });
-    const enableAutoUpdates = this._store.get('updates.enableAutoUpdates', true);
-
-    autoUpdater.autoDownload = enableAutoUpdates; // Set based on setting
-    autoUpdater.allowDowngrade = true
-    autoUpdater.allowPrerelease = false
-
-    if (enableAutoUpdates) {
-      const checkInterval = 1000 * 60 * 5;
-      setTimeout(() => {
-        autoUpdater.checkForUpdates().catch(err => {
-          // Optionally send an IPC message to renderer about this specific error
-          if (this._window && this._window.webContents && !this._window.isDestroyed()) {
-            this._window.webContents.send('app-update-status', { status: 'error', message: `Scheduled update check failed: ${err.message}` });
-          }
-        });
-      }, 5000);
-      setInterval(() => {
-        autoUpdater.checkForUpdates().catch(err => {
-          if (this._window && this._window.webContents && !this._window.isDestroyed()) {
-            this._window.webContents.send('app-update-status', { status: 'error', message: `Scheduled update check failed: ${err.message}` });
-          }
-        });
-      }, checkInterval);
+    if (!app.isPackaged) {
+      console.log('[AutoUpdater] Skipping auto-updater initialization in development mode.');
+      return;
     }
+    
+    const enableAutoUpdates = this._store.get('updates.enableAutoUpdates', true);
+    autoUpdater.autoDownload = enableAutoUpdates;
+    autoUpdater.allowDowngrade = false;
+    autoUpdater.allowPrerelease = false;
 
     autoUpdater.on('checking-for-update', () => {
+      console.log('[AutoUpdater] Checking for update...');
       if (this.manualCheckInProgress && this._window && this._window.webContents && !this._window.isDestroyed()) {
         this._window.webContents.send('manual-update-check-status', { status: 'checking', message: 'Checking for updates...' });
       }
-      // Global toast via 'app-update-status' removed
-    })
+    });
 
     autoUpdater.on('update-not-available', (info) => {
+      console.log('[AutoUpdater] Update not available.');
       if (this.manualCheckInProgress && this._window && this._window.webContents && !this._window.isDestroyed()) {
         this._window.webContents.send('manual-update-check-status', { status: 'no-update', message: 'No new updates available.' });
-        this.manualCheckInProgress = false; // Reset flag
+        this.manualCheckInProgress = false;
       }
-      // Global toast via 'app-update-status' removed
-    })
+    });
 
     autoUpdater.on('error', (err) => {
+      console.error('[AutoUpdater] Error:', err.message);
       if (this.manualCheckInProgress && this._window && this._window.webContents && !this._window.isDestroyed()) {
         this._window.webContents.send('manual-update-check-status', { status: 'error', message: `Error checking for updates: ${err.message}` });
-        this.manualCheckInProgress = false; // Reset flag
+        this.manualCheckInProgress = false;
       }
-      // Global toast via 'app-update-status' removed
-    })
+    });
 
     autoUpdater.on('update-available', (info) => {
+      console.log(`[AutoUpdater] Update available: ${info.version}`);
       const messageText = autoUpdater.autoDownload
-        ? 'A new update is available. Downloading now...' // This will only happen if enableAutoUpdates is true
-        : 'A new update is available. Click "Update Now" to download.'; // For manual checks or if autoDownload is off
+        ? 'A new update is available. Downloading now...'
+        : 'A new update is available. Click "Update Now" to download.';
       if (this.manualCheckInProgress && this._window && this._window.webContents && !this._window.isDestroyed()) {
         this._window.webContents.send('manual-update-check-status', { status: 'available', message: messageText, version: info.version });
-        // Do not reset manualCheckInProgress here, wait for download or error
       }
-      // Global toast via 'app-update-status' removed
-    })
+    });
 
     autoUpdater.on('update-downloaded', (info) => {
+      console.log(`[AutoUpdater] Update downloaded: ${info.version}`);
       if (this.manualCheckInProgress && this._window && this._window.webContents && !this._window.isDestroyed()) {
         this._window.webContents.send('manual-update-check-status', { status: 'downloaded', message: 'Update downloaded. Click "Restart Now" to install.' });
-        this.manualCheckInProgress = false; // Reset flag
+        this.manualCheckInProgress = false;
       }
-      // Global toast via 'app-update-status' removed
-    })
+    });
+
+    if (enableAutoUpdates) {
+      const checkInterval = 1000 * 60 * 5; // 5 minutes
+      setTimeout(() => {
+        autoUpdater.checkForUpdatesAndNotify().catch(err => {
+          console.error('[AutoUpdater] Initial check failed:', err.message);
+        });
+      }, 5000); // Initial check after 5 seconds
+      
+      setInterval(() => {
+        autoUpdater.checkForUpdatesAndNotify().catch(err => {
+          console.error('[AutoUpdater] Scheduled check failed:', err.message);
+        });
+      }, checkInterval);
+    }
   }
 
   messageWindow (type, message = {}) {
@@ -823,17 +817,7 @@ class Electron {
     }
 
 
-    // Always initialize the auto-updater to set feed URL and listeners.
-    // _initAutoUpdater internally respects 'updates.enableAutoUpdates' for scheduling automatic checks.
     this._initAutoUpdater();
-
-    // Then, if performServerCheckOnLaunch is true, trigger an initial check.
-    const performServerCheckOnLaunch = this._store.get('ui.performServerCheckOnLaunch', true);
-    if (performServerCheckOnLaunch) {
-      autoUpdater.checkForUpdates().catch(err => {
-        // No global toast here. Console log is sufficient for background checks.
-      });
-    }
   }
 
   _handleAppMinimized() {
