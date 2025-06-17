@@ -345,6 +345,36 @@ function setupIpcHandlers(electronInstance) {
     }
   });
 
+  ipcMain.handle('get-open-plugin-windows', (event) => {
+    const openPluginNames = [];
+    if (electronInstance.pluginWindows) {
+      for (const [pluginName, window] of electronInstance.pluginWindows.entries()) {
+        if (window && !window.isDestroyed()) {
+          openPluginNames.push(pluginName);
+        }
+      }
+    }
+    return openPluginNames;
+  });
+
+  ipcMain.handle('close-plugin-windows', (event, pluginNames) => {
+    const closedWindows = [];
+    if (electronInstance.pluginWindows && Array.isArray(pluginNames)) {
+      for (const pluginName of pluginNames) {
+        const window = electronInstance.pluginWindows.get(pluginName);
+        if (window && !window.isDestroyed()) {
+          try {
+            window.close();
+            closedWindows.push(pluginName);
+          } catch (error) {
+            console.warn(`[IPC] Failed to close plugin window ${pluginName}:`, error);
+          }
+        }
+      }
+    }
+    return closedWindows;
+  });
+
   ipcMain.on('open-plugin-window', electronInstance._handleOpenPluginWindow.bind(electronInstance));
 
   ipcMain.handle('get-os-info', async () => {

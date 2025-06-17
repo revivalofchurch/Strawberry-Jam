@@ -576,6 +576,38 @@ const setupAppEvents = () => {
     .on('refresh:plugins', () => {
       application.refreshAutoComplete()
       application.attachNetworkingEvents()
+      
+      // Handle refresh animation completion
+      setTimeout(() => {
+        const pluginsSectionContent = document.getElementById("pluginsSectionContent");
+        const pluginList = document.getElementById("pluginList");
+        const refreshIcon = document.querySelector("#refreshPluginsSection i");
+        
+        if (pluginsSectionContent && pluginList && refreshIcon) {
+          // Stop refresh animations
+          pluginsSectionContent.classList.remove("plugins-refreshing", "refresh-shimmer");
+          refreshIcon.classList.remove("refresh-spinning");
+          
+          // Re-enable the refresh button
+          const refreshButton = document.getElementById("refreshPluginsSection");
+          if (refreshButton) {
+            refreshButton.disabled = false;
+          }
+          
+          // Animate new plugins in with staggered effect
+          const newPlugins = pluginList.querySelectorAll("li");
+          newPlugins.forEach((plugin, index) => {
+            plugin.classList.add("refreshing-fade-in");
+            plugin.style.animationDelay = `${index * 75}ms`;
+            
+            // Clean up animation classes after animation completes
+            setTimeout(() => {
+              plugin.classList.remove("refreshing-fade-in");
+              plugin.style.animationDelay = "";
+            }, 500 + (index * 75));
+          });
+        }
+      }, 100); // Small delay to ensure plugins are rendered
     })
 }
 

@@ -199,6 +199,32 @@ exports.render = function (app, data = {}) {
               </label>
             </div>
             <p class="mt-1 text-xs text-gray-400">If checked, game-specific plugins will not be shown in the sidebar or plugin lists.</p>
+            
+            <!-- Plugin Refresh Behavior -->
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-sync-alt mr-2 text-highlight-yellow"></i>Plugin Refresh Behavior
+              </h4>
+              <div>
+                <label for="pluginRefreshBehavior" class="block mb-2 text-sm font-medium text-text-primary">When refreshing plugins with open windows:</label>
+                <select id="pluginRefreshBehavior" class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-full">
+                  <option value="ask">Ask before closing windows</option>
+                  <option value="alwaysClose">Always close windows automatically</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-400">Plugin windows are always closed during refresh to prevent instability. This setting controls whether to ask for confirmation first.</p>
+              </div>
+              
+              <!-- Info Box -->
+              <div class="bg-tertiary-bg/30 p-3 rounded">
+                <div class="flex items-start">
+                  <i class="fas fa-info-circle text-highlight-yellow mt-0.5 mr-2"></i>
+                  <div>
+                    <p class="text-sm text-text-primary mb-2">Plugin windows are automatically closed during refresh</p>
+                    <p class="text-xs text-gray-400">This prevents instability since open windows would become disconnected from the refreshed plugin code.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <!-- End Plugins Tab Content -->
 
@@ -784,6 +810,7 @@ async function loadSettings ($modal, app) { // Made async
 
     // Plugin settings
     const hideGamePlugins = await ipcRenderer.invoke('get-setting', 'ui.hideGamePlugins');
+    const pluginRefreshBehavior = await ipcRenderer.invoke('get-setting', 'plugins.refreshBehavior');
 
     // LeakCheck settings
     // Using 'plugins.usernameLogger.apiKey' to align with main process Keytar storage
@@ -812,6 +839,7 @@ async function loadSettings ($modal, app) { // Made async
 
     // Populate Plugin settings
     $modal.find('#hideGamePlugins').prop('checked', hideGamePlugins === true); // Default to false if undefined
+    $modal.find('#pluginRefreshBehavior').val(pluginRefreshBehavior || 'ask'); // Default to 'ask' if undefined
 
     // Populate LeakCheck settings
     $modal.find('#leakCheckApiKey').val(leakCheckApiKey || '');
@@ -932,6 +960,7 @@ async function saveSettings ($modal, app) { // Made async
       { key: 'network.smartfoxServer', value: $modal.find('#advancedSmartfoxServer').val() },
       { key: 'network.secureConnection', value: $modal.find('#advancedSecureConnection').is(':checked') },
       { key: 'ui.hideGamePlugins', value: $modal.find('#hideGamePlugins').is(':checked') },
+      { key: 'plugins.refreshBehavior', value: $modal.find('#pluginRefreshBehavior').val() },
       // Using 'plugins.usernameLogger.apiKey' to align with main process Keytar storage
       { key: 'plugins.usernameLogger.apiKey', value: $modal.find('#leakCheckApiKey').val() },
       { key: 'plugins.usernameLogger.autoCheck.enabled', value: $modal.find('#leakCheckAutoCheck').is(':checked') }, // Corrected key

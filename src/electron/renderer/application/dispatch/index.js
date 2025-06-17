@@ -552,6 +552,22 @@ module.exports = class Dispatch {
   async refresh () {
     const { $pluginList, consoleMessage } = this._application
 
+    // Check for open plugin windows and warn user
+    const openPluginWindows = await this._getOpenPluginWindows()
+    if (openPluginWindows.length > 0) {
+      const shouldProceed = await this._handleOpenPluginWindows(openPluginWindows)
+      if (!shouldProceed) {
+        this._consoleMessage({
+          type: 'notify',
+          message: 'Plugin refresh cancelled by user.'
+        })
+        return
+      }
+    }
+
+    // Start refresh animation only after user confirms
+    this._startRefreshAnimation()
+
     $pluginList.empty()
 
     const pluginPaths = [...this.plugins.values()].map(({ filepath, configuration: { main } }) => ({
@@ -585,6 +601,161 @@ module.exports = class Dispatch {
       type: 'success',
       message: `Successfully refreshed ${this.plugins.size} plugins.`
     })
+  }
+
+  /**
+   * Gets list of currently open plugin windows
+   * @returns {Promise<string[]>} Array of open plugin names
+   * @private
+   */
+  async _getOpenPluginWindows() {
+    if (typeof require === "function") {
+      try {
+        const { ipcRenderer } = require('electron');
+        return await ipcRenderer.invoke('get-open-plugin-windows');
+      } catch (e) {
+        console.warn('[Dispatch] Could not get open plugin windows:', e);
+        return [];
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Handles open plugin windows during refresh
+   * @param {string[]} openWindows Array of open plugin names
+   * @returns {Promise<boolean>} Whether to proceed with refresh
+   * @private
+   */
+  async _handleOpenPluginWindows(openWindows) {
+    // Check user preference for handling open windows during refresh
+    const refreshBehavior = await this._application.settings.get('plugins.refreshBehavior', 'ask');
+    
+    if (refreshBehavior === 'alwaysClose') {
+      await this._closePluginWindows(openWindows);
+      this._consoleMessage({
+        type: 'notify',
+        message: `Automatically closed ${openWindows.length} plugin window(s) before refresh (user preference).`
+      });
+      return true;
+    }
+
+    // Default behavior: ask user
+    return new Promise((resolve) => {
+      const pluginNames = openWindows.join(', ');
+      const message = `The following plugins are currently open: ${pluginNames}\n\nPlugin windows will be closed before refreshing to prevent instability.\n\nDo you want to continue?`;
+      
+      // Create a custom modal for better UX
+      const modal = $(`
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="backdrop-filter: blur(5px);">
+          <div class="bg-gray-800 rounded-lg p-6 max-w-md mx-4 shadow-2xl border border-gray-600">
+            <div class="flex items-center mb-4">
+              <i class="fas fa-exclamation-triangle text-yellow-400 text-xl mr-3"></i>
+              <h3 class="text-lg font-semibold text-white">Open Plugin Windows Detected</h3>
+            </div>
+            <p class="text-gray-300 mb-6">${message.replace(/\n\n/g, '</p><p class="text-gray-300 mb-4">')}</p>
+            <div class="flex flex-col gap-2">
+              <button id="refresh-proceed" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors">
+                <i class="fas fa-sync-alt mr-2"></i>Proceed (Close Windows & Refresh)
+              </button>
+              <button id="refresh-cancel" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors">
+                <i class="fas fa-times mr-2"></i>Cancel
+              </button>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-600">
+              <label class="flex items-center text-sm text-gray-400">
+                <input type="checkbox" id="rememberChoice" class="mr-2">
+                Always close plugin windows without asking
+              </label>
+            </div>
+          </div>
+        </div>
+      `);
+
+      $('body').append(modal);
+
+      modal.find('#refresh-proceed').on('click', async () => {
+        const remember = modal.find('#rememberChoice').is(':checked');
+        modal.remove();
+        
+        if (remember) {
+          await this._application.settings.set('plugins.refreshBehavior', 'alwaysClose');
+          this._consoleMessage({
+            type: 'notify',
+            message: 'Preference saved: Will automatically close plugin windows during future refreshes.'
+          });
+        }
+        
+        await this._closePluginWindows(openWindows);
+        resolve(true);
+      });
+
+      modal.find('#refresh-cancel').on('click', () => {
+        modal.remove();
+        resolve(false);
+      });
+
+      // Close on backdrop click
+      modal.on('click', (e) => {
+        if (e.target === modal[0]) {
+          modal.remove();
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  /**
+   * Closes specified plugin windows
+   * @param {string[]} pluginNames Array of plugin names to close
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _closePluginWindows(pluginNames) {
+    if (typeof require === "function") {
+      try {
+        const { ipcRenderer } = require('electron');
+        await ipcRenderer.invoke('close-plugin-windows', pluginNames);
+        this._consoleMessage({
+          type: 'notify',
+          message: `Closed ${pluginNames.length} plugin window(s) before refresh.`
+        });
+      } catch (e) {
+        console.warn('[Dispatch] Could not close plugin windows:', e);
+        this._consoleMessage({
+          type: 'warning',
+          message: 'Could not close some plugin windows. They may become unstable after refresh.'
+        });
+      }
+    }
+  }
+
+  /**
+   * Starts the refresh animation
+   * @private
+   */
+  _startRefreshAnimation() {
+    const pluginsSectionContent = document.getElementById("pluginsSectionContent");
+    const pluginList = document.getElementById("pluginList");
+    const refreshButton = document.getElementById("refreshPluginsSection");
+    const refreshIcon = refreshButton?.querySelector("i");
+    
+    if (pluginsSectionContent && pluginList && refreshIcon && refreshButton) {
+      // Disable the refresh button during animation
+      refreshButton.disabled = true;
+      
+      // Add refreshing state classes
+      pluginsSectionContent.classList.add("plugins-refreshing", "refresh-shimmer");
+      refreshIcon.classList.add("refresh-spinning");
+      
+      // Animate existing plugins out
+      const existingPlugins = pluginList.querySelectorAll("li");
+      existingPlugins.forEach((plugin, index) => {
+        setTimeout(() => {
+          plugin.classList.add("refreshing-fade-out");
+        }, index * 50); // Stagger the fade-out
+      });
+    }
   }
 
   /**

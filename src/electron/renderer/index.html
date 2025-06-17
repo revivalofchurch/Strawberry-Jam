@@ -164,8 +164,8 @@
     </div>
 
     <!-- Tab Content -->
-    <div id="console" class="tab-content flex-1 p-4 overflow-auto">
-      <div id="messages" class="flex flex-col overflow-x-auto">
+    <div id="console" class="tab-content flex-1 p-4 overflow-hidden flex flex-col">
+      <div id="messages" class="flex flex-col overflow-auto flex-grow min-h-0">
         <!-- This is where the game client <webview> might be injected by JavaScript -->
         <!-- Or it might be part of a different view that's shown/hidden -->
       </div>
@@ -175,8 +175,8 @@
       <!-- Modal content will be dynamically inserted here -->
     </div>
 
-    <div id="packet-logging" class="tab-content flex-1 hidden w-full flex flex-col">
-      <div class="bg-secondary-bg p-2 border-b border-sidebar-border">
+    <div id="packet-logging" class="tab-content flex-1 hidden w-full flex flex-col overflow-hidden">
+      <div class="bg-secondary-bg p-2 border-b border-sidebar-border flex-shrink-0">
         <!-- Counter Row -->
         <div class="flex justify-between items-center mb-2">
           <div class="flex items-center space-x-3">
@@ -217,7 +217,7 @@
       </div>
 
       <!-- Scrollable Message Log -->
-      <div id="message-log" class="flex flex-col p-4 overflow-y-auto flex-grow"></div>
+      <div id="message-log" class="flex flex-col p-4 overflow-y-auto flex-grow min-h-0"></div>
     </div>
 
     <!-- Footer -->
@@ -440,6 +440,88 @@
     .plugin-focus-blink {
       animation: focus-blink 0.5s ease-in-out 2;
     }
+
+    /* Plugin Refresh Animations */
+    @keyframes refresh-fade-out {
+      0% { 
+        opacity: 1; 
+        transform: translateY(0) scale(1); 
+      }
+      100% { 
+        opacity: 0; 
+        transform: translateY(-10px) scale(0.95);
+      }
+    }
+
+    @keyframes refresh-fade-in {
+      0% { 
+        opacity: 0; 
+        transform: translateY(10px) scale(0.95); 
+      }
+      100% { 
+        opacity: 1; 
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes refresh-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes refresh-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .refreshing-fade-out {
+      animation: refresh-fade-out 0.4s ease-out forwards;
+    }
+
+    .refreshing-fade-in {
+      animation: refresh-fade-in 0.5s ease-out forwards;
+    }
+
+    .refresh-spinning {
+      animation: refresh-spin 1s linear infinite;
+    }
+
+    .refresh-shimmer {
+      background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(59, 130, 246, 0.15) 50%, 
+        transparent 100%);
+      background-size: 200% 100%;
+      animation: refresh-shimmer 1.5s ease-in-out infinite;
+    }
+
+    .plugins-refreshing #pluginList {
+      transition: all 0.4s ease-out;
+    }
+
+    .plugins-refreshing #pluginList li {
+      transition: all 0.3s ease-out;
+    }
+
+    /* Enhanced refresh button hover effect */
+    #refreshPluginsSection {
+      transition: all 0.2s ease-out;
+    }
+
+    #refreshPluginsSection:hover {
+      transform: scale(1.1);
+      color: #3b82f6 !important;
+    }
+
+    #refreshPluginsSection:active {
+      transform: scale(0.95);
+    }
+
+    /* Disabled state during refresh */
+    #refreshPluginsSection:disabled {
+      opacity: 0.6;
+      pointer-events: none;
+    }
   </style>
   <script>
     // REMOVED Vanilla JS fruit icon handler
@@ -481,6 +563,7 @@
       const pluginsRefresh = document.getElementById("refreshPluginsSection");
       if (pluginsRefresh) {
         pluginsRefresh.addEventListener("click", function () {
+          // Just call refresh - let the dispatch method handle animations
           if (window.jam && window.jam.application && window.jam.application.dispatch && typeof window.jam.application.dispatch.refresh === "function") {
             window.jam.application.dispatch.refresh();
           } else if (typeof jam !== "undefined" && jam.application && jam.application.dispatch && typeof jam.application.dispatch.refresh === "function") {

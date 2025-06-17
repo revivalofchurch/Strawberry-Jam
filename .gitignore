@@ -11,8 +11,6 @@ dev-app-update.yml
 *.swp
 .cursor/
 build/*
-src/data
-Next-up.md
-Future-ideas.md
 dev/*
 assets/flash/backups/*
+UsernameLogger/*
