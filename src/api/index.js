@@ -1,6 +1,8 @@
 const { urlencoded, json } = require('body-parser')
 const express = require('express')
 
+const FilesController = require('./controllers/FilesController')
+
 /**
  * Routes
  */
@@ -21,6 +23,13 @@ app.use(json())
  * Routers
  */
 app.use('/', ApiRouter)
+
+/**
+ * Initialize SWF backups on startup
+ */
+FilesController.initializeSwfBackups().catch(err => {
+  console.error('[API Server] Critical error during SWF backup initialization:', err)
+})
 
 /**
  * Express listen with error handling and async callback
