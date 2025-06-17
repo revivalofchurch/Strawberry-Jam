@@ -2,7 +2,7 @@
   <img src="assets/images/strawberry-jam.png" alt="Strawberry Jam Logo" width="200"/>
   <h1>Strawberry Jam</h1>
   <a href='https://discord.gg/a2y6bZnhB3'>
-    <img src="https://discord.com/api/guilds/1355727306177380392/widget.png?style=shield" alt="Discord" />
+    <img src="https://discord.com/api/guilds/1210352841059729508/widget.png?style=shield" alt="Discord" />
   </a>
 </div>
 

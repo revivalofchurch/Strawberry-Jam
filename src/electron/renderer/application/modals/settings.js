@@ -358,6 +358,43 @@ exports.render = function (app, data = {}) {
               </label>
             </div>
 
+            <!-- Game Client Settings -->
+            <h4 class="text-md font-semibold text-text-primary mb-3 mt-6">
+              <i class="fas fa-file-code mr-2"></i>Game Client
+            </h4>
+
+            <!-- SWF File Selection -->
+            <div>
+              <label for="selectedSwfFile" class="block mb-2 text-sm font-medium text-text-primary">
+                Active .swf Client
+              </label>
+              <select id="selectedSwfFile" class="bg-tertiary-bg text-text-primary focus:outline-none rounded px-3 py-2 w-full border border-sidebar-border">
+                <option value="ajclient.swf">Production Client (ajclient.swf)</option>
+                <option value="ajclientdev.swf">Development Client (ajclientdev.swf)</option>
+              </select>
+              <p class="mt-1 text-xs text-gray-400">Select which .swf file to serve for game sessions. Requires restarting the game to take effect.</p>
+            </div>
+
+            <!-- SWF File Info Display -->
+            <div id="swfFileInfo" class="mt-3 py-2 px-3 bg-tertiary-bg/30 rounded">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-sm font-medium text-text-primary">Current File:</span>
+                <span id="currentSwfName" class="text-sm text-highlight-yellow">ajclient.swf</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-400">Size:</span>
+                <span id="currentSwfSize" class="text-xs text-gray-400">Calculating...</span>
+              </div>
+            </div>
+
+            <!-- Refresh SWF List Button -->
+            <div class="mt-3">
+              <button type="button" id="refreshSwfListBtn" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+                <i class="fas fa-sync-alt mr-2"></i>Refresh Available Files
+              </button>
+              <p class="mt-1 text-xs text-gray-400">Scan the flash directory for new .swf files</p>
+            </div>
+
             <h4 class="text-md font-semibold text-red-500 mt-6 mb-3">
               <i class="fas fa-exclamation-triangle mr-2"></i>Danger Zone
             </h4>
@@ -630,6 +667,41 @@ function setupEventHandlers ($modal, app) {
   });
   // --- End Tab Switching Logic ---
 
+  // --- SWF File Selection Handlers ---
+  $modal.find('#selectedSwfFile').on('change', function() {
+    const selectedFile = $(this).val();
+    const $currentName = $modal.find('#currentSwfName');
+    const $currentSize = $modal.find('#currentSwfSize');
+    
+    // Update current file display
+    $currentName.text(selectedFile);
+    $currentSize.text('Updating...');
+    
+    // Update file size info
+    updateSwfFileInfo($modal, selectedFile);
+  });
+
+  $modal.find('#refreshSwfListBtn').on('click', async function() {
+    const $button = $(this);
+    const originalText = $button.html();
+    
+    // Show loading state
+    $button.html('<i class="fas fa-spinner fa-spin mr-2"></i>Refreshing...').prop('disabled', true);
+    
+    try {
+      const currentSelection = $modal.find('#selectedSwfFile').val();
+      await loadSwfFileSettings($modal, currentSelection);
+      showToast('SWF file list refreshed successfully!', 'success');
+    } catch (error) {
+      console.error('Error refreshing SWF files:', error);
+      showToast('Error refreshing SWF files', 'error');
+    } finally {
+      // Restore button state
+      $button.html(originalText).prop('disabled', false);
+    }
+  });
+  // --- End SWF File Selection Handlers ---
+
   // --- LeakCheck Threshold Visibility ---
   const toggleThresholdVisibility = () => {
    if ($leakCheckAutoCheck.is(':checked')) {
@@ -741,11 +813,11 @@ function setupEventHandlers ($modal, app) {
   ipcRenderer.on('manual-update-check-status', (event, { status, message, version }) => {
     switch (status) {
       case 'checking':
-        $manualUpdateStatusText.text(message || 'Checking for updates...').removeClass('text-green-400 text-red-400').addClass('text-yellow-400');
+        $manualUpdateStatusText.text(message || 'Checking for updates...').removeClass('text-yellow-400 text-red-400').addClass('text-green-400');
         $checkForUpdatesBtn.html('<i class="fas fa-spinner fa-spin mr-2"></i>Checking...').prop('disabled', true);
         break;
       case 'no-update':
-        $manualUpdateStatusText.text(message || 'No new updates available.').removeClass('text-yellow-400 text-red-400').addClass('text-green-400');
+        $manualUpdateStatusText.text(message || 'No new updates available.').removeClass('text-green-400 text-red-400').addClass('text-yellow-400');
         $checkForUpdatesBtn.html('<i class="fas fa-search mr-2"></i>Check for Updates').prop('disabled', false);
         break;
       case 'available':
@@ -785,6 +857,105 @@ function setupEventHandlers ($modal, app) {
 
 }
 
+
+/**
+ * Load SWF file settings and populate the dropdown
+ * @param {JQuery<HTMLElement>} $modal - The modal element
+ * @param {string} selectedFile - The currently selected SWF file from settings
+ */
+async function loadSwfFileSettings($modal, selectedFile) {
+  const $dropdown = $modal.find('#selectedSwfFile');
+  const $currentName = $modal.find('#currentSwfName');
+  const $currentSize = $modal.find('#currentSwfSize');
+
+  try {
+    // Get available SWF files via IPC
+    const swfFiles = await ipcRenderer.invoke('get-swf-files');
+    
+    // Get current active file info
+    const activeInfo = await ipcRenderer.invoke('get-active-swf-info');
+
+    // Clear existing options
+    $dropdown.empty();
+
+    // Populate dropdown with available files
+    swfFiles.forEach(file => {
+      const option = new Option(file.displayName, file.filename);
+      option.selected = file.filename === selectedFile;
+      $dropdown.append(option);
+    });
+
+    // Update current file info based on detected active file
+    if (activeInfo && activeInfo.active) {
+      $currentName.text(`${activeInfo.active} ${activeInfo.hasBackup ? '(using backup)' : ''}`);
+      $currentSize.text(formatBytes(activeInfo.size));
+      
+      // Update dropdown selection to match detected active file
+      $dropdown.val(activeInfo.active);
+    } else {
+      const currentFile = swfFiles.find(f => f.filename === selectedFile);
+      if (currentFile) {
+        $currentName.text(currentFile.filename);
+        $currentSize.text(formatBytes(currentFile.size));
+      } else {
+        $currentName.text(selectedFile);
+        $currentSize.text('Unknown');
+      }
+    }
+
+  } catch (error) {
+    console.error('Error loading SWF files:', error);
+    // Fallback to default options
+    $dropdown.html(`
+      <option value="ajclient.swf">Production Client (ajclient.swf)</option>
+      <option value="ajclientdev.swf">Development Client (ajclientdev.swf)</option>
+    `);
+    $dropdown.val(selectedFile);
+    $currentName.text(selectedFile);
+    $currentSize.text('Error loading');
+  }
+}
+
+/**
+ * Update SWF file info display
+ * @param {JQuery<HTMLElement>} $modal - The modal element
+ * @param {string} filename - The selected filename
+ */
+async function updateSwfFileInfo($modal, filename) {
+  const $currentSize = $modal.find('#currentSwfSize');
+  
+  try {
+    const swfFiles = await ipcRenderer.invoke('get-swf-files');
+    const fileInfo = swfFiles.find(f => f.filename === filename);
+    
+    if (fileInfo) {
+      $currentSize.text(formatBytes(fileInfo.size));
+    } else {
+      $currentSize.text('Unknown');
+    }
+  } catch (error) {
+    console.error('Error updating SWF file info:', error);
+    $currentSize.text('Error loading');
+  }
+}
+
+/**
+ * Format bytes to human readable format
+ * @param {number} bytes - The number of bytes
+ * @param {number} decimals - Number of decimal places
+ * @returns {string} Formatted string
+ */
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
 
 /**
  * Load settings into the UI
@@ -833,9 +1004,15 @@ async function loadSettings ($modal, app) { // Made async
     // Auto Update setting
     const enableAutoUpdates = await ipcRenderer.invoke('get-setting', 'updates.enableAutoUpdates');
 
+    // Game client settings
+    const selectedSwfFile = await ipcRenderer.invoke('get-setting', 'game.selectedSwfFile');
+
     // Populate form fields (moved server settings to advanced tab)
     $modal.find('#advancedSmartfoxServer').val(smartfoxServer || '');
     $modal.find('#advancedSecureConnection').prop('checked', secureConnection === true); // Default to false if undefined
+
+    // Populate SWF file settings
+    await loadSwfFileSettings($modal, selectedSwfFile || 'ajclient.swf');
 
     // Populate Plugin settings
     $modal.find('#hideGamePlugins').prop('checked', hideGamePlugins === true); // Default to false if undefined
@@ -980,7 +1157,10 @@ async function saveSettings ($modal, app) { // Made async
       { key: 'dev-log.performServerCheckOnLaunch', value: $modal.find('#performServerCheckOnLaunchToggle').is(':checked') },
 
       // Auto Update setting
-      { key: 'updates.enableAutoUpdates', value: $modal.find('#enableAutoUpdatesToggle').is(':checked') }
+      { key: 'updates.enableAutoUpdates', value: $modal.find('#enableAutoUpdatesToggle').is(':checked') },
+
+      // Game client settings
+      { key: 'game.selectedSwfFile', value: $modal.find('#selectedSwfFile').val() }
     ];
 
     // Step 1: Update the app.settings renderer cache for each setting.
@@ -999,7 +1179,25 @@ async function saveSettings ($modal, app) { // Made async
     // which saves the now up-to-date renderer cache to the main store.
     if (app && app.dispatch && typeof app.dispatch.notifyPluginsOfSettingsUpdate === 'function') {
       await app.dispatch.notifyPluginsOfSettingsUpdate(); // Ensure this is awaited
-      showToast('Settings saved successfully!', 'success');
+      
+      // Step 3: Handle SWF file replacement after settings are saved
+      const selectedSwfFile = $modal.find('#selectedSwfFile').val();
+      if (selectedSwfFile) {
+        try {
+          const result = await ipcRenderer.invoke('replace-swf-file', selectedSwfFile);
+          if (result.success) {
+            showToast(`Settings saved! ${result.message}`, 'success');
+          } else {
+            showToast(`Settings saved, but SWF switch failed: ${result.error}`, 'warning');
+          }
+        } catch (error) {
+          console.error('Error switching SWF file:', error);
+          showToast('Settings saved, but error switching SWF file', 'warning');
+        }
+      } else {
+        showToast('Settings saved successfully!', 'success');
+      }
+      
       app.modals.close();
     } else {
       console.warn('[Settings Save] Could not notify plugins of settings update: app.dispatch.notifyPluginsOfSettingsUpdate is not a function. Settings are cached locally and will attempt to save via debounce.');

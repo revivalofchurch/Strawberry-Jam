@@ -140,11 +140,45 @@ function setupIpcHandlers(electronInstance) {
         return { success: true };
       }
       electronInstance._store.set(key, value);
+      
       return { success: true };
     } catch (error) {
       if (isDevelopment) {
       }
       return { success: false, error: error.message };
+    }
+  });
+
+  // IPC handler for getting SWF files information
+  ipcMain.handle('get-swf-files', async (event) => {
+    try {
+      const FilesController = require('../api/controllers/FilesController');
+      return FilesController.getSwfFileInfo();
+    } catch (error) {
+      console.error('Error getting SWF files information:', error);
+      return [];
+    }
+  });
+
+  // IPC handler for replacing SWF files
+  ipcMain.handle('replace-swf-file', async (event, selectedFile) => {
+    try {
+      const FilesController = require('../api/controllers/FilesController');
+      return await FilesController.replaceSwfFile(selectedFile);
+    } catch (error) {
+      console.error('Error replacing SWF file:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // IPC handler for getting active SWF info
+  ipcMain.handle('get-active-swf-info', async (event) => {
+    try {
+      const FilesController = require('../api/controllers/FilesController');
+      return FilesController.getActiveSwfInfo();
+    } catch (error) {
+      console.error('Error getting active SWF info:', error);
+      return { active: null, hasBackup: false, error: error.message };
     }
   });
 

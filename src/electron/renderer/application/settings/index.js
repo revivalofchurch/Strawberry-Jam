@@ -17,6 +17,9 @@ const DEFAULT_SETTINGS = {
   // Update settings
   'updates.enableAutoUpdates': true,
 
+  // Game client settings
+  'game.selectedSwfFile': 'ajclient.swf',
+
   // UsernameLogger and LeakCheck specific settings
   'leakCheck.enableLogging': true,
   'leakCheck.autoLeakCheck': false,
@@ -60,6 +63,8 @@ module.exports = class Settings {
         { key: 'ui.hideGamePlugins', defaultValue: DEFAULT_SETTINGS['ui.hideGamePlugins'] },
         { key: 'ui.performServerCheckOnLaunch', defaultValue: DEFAULT_SETTINGS['ui.performServerCheckOnLaunch'] },
         { key: 'updates.enableAutoUpdates', defaultValue: DEFAULT_SETTINGS['updates.enableAutoUpdates'] },
+        // Game client settings
+        { key: 'game.selectedSwfFile', defaultValue: DEFAULT_SETTINGS['game.selectedSwfFile'] },
         // Added UsernameLogger and LeakCheck settings
         { key: 'leakCheck.enableLogging', defaultValue: DEFAULT_SETTINGS['leakCheck.enableLogging'] },
         { key: 'leakCheck.autoLeakCheck', defaultValue: DEFAULT_SETTINGS['leakCheck.autoLeakCheck'] },
