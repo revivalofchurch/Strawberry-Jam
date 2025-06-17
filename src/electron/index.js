@@ -749,8 +749,44 @@ class Electron {
       this._window = null;
     });
 
-    // Note: Data directory and username files are now managed by the UsernameLogger plugin
-    // Legacy file creation code has been removed since migration to centralized plugin storage
+    try {
+      const dataPath = getDataPath(app);
+      await fsPromises.mkdir(dataPath, { recursive: true });
+    } catch (error) {
+      dialog.showErrorBox('Startup Error', `Failed to create base data directory. Some features might not work correctly.\n\nError: ${error.message}`);
+    }    if (app.isPackaged) {
+      const dataPath = getDataPath(app);
+      const filesToEnsure = [
+        'working_accounts.txt',
+        'collected_usernames.txt',
+        'processed_usernames.txt',
+        'potential_accounts.txt',
+        'found_accounts.txt',
+        'ajc_accounts.txt'
+      ];
+
+      try {
+        await fsPromises.mkdir(dataPath, { recursive: true });
+
+        // Create all files in parallel for better performance
+        const fileCreationPromises = filesToEnsure.map(async (filename) => {
+          const filePath = path.join(dataPath, filename);
+          try {
+            await fsPromises.access(filePath);
+          } catch (accessError) {
+            if (accessError.code === 'ENOENT') {
+              await fsPromises.writeFile(filePath, '', 'utf-8');
+            } else {
+            }
+          }
+        });
+
+        // Wait for all file operations to complete, but with a timeout
+        await Promise.all(fileCreationPromises).catch((error) => {
+        });
+      } catch (error) {
+        dialog.showErrorBox('Startup Error', `Failed to create necessary data files in ${dataPath}. Some features might not work correctly.\n\nError: ${error.message}`);
+      }    }
     
     // Fork API process with timeout and error handling
     try {
