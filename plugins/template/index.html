@@ -5,16 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plugin Template</title>
   <!-- Base Styles -->
-  <script>
-    document.write(`<link href="${window.assetsPath}/css/style.css" rel="stylesheet">`);
-  </script>
+  <link href="app://assets/css/style.css" rel="stylesheet">
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <!-- jQuery (required for most plugins) -->
-  <script>
-    window.jQuery = window.$ = require('jquery');
-    document.write(`<script src="${window.assetsPath}/javascript/jquery-ui.js"><\/script>`);
-  </script>
+  <script>window.jQuery = window.$ = require('jquery');</script>
+  <script src="app://assets/javascript/jquery-ui.js"></script>
 </head>
 <body class="bg-primary-bg text-text-primary p-0 h-screen flex flex-col overflow-hidden">
   <!-- Standardized Draggable Header -->
@@ -58,9 +54,7 @@
   </div>
 
   <!-- Import Plugin Utilities -->
-  <script>
-    document.write(`<script src="${window.assetsPath}/javascript/plugin-utils.js"><\/script>`);
-  </script>
+  <script src="app://assets/javascript/plugin-utils.js"></script>
   <!-- Plugin Specific Script -->
   <script src="index.js"></script>
   <!-- Initialize Standardized UI -->
