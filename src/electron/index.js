@@ -1,4 +1,5 @@
 const { app, BrowserWindow, globalShortcut, shell, ipcMain, protocol, net, dialog, session } = require('electron');
+const { pathToFileURL } = require('url');
 const path = require('path');
 const fs = require('fs'); // Changed to import standard fs module
 const fsPromises = fs.promises; // Alias for promises API
@@ -513,7 +514,7 @@ class Electron {
           filePath = path.normalize(`${__dirname}/../../${url}`);
         }
       
-        return net.fetch(`file://${filePath}`);
+        return net.fetch(pathToFileURL(filePath).href);
       });
 
       // Call _onReady which will now also register the IPC handler
