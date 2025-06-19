@@ -23,6 +23,10 @@ exports.render = function (app) {
     {
       url: 'https://api.github.com/repos/Sxip/plugins/contents/', // Updated URL for Sxip's plugins repo
       repo: 'original-jam' // Keep internal repo name for logic consistency
+    },
+    {
+      url: 'https://api.github.com/repos/Secretmimi/plugins-jam/contents/plugins',
+      repo: 'nosmile'
     }
   ];
   const LOCAL_PLUGINS_DIR = path.resolve('plugins/')
@@ -574,9 +578,11 @@ exports.render = function (app) {
       let pluginJsonUrl;
       if (plugin.sourceRepo === 'strawberry-jam') {
         pluginJsonUrl = `https://api.github.com/repos/glvckoma/strawberry-jam/contents/plugins/${plugin.name}/plugin.json`;
-      } else {
+      } else if (plugin.sourceRepo === 'original-jam') {
         // Use the updated base URL for Sxip's plugins
         pluginJsonUrl = `https://api.github.com/repos/Sxip/plugins/contents/${plugin.name}/plugin.json`;
+      } else {
+        pluginJsonUrl = `https://api.github.com/repos/Secretmimi/plugins-jam/contents/plugins/${plugin.name}/plugin.json`;
       }
       
       const response = await fetch(pluginJsonUrl)
@@ -587,7 +593,7 @@ exports.render = function (app) {
         const metadata = JSON.parse(content)
 
         if (!metadata.author) {
-          metadata.author = plugin.sourceRepo === 'strawberry-jam' ? 'Strawberry Jam' : 'Sxip'
+          metadata.author = plugin.sourceRepo === 'strawberry-jam' ? 'Strawberry Jam' : (plugin.sourceRepo === 'original-jam' ? 'Sxip' : 'nosmile')
         }
 
         cachePluginMetadata(plugin.sourceRepo, plugin.name, metadata)
@@ -598,8 +604,8 @@ exports.render = function (app) {
       if (response.status === 404) {
         const defaultMetadata = {
           name: plugin.name,
-          description: plugin.sourceRepo === 'strawberry-jam' ? 'A plugin for Strawberry Jam' : 'A plugin for Jam',
-          author: plugin.sourceRepo === 'strawberry-jam' ? 'Strawberry Jam' : 'Sxip'
+          description: plugin.sourceRepo === 'strawberry-jam' ? 'A plugin for Strawberry Jam' : (plugin.sourceRepo === 'original-jam' ? 'A plugin for Jam' : 'A plugin from an external contributor'),
+          author: plugin.sourceRepo === 'strawberry-jam' ? 'Strawberry Jam' : (plugin.sourceRepo === 'original-jam' ? 'Sxip' : 'nosmile')
         };
         
         // Cache the default metadata to avoid repeated 404s
@@ -614,8 +620,8 @@ exports.render = function (app) {
       // Return default metadata for any errors
       return {
         name: plugin.name,
-        description: plugin.sourceRepo === 'strawberry-jam' ? 'A plugin for Strawberry Jam' : 'A plugin for Jam',
-        author: plugin.sourceRepo === 'strawberry-jam' ? 'Strawberry Jam' : 'Sxip'
+        description: plugin.sourceRepo === 'strawberry-jam' ? 'A plugin for Strawberry Jam' : (plugin.sourceRepo === 'original-jam' ? 'A plugin for Jam' : 'A plugin from an external contributor'),
+        author: plugin.sourceRepo === 'strawberry-jam' ? 'Strawberry Jam' : (plugin.sourceRepo === 'original-jam' ? 'Sxip' : 'nosmile')
       }
     }
   }
@@ -950,10 +956,14 @@ exports.render = function (app) {
           // Reduced padding px-1.5 py-0.5
           badgeHtml = `<span class="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-highlight-green/20 text-highlight-green">Strawberry Jam</span>`;
           warningHtml = '';
-        } else {
+        } else if (plugin.sourceRepo === 'original-jam') {
           iconHtml = `<img src="app://assets/images/jam.png" alt="Original Jam" class="w-6 h-6 mr-2" style="display:inline-block;vertical-align:middle;">`;
           // Reduced padding px-1.5 py-0.5
           badgeHtml = `<span class="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-gray-500/20 text-gray-400">Original Jam <i class="fas fa-exclamation-triangle text-error-red ml-1"></i></span>`;
+          warningHtml = `<div class="mt-2 text-xs text-error-red flex items-center"><i class="fas fa-exclamation-circle mr-1"></i>May not be fully compatible with Strawberry Jam</div>`;
+        } else {
+          iconHtml = `<img src="app://assets/images/nosmile.jpg" alt="nosmile" class="w-6 h-6 mr-2 rounded-full" style="display:inline-block;vertical-align:middle;">`;
+          badgeHtml = `<span class="ml-2 px-1.5 py-0.5 text-xs rounded-full" style="background-color: #ff0080; color: #ffffff;">Contributor</span>`;
           warningHtml = `<div class="mt-2 text-xs text-error-red flex items-center"><i class="fas fa-exclamation-circle mr-1"></i>May not be fully compatible with Strawberry Jam</div>`;
         }
 
@@ -987,7 +997,7 @@ exports.render = function (app) {
             
             <div class="mt-3 mb-4">
               <p class="text-gray-400 text-sm">
-                ${metadata.description || (plugin.sourceRepo === 'strawberry-jam' ? 'A plugin for Strawberry Jam' : 'A plugin for Jam')}
+                ${metadata.description || (plugin.sourceRepo === 'strawberry-jam' ? 'A plugin for Strawberry Jam' : (plugin.sourceRepo === 'original-jam' ? 'A plugin for Jam' : 'A plugin from an external contributor'))}
               </p>
               ${warningHtml}
             </div>

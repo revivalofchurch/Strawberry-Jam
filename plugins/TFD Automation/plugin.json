@@ -3,5 +3,8 @@
   "description": "Automates The Forgotten Desert (TFD) quest creation, gem collection, reward collection, and quest exit.",
   "main": "index.html",
   "author": "Glockoma",
-  "type": "ui"
+  "type": "ui",
+  "tags": [
+    "beta"
+  ]
 }
