@@ -1,5 +1,13 @@
 # Future Ideas & Tasks
 
+### 1. **Investigate GitHub Implementation in Plugin Library [COMPLETED]**
+*   **Problem Description:** The "Add Repository" button was not visible in the GitHub tab of the plugin library, leading to the assumption that the feature was missing from the UI.
+*   **Implementation:**
+    *   **Initial Investigation:** Reviewed `src/electron/renderer/application/modals/plugins.js` and confirmed that the "Add Repository" button (`#addGithubRepoBtn`) and its container (`#githubPluginDetails`) were present in the code but initially hidden.
+    *   **Root Cause Analysis:** The UI logic was designed to reveal the "Add Repository" button only after a user entered a URL and clicked the "Fetch" button. However, the jQuery `fadeOut`/`fadeIn` animation used to switch between the search bar and the GitHub input field was conflicting with Tailwind's `hidden` class, preventing the input field from appearing when the GitHub tab was selected.
+    *   **Final Fix:** Replaced the jQuery animation with a direct class manipulation. The code was updated to use `addClass('hidden')` and `removeClass('hidden')` to toggle the visibility of the search and GitHub input containers. This ensures the GitHub input field is reliably displayed when its tab is active.
+*   **Result:** The GitHub input field now correctly appears when the "GitHub" tab is selected. The "Add Repository" button is now accessible after fetching a repository, and the entire feature is fully functional as intended.
+
 ## II. Medium
 
 ### 1. **Fix LeakCheck API Key Error in Build Version [COMPLETED]**

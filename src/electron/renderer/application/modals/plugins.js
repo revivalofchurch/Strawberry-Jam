@@ -191,13 +191,11 @@ exports.render = function (app) {
     
     // Show/hide search or github input based on active tab
     if (activeTab === 'github') {
-      $modal.find('#search-container').fadeOut(150, function() {
-        $modal.find('#github-input-container').fadeIn(150);
-      });
+      $modal.find('#search-container').addClass('hidden')
+      $modal.find('#github-input-container').removeClass('hidden')
     } else {
-      $modal.find('#github-input-container').fadeOut(150, function() {
-        $modal.find('#search-container').fadeIn(150);
-      });
+      $modal.find('#github-input-container').addClass('hidden')
+      $modal.find('#search-container').removeClass('hidden')
     }
     
     // Show/hide tab-specific footer elements with fade
