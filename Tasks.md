@@ -55,6 +55,14 @@
     *   Modified `src/electron/renderer/application/modals/plugins.js` to call `app.dispatch.refresh()` after a successful plugin installation.
 *   **Result:** The plugin list now automatically refreshes after a new plugin is installed, providing a more seamless user experience.
 
+### 5. **Fix Plugin Asset Paths [COMPLETED]**
+*   **Problem Description:** After fixing the plugin installation and loading paths, plugins were still failing to load their assets (CSS, JS) because they were using relative paths.
+*   **Implementation:**
+    *   **Investigation:** Inspected the `index.html` files of all UI-based plugins.
+    *   **Root Cause Analysis:** The plugins were using relative paths (e.g., `../../assets/css/style.css`) to reference shared assets. These paths were broken when the plugins were loaded from the `appdata` directory.
+    *   **Final Fix:** Modified the `index.html` files for all affected plugins to use the absolute `app://` protocol (e.g., `app://assets/css/style.css`). This ensures that plugins can always find their required assets, regardless of their installation location.
+*   **Result:** All plugins now correctly load their assets, resolving the `net::ERR_FILE_NOT_FOUND` errors and allowing them to function correctly in production builds.
+
 3.  **Full-Den Screenshot Tool [RESEARCHED]:**
     *   Add an option to capture a single screenshot of the entire den, regardless of screen size or zoom level.
     *   Implement as a one-click action or a dedicated shortcut key to export the full den view.
