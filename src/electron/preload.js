@@ -181,6 +181,33 @@ try {
       });
     };
   }
+
+  // Expose file system and notification functions
+  window.jam.readJsonFile = async function(filePath, defaultValue = null) {
+    try {
+      return await ipcRenderer.invoke('read-json-file', filePath, defaultValue);
+    } catch (e) {
+      console.error(`[Preload] Error reading JSON file '${filePath}':`, e);
+      return defaultValue;
+    }
+  };
+
+  window.jam.writeJsonFile = async function(filePath, data) {
+    try {
+      return await ipcRenderer.invoke('write-json-file', filePath, data);
+    } catch (e) {
+      console.error(`[Preload] Error writing JSON file '${filePath}':`, e);
+      return false;
+    }
+  };
+
+  window.jam.showToast = function(message, type = 'info') {
+    try {
+      ipcRenderer.send('show-toast', { message, type });
+    } catch (e) {
+      console.error(`[Preload] Error showing toast:`, e);
+    }
+  };
 } catch (e) {
   console.error("[Preload] Error setting up window.jam.dispatch for UI plugins:", e);
 }

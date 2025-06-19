@@ -27,6 +27,7 @@ const loopMode = document.getElementById('loopMode');
 const educationalModal = document.getElementById('educationalModal');
 const closeModal = document.getElementById('closeModal');
 const startAutomationFromModal = document.getElementById('startAutomationFromModal');
+const infoButton = document.getElementById('infoButton');
 
 // State Variables
 let isAutomationRunning = false;
@@ -207,12 +208,11 @@ async function getPlayerSfsUserId() {
             console.log(`[TFD Automation] Dynamically retrieved playerSfsUserId: ${userId}`);
             return userId;
         }
+        throw new Error('Could not retrieve player ID.');
     } catch (e) {
-        console.error('[TFD Automation] Error getting dynamic userId, falling back to placeholder.', e);
+        console.error('[TFD Automation] Error getting dynamic userId.', e);
+        throw new Error('Could not retrieve player ID.');
     }
-    const placeholderId = 1119652; // Fallback placeholder
-    updateStatus(`Warning: Could not get dynamic player ID. Using placeholder: ${placeholderId}`, 'warning');
-    return placeholderId;
 }
 
 // Function to get randomized delay for gem packets
@@ -536,19 +536,11 @@ function hideModal() {
     }
 }
 
-// Check if user has seen the modal before
-function checkFirstTime() {
-    const hasSeenModal = localStorage.getItem('tfd_automation_modal_seen');
-    if (!hasSeenModal) {
-        showModal();
-        localStorage.setItem('tfd_automation_modal_seen', 'true');
-    }
-}
-
 // Event Listeners for UI buttons
 if (startButton) startButton.addEventListener('click', startAutomation);
 if (stopButton) stopButton.addEventListener('click', stopAutomation);
 if (resetStatsButton) resetStatsButton.addEventListener('click', resetStats);
+if (infoButton) infoButton.addEventListener('click', showModal);
 
 // Modal event listeners
 if (closeModal) closeModal.addEventListener('click', hideModal);
@@ -571,4 +563,3 @@ if (educationalModal) {
 // Initialize
 loadStats();
 updateStatus('Ready to start TFD automation', 'info');
-checkFirstTime(); // Show modal on first use 

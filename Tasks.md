@@ -1,6 +1,19 @@
 # Future Ideas & Tasks
 
-### 1. **Investigate GitHub Implementation in Plugin Library [COMPLETED]**
+### 1. **Improve Spammer Plugin (v2.0.0) [COMPLETED]**
+*   **Implementation:**
+    *   **Architectural Fix for File I/O:**
+        *   Modified `src/electron/ipcHandlers.js` to add main-process handlers for reading/writing JSON files and showing notifications.
+        *   Modified `src/electron/preload.js` to securely expose the file I/O and notification functions to the plugin via the `window.jam` object.
+    *   **Bug Fixes:**
+        *   **Save Template Crash:** Refactored the `saveTemplate` logic in `plugins/spammer/index.js` to initialize modal event listeners in the constructor, preventing a crash when the button was clicked.
+        *   **Highlight.js Errors:** Replaced the broken syntax highlighting implementation with a proper overlay system. This involved adding a `pre/code` block behind a transparent textarea, adding the required CSS, and updating the `highlightSyntax` function to populate the overlay. The missing XML language pack for `highlight.js` was also downloaded and included.
+    *   **UI/UX Enhancements:**
+        *   **Scrolling:** Corrected the flexbox layout in `plugins/spammer/index.html` to ensure that sections with long content (like History and Templates) become properly scrollable.
+        *   **Collapsible Sections:** Implemented collapsible headers for the History and Templates sections, allowing users to hide and show them to manage screen space.
+*   **Result:** All reported bugs and UI issues have been addressed. The plugin is now stable and feature-complete. The UI has been completely overhauled with a tab-based interface. The alignment and spacing of input controls were refined to use a more compact, single-row flexbox layout. The user flow was improved by making the History and Templates tabs automatically switch back to the Queue tab upon use. The syntax highlighting feature was removed due to performance issues. All outstanding startup crashes and bugs have been resolved. New features were added, including a "Send" button for single packets, robust import/export functionality for templates (handling multiple formats), and usability improvements to the delay input and default run type.
+
+### 2. **Investigate GitHub Implementation in Plugin Library [COMPLETED]**
 *   **Problem Description:** The "Add Repository" button was not visible in the GitHub tab of the plugin library, leading to the assumption that the feature was missing from the UI.
 *   **Implementation:**
     *   **Initial Investigation:** Reviewed `src/electron/renderer/application/modals/plugins.js` and confirmed that the "Add Repository" button (`#addGithubRepoBtn`) and its container (`#githubPluginDetails`) were present in the code but initially hidden.

@@ -702,8 +702,9 @@ exports.render = function (app) {
         type: 'success'
       })
 
-      if (typeof app.dispatch.loadPlugins === 'function') {
-        app.dispatch.loadPlugins()
+      if (typeof app.dispatch.load === 'function') {
+        app.dispatch.load()
+        app.emit('refresh:plugins')
       }
 
       // Refresh the current tab
@@ -818,8 +819,9 @@ exports.render = function (app) {
         type: 'success'
       })
 
-      if (typeof app.dispatch.loadPlugins === 'function') {
-        app.dispatch.loadPlugins()
+      if (typeof app.dispatch.load === 'function') {
+        app.dispatch.load()
+        app.emit('refresh:plugins')
       }
       
       // Refresh the current tab if we're staying in the modal
@@ -1168,8 +1170,9 @@ exports.render = function (app) {
         type: 'success'
       });
 
-      if (typeof app.dispatch.loadPlugins === 'function') {
-        app.dispatch.loadPlugins();
+      if (typeof app.dispatch.load === 'function') {
+        app.dispatch.load();
+        app.emit('refresh:plugins');
       }
       
       // Refresh the current tab

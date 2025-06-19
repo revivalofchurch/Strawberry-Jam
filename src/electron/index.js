@@ -264,7 +264,7 @@ class Electron {
         devTools: true, 
         nodeIntegration: true,
         contextIsolation: false,
-        backgroundThrottling: !runInBackground 
+        backgroundThrottling: !runInBackground
       }
     });
 
@@ -719,6 +719,7 @@ class Electron {
     
     this._window.webContents.send('set-data-path', dataPath)
     this._window.webContents.send('set-assets-path', assetsPath)
+    this._window.webContents.send('set-user-data-path', USER_DATA_PATH)
     
     this._window.webContents.setWindowOpenHandler((details) => this._createWindow(details))
 
@@ -831,6 +832,7 @@ class Electron {
     this.pluginWindows.forEach((window, name) => {
       if (!window.isDestroyed()) {
         try {
+          window.webContents.send('app-minimized');
           window.webContents.executeJavaScript('window.jam.isAppMinimized = true;');
           
           if (this._backgroundPlugins.has(name)) {
@@ -877,6 +879,7 @@ class Electron {
     this.pluginWindows.forEach((window, name) => {
       if (!window.isDestroyed()) {
         try {
+          window.webContents.send('app-restored');
           window.webContents.executeJavaScript('window.jam.isAppMinimized = false;');
           
           window.webContents.executeJavaScript(`
