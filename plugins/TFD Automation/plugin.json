@@ -6,5 +6,6 @@
   "type": "ui",
   "tags": [
     "beta"
-  ]
+  ],
+  "runInBackground": true
 }

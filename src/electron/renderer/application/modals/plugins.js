@@ -29,7 +29,39 @@ exports.render = function (app) {
       repo: 'nosmile'
     }
   ];
-  const LOCAL_PLUGINS_DIR = path.resolve('plugins/')
+  let LOCAL_PLUGINS_DIR = path.resolve('plugins/');
+  
+  const { ipcRenderer } = require('electron');
+  ipcRenderer.on('set-user-data-path', (event, userDataPath) => {
+    LOCAL_PLUGINS_DIR = path.join(userDataPath, 'plugins');
+    migratePlugins(path.resolve('plugins'), LOCAL_PLUGINS_DIR);
+  });
+  
+  async function migratePlugins(oldPath, newPath) {
+    try {
+      if (fs.existsSync(oldPath) && oldPath !== newPath) {
+        if (!fs.existsSync(newPath)) {
+          fs.mkdirSync(newPath, { recursive: true });
+        }
+        
+        const files = fs.readdirSync(oldPath);
+        for (const file of files) {
+          const oldFilePath = path.join(oldPath, file);
+          const newFilePath = path.join(newPath, file);
+          if (!fs.existsSync(newFilePath)) {
+            fs.renameSync(oldFilePath, newFilePath);
+          }
+        }
+        
+        // Check if old directory is empty, if so remove it
+        if (fs.readdirSync(oldPath).length === 0) {
+          fs.rmdirSync(oldPath);
+        }
+      }
+    } catch (error) {
+      console.error('Error migrating plugins:', error);
+    }
+  }
 
   // Define tab state
   let activeTab = 'store' // Default active tab: store, installed, github

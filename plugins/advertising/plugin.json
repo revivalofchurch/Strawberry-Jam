@@ -4,5 +4,6 @@
   "description": "Auto Advertising for Animal Jam.",
   "author": "sxip",
   "main": "index.html",
-  "type": "ui"
+  "type": "ui",
+  "runInBackground": true
 }
