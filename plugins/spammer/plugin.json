@@ -1,8 +1,8 @@
 {
   "name": "Spammer",
-  "version": "2.0.0",
-  "description": "Advanced packet replication with history and templates.",
-  "author": "sxip x Glockoma",
+  "version": "1.0.0",
+  "description": "Replicate in game packets",
+  "author": "sxip",
   "main": "index.html",
   "type": "ui",
   "runInBackground": true

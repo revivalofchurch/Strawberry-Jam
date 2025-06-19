@@ -24,9 +24,10 @@ const getDataPath = (app) => { // Accept app as parameter
     throw new Error("getDataPath requires the Electron app object as an argument.");
   }
   if (app.isPackaged) {
-    // Use the standard user data directory provided by Electron.
-    // Example: C:\\Users\\Username\\AppData\\Roaming\\strawberry-jam
-    return app.getPath('userData');
+    // Use the standard user data directory provided by Electron,
+    // appending a '/data' subfolder for organization.
+    // Example: C:\\Users\\Username\\AppData\\Roaming\\strawberry-jam\\data
+    return path.join(app.getPath('userData'), 'data'); // Append '/data'
   } else {
     // Path for development environment (project root/data)
     return path.join(app.getAppPath(), 'data')

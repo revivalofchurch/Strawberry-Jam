@@ -71,6 +71,19 @@
   ],
   "extraFiles": [
     {
+      "from": "plugins",
+      "to": "plugins",
+      "filter": [
+        "**/*",
+        "!**/*.bak",
+        "!**/*-backup*",
+        "!**/*.tmp",
+        "!**/*-copy*",
+        "!**/temp_*",
+        "!**/tmp_*"
+      ]
+    },
+    {
       "from": "assets",
       "to": "assets",
       "filter": [

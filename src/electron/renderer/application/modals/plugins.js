@@ -29,42 +29,7 @@ exports.render = function (app) {
       repo: 'nosmile'
     }
   ];
-  const { ipcRenderer } = require('electron');
-  const userDataPath = ipcRenderer.sendSync('get-user-data-path');
-  let LOCAL_PLUGINS_DIR = path.join(userDataPath, 'plugins');
-  
-  // In development, use the local plugins folder
-  if (process.env.NODE_ENV === 'development') {
-    LOCAL_PLUGINS_DIR = path.resolve('plugins');
-  }
-  
-  migratePlugins(path.resolve('plugins'), LOCAL_PLUGINS_DIR);
-  
-  async function migratePlugins(oldPath, newPath) {
-    try {
-      if (fs.existsSync(oldPath) && oldPath !== newPath) {
-        if (!fs.existsSync(newPath)) {
-          fs.mkdirSync(newPath, { recursive: true });
-        }
-        
-        const files = fs.readdirSync(oldPath);
-        for (const file of files) {
-          const oldFilePath = path.join(oldPath, file);
-          const newFilePath = path.join(newPath, file);
-          if (!fs.existsSync(newFilePath)) {
-            fs.renameSync(oldFilePath, newFilePath);
-          }
-        }
-        
-        // Check if old directory is empty, if so remove it
-        if (fs.readdirSync(oldPath).length === 0) {
-          fs.rmdirSync(oldPath);
-        }
-      }
-    } catch (error) {
-      console.error('Error migrating plugins:', error);
-    }
-  }
+  const LOCAL_PLUGINS_DIR = path.resolve('plugins/')
 
   // Define tab state
   let activeTab = 'store' // Default active tab: store, installed, github
@@ -853,8 +818,8 @@ exports.render = function (app) {
         type: 'success'
       })
 
-      if (typeof app.dispatch.refresh === 'function') {
-        app.dispatch.refresh()
+      if (typeof app.dispatch.loadPlugins === 'function') {
+        app.dispatch.loadPlugins()
       }
       
       // Refresh the current tab if we're staying in the modal
@@ -1203,8 +1168,8 @@ exports.render = function (app) {
         type: 'success'
       });
 
-      if (typeof app.dispatch.refresh === 'function') {
-        app.dispatch.refresh();
+      if (typeof app.dispatch.loadPlugins === 'function') {
+        app.dispatch.loadPlugins();
       }
       
       // Refresh the current tab
@@ -1471,7 +1436,12 @@ exports.render = function (app) {
       const pluginsDir = LOCAL_PLUGINS_DIR;
       
       if (!fs.existsSync(pluginsDir)) {
-        fs.mkdirSync(pluginsDir, { recursive: true });
+        $pluginsList.html(`
+          <div class="col-span-full text-center text-gray-400">
+            Plugins directory not found.
+          </div>
+        `);
+        return;
       }
       
       const pluginFolders = fs.readdirSync(pluginsDir, { withFileTypes: true })

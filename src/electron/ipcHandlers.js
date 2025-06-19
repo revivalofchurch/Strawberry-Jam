@@ -24,39 +24,6 @@ const KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY = 'leak_checker_api_key';
 function setupIpcHandlers(electronInstance) {
   KEYTAR_SERVICE_LEAK_CHECK_API_KEY = `${app.getName()}-leak-check-api-key`;
 
-  ipcMain.handle('read-json-file', async (event, filePath, defaultValue) => {
-    const dataDir = getDataPath(app);
-    const fullPath = path.join(dataDir, filePath);
-    try {
-      await fsPromises.access(fullPath);
-      const fileContent = await fsPromises.readFile(fullPath, 'utf-8');
-      return JSON.parse(fileContent);
-    } catch (error) {
-      return defaultValue;
-    }
-  });
-
-  ipcMain.handle('write-json-file', async (event, filePath, data) => {
-    const dataDir = getDataPath(app);
-    const fullPath = path.join(dataDir, filePath);
-    try {
-      await fsPromises.writeFile(fullPath, JSON.stringify(data, null, 2), 'utf-8');
-      return true;
-    } catch (error) {
-      console.error(`[IPC] Error writing JSON file '${fullPath}':`, error);
-      return false;
-    }
-  });
-
-  ipcMain.on('show-toast', (event, { message, type }) => {
-    const senderWindow = BrowserWindow.fromWebContents(event.sender);
-    if (senderWindow && !senderWindow.isDestroyed()) {
-      // This assumes the main window is the one that can show toasts.
-      // A more robust system might target a specific window or use a global manager.
-      electronInstance._window.webContents.send('show-toast-from-main', { message, type });
-    }
-  });
-
   ipcMain.on('open-directory', (event, filePath) => {
     if (!filePath) {
       return;

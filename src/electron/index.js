@@ -1,5 +1,4 @@
 const { app, BrowserWindow, globalShortcut, shell, ipcMain, protocol, net, dialog, session } = require('electron');
-const { pathToFileURL } = require('url');
 const path = require('path');
 const fs = require('fs'); // Changed to import standard fs module
 const fsPromises = fs.promises; // Alias for promises API
@@ -265,7 +264,7 @@ class Electron {
         devTools: true, 
         nodeIntegration: true,
         contextIsolation: false,
-        backgroundThrottling: !runInBackground
+        backgroundThrottling: !runInBackground 
       }
     });
 
@@ -287,9 +286,6 @@ class Electron {
 
     pluginWindow.webContents.on('did-finish-load', () => {
       pluginWindow.focus();
-
-      const assetsPath = getAssetsPath(app).replace(/\\/g, '/');
-      pluginWindow.webContents.executeJavaScript(`window.assetsPath = '${assetsPath}';`);
 
       pluginWindow.webContents.executeJavaScript(`
         (function() {
@@ -514,7 +510,7 @@ class Electron {
           filePath = path.normalize(`${__dirname}/../../${url}`);
         }
       
-        return net.fetch(pathToFileURL(filePath).href);
+        return net.fetch(`file://${filePath}`);
       });
 
       // Call _onReady which will now also register the IPC handler
@@ -723,11 +719,6 @@ class Electron {
     
     this._window.webContents.send('set-data-path', dataPath)
     this._window.webContents.send('set-assets-path', assetsPath)
-    this._window.webContents.send('set-user-data-path', USER_DATA_PATH)
-
-    ipcMain.on('get-user-data-path', (event) => {
-      event.returnValue = USER_DATA_PATH;
-    });
     
     this._window.webContents.setWindowOpenHandler((details) => this._createWindow(details))
 
@@ -840,7 +831,6 @@ class Electron {
     this.pluginWindows.forEach((window, name) => {
       if (!window.isDestroyed()) {
         try {
-          window.webContents.send('app-minimized');
           window.webContents.executeJavaScript('window.jam.isAppMinimized = true;');
           
           if (this._backgroundPlugins.has(name)) {
@@ -887,7 +877,6 @@ class Electron {
     this.pluginWindows.forEach((window, name) => {
       if (!window.isDestroyed()) {
         try {
-          window.webContents.send('app-restored');
           window.webContents.executeJavaScript('window.jam.isAppMinimized = false;');
           
           window.webContents.executeJavaScript(`

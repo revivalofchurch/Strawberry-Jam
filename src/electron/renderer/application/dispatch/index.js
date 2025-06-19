@@ -14,6 +14,15 @@ const fs = require('fs').promises
 const Ajv = new (require('ajv'))({ useDefaults: true })
 const { ConnectionMessageTypes, PluginTypes, getDataPath } = require('../../../../Constants') // Import getDataPath
 
+/**
+ * The path to the plugins folder.
+ * @constant
+ */
+const BASE_PATH = process.platform === 'win32'
+  ? path.resolve('plugins/')
+  : process.platform === 'darwin'
+    ? path.join(__dirname, '..', '..', '..', '..', '..', '..', '..', 'plugins/')
+    : undefined
 
 /**
  * The default Configuration schema.
@@ -57,12 +66,6 @@ module.exports = class Dispatch {
      * @public
      */
     this.dataPath = dataPath;
-
-    /**
-     * The path to the plugins folder.
-     * @constant
-     */
-    this.BASE_PATH = path.join(this.dataPath, 'plugins');
 
     /**
      * The bound consoleMessage function from the Application instance.
@@ -330,30 +333,29 @@ module.exports = class Dispatch {
     this._application.$pluginList.empty(); // Clear existing plugin list items
 
     // Ensure BASE_PATH is defined
-      if (!this.BASE_PATH) {
+      if (!BASE_PATH) {
       this._consoleMessage({ type: 'error', message: 'Plugin base path (BASE_PATH) could not be determined. Cannot load plugins.' });
       this._application._updateEmptyPluginMessage(); // Update empty message status
       return;
     }
 
     try {
-      // Check if BASE_PATH exists, and create it if it doesn't.
+      // Check if BASE_PATH exists, no need to create it as it should be part of the app structure
       try {
-        await fs.access(this.BASE_PATH);
+        await fs.access(BASE_PATH);
       } catch (accessError) {
-        if (accessError.code === 'ENOENT') {
-          await fs.mkdir(this.BASE_PATH, { recursive: true });
-        } else {
-          throw accessError;
-        }
+        // If BASE_PATH doesn't exist, it's a critical issue with the app deployment/structure.
+        this._consoleMessage({ type: 'error', message: `Plugins directory not found at ${BASE_PATH}. Cannot load plugins.` });
+        this._application._updateEmptyPluginMessage();
+        return;
       }
 
-      const files = await Dispatch.readdirRecursive(this.BASE_PATH); // Use this.BASE_PATH
+      const files = await Dispatch.readdirRecursive(BASE_PATH); // Use BASE_PATH
 
       const configFiles = files.filter(filter);
 
       if (configFiles.length === 0) {
-        this._consoleMessage({ type: 'notify', message: 'Head to the plugin library to download plugins!' });
+        this._consoleMessage({ type: 'notify', message: 'No plugins found in the plugins directory.' });
       this._application._updateEmptyPluginMessage(); 
         return;
       }
