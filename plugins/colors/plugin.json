@@ -1,8 +1,0 @@
-{
-  "name": "Custom Colors",
-  "version": "1.0.0",
-  "description": "Save and apply unique colors to your avatar.",
-  "main": "index.html",
-  "author": "Nosmile",
-  "type": "ui"
-}
