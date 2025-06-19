@@ -235,7 +235,7 @@ class Spammer {
   /**
    * Deletes a row from the queue
    */
-  sendSinglePacket () {
+  sendFromInput () {
     const content = this.input.value
     if (!content) return
 
@@ -387,28 +387,6 @@ class Spammer {
   }
 
   /**
-   * Sends the current packet
-   */
-  sendClick () {
-    const content = this.input.value
-    if (!content) return
-
-    const type = this.inputType.value
-
-    try {
-      const packets = content.match(/[^\r\n]+/g)
-      if (packets && packets.length > 1) {
-      this.sendPacket(packets, type)
-    } else {
-      this.sendPacket(content, type)
-    }
-    this.addToHistory(content, type)
-  } catch (error) {
-    console.error('Error sending packet:', error)
-  }
-}
-
-  /**
    * Starts running the queue
    */
   runClick () {
@@ -423,6 +401,7 @@ class Spammer {
 
     this.runNext()
   }
+
 
   /**
    * Processes the next packet in the queue
@@ -444,7 +423,7 @@ class Spammer {
       return
     }
 
-    const type = row.cells[0].innerText
+    const type = row.cells[0].querySelector('select').value
     const content = row.cells[1].innerText
     const delay = parseFloat(row.cells[2].innerText)
 

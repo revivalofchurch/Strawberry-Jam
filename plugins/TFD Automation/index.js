@@ -208,11 +208,12 @@ async function getPlayerSfsUserId() {
             console.log(`[TFD Automation] Dynamically retrieved playerSfsUserId: ${userId}`);
             return userId;
         }
-        throw new Error('Could not retrieve player ID.');
     } catch (e) {
-        console.error('[TFD Automation] Error getting dynamic userId.', e);
-        throw new Error('Could not retrieve player ID.');
+        console.error('[TFD Automation] Error getting dynamic userId, falling back to placeholder.', e);
     }
+    const placeholderId = 1119652; // Fallback placeholder
+    updateStatus(`Warning: Could not get dynamic player ID. Using placeholder: ${placeholderId}`, 'warning');
+    return placeholderId;
 }
 
 // Function to get randomized delay for gem packets

@@ -55,7 +55,7 @@
           <button type="button" onclick="spammer.addClick()" class="flex-1 px-4 py-2 bg-tertiary-bg hover:bg-sidebar-hover text-text-primary rounded-md transition text-sm">
             <i class="fas fa-plus mr-2"></i> Add to Queue
           </button>
-          <button type="button" onclick="spammer.sendSinglePacket()" class="flex-1 px-4 py-2 bg-tertiary-bg hover:bg-sidebar-hover text-text-primary rounded-md transition text-sm">
+          <button type="button" onclick="spammer.sendFromInput()" class="flex-1 px-4 py-2 bg-tertiary-bg hover:bg-sidebar-hover text-text-primary rounded-md transition text-sm">
             <i class="fas fa-paper-plane mr-2"></i> Send
           </button>
         </div>
@@ -74,7 +74,7 @@
             <option value="loop">Loop</option>
           </select>
           <div class="flex gap-2 ml-auto">
-            <button type="button" id="runButton" onclick="spammer.sendClick()" class="px-4 py-2 bg-highlight-green/20 hover:bg-highlight-green/30 text-highlight-green rounded-md transition text-base">
+            <button type="button" id="runButton" onclick="spammer.runClick()" class="px-4 py-2 bg-highlight-green/20 hover:bg-highlight-green/30 text-highlight-green rounded-md transition text-base">
               <i class="fas fa-paper-plane mr-2"></i> Start
             </button>
             <button type="button" id="stopButton" onclick="spammer.stopClick()" class="px-4 py-2 bg-error-red/20 hover:bg-error-red/30 text-error-red rounded-md transition text-base">

@@ -182,6 +182,10 @@ module.exports = class Dispatch {
         if (message.value && message.value.b && message.value.b.o && message.value.b.o.params) {
           const playerData = message.value.b.o.params;
           this.setState('player', playerData);
+          // The user ID is the first parameter in the login success packet
+          if (playerData[0]) {
+            this.setState('userId', playerData[0]);
+          }
         }
       }
     });
