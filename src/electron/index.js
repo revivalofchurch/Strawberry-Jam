@@ -287,6 +287,9 @@ class Electron {
     pluginWindow.webContents.on('did-finish-load', () => {
       pluginWindow.focus();
 
+      const assetsPath = getAssetsPath(app).replace(/\\/g, '/');
+      pluginWindow.webContents.executeJavaScript(`window.assetsPath = '${assetsPath}';`);
+
       pluginWindow.webContents.executeJavaScript(`
         (function() {
           if (!window.jQuery) {

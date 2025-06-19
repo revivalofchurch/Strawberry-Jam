@@ -60,8 +60,8 @@
 *   **Implementation:**
     *   **Investigation:** Inspected the `index.html` files of all UI-based plugins.
     *   **Root Cause Analysis:** The plugins were using relative paths (e.g., `../../assets/css/style.css`) to reference shared assets. These paths were broken when the plugins were loaded from the `appdata` directory.
-    *   **Final Fix:** Modified the `index.html` files for all affected plugins to use the absolute `app://` protocol (e.g., `app://assets/css/style.css`). This ensures that plugins can always find their required assets, regardless of their installation location.
-*   **Result:** All plugins now correctly load their assets, resolving the `net::ERR_FILE_NOT_FOUND` errors and allowing them to function correctly in production builds.
+    *   **Final Fix:** Modified `src/electron/index.js` to inject a global `assetsPath` variable into each plugin's `BrowserWindow`. Then, updated the `index.html` files for all affected plugins to use this variable to dynamically construct absolute paths to their assets.
+*   **Result:** All plugins now correctly load their assets, resolving the `net::ERR_FILE_NOT_FOUND` errors and allowing them to function correctly in production builds. This approach also ensures backward compatibility with older application versions.
 
 3.  **Full-Den Screenshot Tool [RESEARCHED]:**
     *   Add an option to capture a single screenshot of the entire den, regardless of screen size or zoom level.

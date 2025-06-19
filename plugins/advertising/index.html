@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Auto Advertising</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-  <link href="app://assets/css/style.css" rel="stylesheet">
+  <script>
+    document.write(`<link href="${window.assetsPath}/css/style.css" rel="stylesheet">`);
+  </script>
 </head>
 <body class="bg-primary-bg text-text-primary h-screen flex flex-col overflow-hidden">
 
@@ -467,7 +469,9 @@
     })
   </script>
 <!-- Import Plugin Utilities -->
-  <script src="app://assets/javascript/plugin-utils.js"></script>
+  <script>
+    document.write(`<script src="${window.assetsPath}/javascript/plugin-utils.js"><\/script>`);
+  </script>
   <!-- Initialize Standardized UI -->
   <script>
     // Initialize the standardized UI components when the document is ready

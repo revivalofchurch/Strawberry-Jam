@@ -145,9 +145,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="app://assets/javascript/Sortable.min.js"></script>
-  <script src="./index.js"></script>
-  <script src="app://assets/javascript/plugin-utils.js"></script>
+  <script>
+    document.write(`<script src="${window.assetsPath}/javascript/Sortable.min.js"><\/script>`);
+    document.write(`<script src="./index.js"><\/script>`);
+    document.write(`<script src="${window.assetsPath}/javascript/plugin-utils.js"><\/script>`);
+  </script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       initializePluginUI();
