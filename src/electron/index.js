@@ -720,6 +720,10 @@ class Electron {
     this._window.webContents.send('set-data-path', dataPath)
     this._window.webContents.send('set-assets-path', assetsPath)
     this._window.webContents.send('set-user-data-path', USER_DATA_PATH)
+
+    ipcMain.on('get-user-data-path', (event) => {
+      event.returnValue = USER_DATA_PATH;
+    });
     
     this._window.webContents.setWindowOpenHandler((details) => this._createWindow(details))
 

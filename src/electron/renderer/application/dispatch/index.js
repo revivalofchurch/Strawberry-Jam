@@ -353,7 +353,7 @@ module.exports = class Dispatch {
       const configFiles = files.filter(filter);
 
       if (configFiles.length === 0) {
-        this._consoleMessage({ type: 'notify', message: 'No plugins found in the plugins directory.' });
+        this._consoleMessage({ type: 'notify', message: 'Head to the plugin library to download plugins!' });
       this._application._updateEmptyPluginMessage(); 
         return;
       }

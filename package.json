@@ -8,8 +8,8 @@
     "dev": "npm run pack && npx cross-env NODE_ENV=development electron .",
     "test": "npm run pack && npx cross-env NODE_ENV=production electron .",
     "pack": "cd assets/extracted-winapp-public && npx electron-rebuild -f -w keytar -v 32.0.1 && cd ../.. && npx asar pack assets/extracted-winapp-public assets/winapp.asar --unpack *.node",
-    "build": "npm run pack && npx electron-builder build -w",
-    "publish": "npm run pack && npm run build && npx electron-builder build -w -p always"
+    "build": "npm run pack && npx cross-env NODE_ENV=production electron-builder build -w",
+    "publish": "npm run pack && npm run build && npx cross-env NODE_ENV=production electron-builder build -w -p always"
   },
   "repository": {
     "type": "git",

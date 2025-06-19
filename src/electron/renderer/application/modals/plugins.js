@@ -29,13 +29,16 @@ exports.render = function (app) {
       repo: 'nosmile'
     }
   ];
-  let LOCAL_PLUGINS_DIR = path.resolve('plugins/');
-  
   const { ipcRenderer } = require('electron');
-  ipcRenderer.on('set-user-data-path', (event, userDataPath) => {
-    LOCAL_PLUGINS_DIR = path.join(userDataPath, 'plugins');
-    migratePlugins(path.resolve('plugins'), LOCAL_PLUGINS_DIR);
-  });
+  const userDataPath = ipcRenderer.sendSync('get-user-data-path');
+  let LOCAL_PLUGINS_DIR = path.join(userDataPath, 'plugins');
+  
+  // In development, use the local plugins folder
+  if (process.env.NODE_ENV === 'development') {
+    LOCAL_PLUGINS_DIR = path.resolve('plugins');
+  }
+  
+  migratePlugins(path.resolve('plugins'), LOCAL_PLUGINS_DIR);
   
   async function migratePlugins(oldPath, newPath) {
     try {
@@ -850,8 +853,8 @@ exports.render = function (app) {
         type: 'success'
       })
 
-      if (typeof app.dispatch.loadPlugins === 'function') {
-        app.dispatch.loadPlugins()
+      if (typeof app.dispatch.refresh === 'function') {
+        app.dispatch.refresh()
       }
       
       // Refresh the current tab if we're staying in the modal
@@ -1200,8 +1203,8 @@ exports.render = function (app) {
         type: 'success'
       });
 
-      if (typeof app.dispatch.loadPlugins === 'function') {
-        app.dispatch.loadPlugins();
+      if (typeof app.dispatch.refresh === 'function') {
+        app.dispatch.refresh();
       }
       
       // Refresh the current tab
@@ -1468,12 +1471,7 @@ exports.render = function (app) {
       const pluginsDir = LOCAL_PLUGINS_DIR;
       
       if (!fs.existsSync(pluginsDir)) {
-        $pluginsList.html(`
-          <div class="col-span-full text-center text-gray-400">
-            Plugins directory not found.
-          </div>
-        `);
-        return;
+        fs.mkdirSync(pluginsDir, { recursive: true });
       }
       
       const pluginFolders = fs.readdirSync(pluginsDir, { withFileTypes: true })

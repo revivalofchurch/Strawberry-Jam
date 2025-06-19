@@ -1,6 +1,19 @@
 # Future Ideas & Tasks
 
-### 1. **Investigate GitHub Implementation in Plugin Library [COMPLETED]**
+### 1. **Improve Spammer Plugin (v2.0.0) [COMPLETED]**
+*   **Implementation:**
+    *   **Architectural Fix for File I/O:**
+        *   Modified `src/electron/ipcHandlers.js` to add main-process handlers for reading/writing JSON files and showing notifications.
+        *   Modified `src/electron/preload.js` to securely expose the file I/O and notification functions to the plugin via the `window.jam` object.
+    *   **Bug Fixes:**
+        *   **Save Template Crash:** Refactored the `saveTemplate` logic in `plugins/spammer/index.js` to initialize modal event listeners in the constructor, preventing a crash when the button was clicked.
+        *   **Highlight.js Errors:** Replaced the broken syntax highlighting implementation with a proper overlay system. This involved adding a `pre/code` block behind a transparent textarea, adding the required CSS, and updating the `highlightSyntax` function to populate the overlay. The missing XML language pack for `highlight.js` was also downloaded and included.
+    *   **UI/UX Enhancements:**
+        *   **Scrolling:** Corrected the flexbox layout in `plugins/spammer/index.html` to ensure that sections with long content (like History and Templates) become properly scrollable.
+        *   **Collapsible Sections:** Implemented collapsible headers for the History and Templates sections, allowing users to hide and show them to manage screen space.
+*   **Result:** All reported bugs and UI issues have been addressed. The plugin is now stable and user-friendly. The UI has been completely overhauled with a tab-based interface to solve layout and clutter issues. The alignment and spacing of input controls were refined to use a more compact, single-row flexbox layout per user feedback. The user flow was improved by making the History and Templates tabs automatically switch back to the Queue tab upon use. The syntax highlighting feature was removed due to performance issues. All outstanding startup crashes and bugs have been resolved.
+
+### 2. **Investigate GitHub Implementation in Plugin Library [COMPLETED]**
 *   **Problem Description:** The "Add Repository" button was not visible in the GitHub tab of the plugin library, leading to the assumption that the feature was missing from the UI.
 *   **Implementation:**
     *   **Initial Investigation:** Reviewed `src/electron/renderer/application/modals/plugins.js` and confirmed that the "Add Repository" button (`#addGithubRepoBtn`) and its container (`#githubPluginDetails`) were present in the code but initially hidden.
@@ -19,6 +32,28 @@
         2.  The `fetch` call was failing with a `Failed to execute 'fetch' on 'Window': Illegal invocation` error. This was because `fetch` was being called with an incorrect `this` context.
     *   **Final Fix:** Modified the `loadHttpClient` method in `plugins/UsernameLogger/services/api-service.js`. The `fetch` function is now explicitly bound to the `window` object (`fetch.bind(window)`) before being assigned as the HTTP client. This ensures `fetch` is always called with the correct context.
 *   **Result:** The "Illegal invocation" error is resolved. The `api-service` can now successfully use the `fetch` fallback in the build version to make API requests. The `!leakcheck` command is now fully functional in both development and build environments.
+
+### 2. **Fix Plugin Installation Path in Production Builds [COMPLETED]**
+*   **Problem Description:** Plugins were being installed to the application's installation directory instead of the correct `appdata/roaming/strawberry-jam` location in production builds. This caused the application to fail to load any installed plugins.
+*   **Implementation:**
+    *   **Investigation:** Reviewed `src/electron/renderer/application/modals/plugins.js` and identified that the plugin installation directory was determined by the `NODE_ENV` environment variable.
+    *   **Root Cause Analysis:** The `build` and `publish` scripts in `package.json` were not setting `NODE_ENV` to `production`. This caused the application to default to development mode, leading to the incorrect installation path.
+    *   **Final Fix:** Modified the `build` and `publish` scripts in `package.json` to explicitly set `NODE_ENV=production` using `cross-env`. This ensures that production builds use the correct `appdata` path for plugin installations.
+*   **Result:** The plugin installation path is now correctly set for production builds, resolving the issue of plugins not being loaded.
+
+### 3. **Fix Plugin Loading Path in Production Builds [COMPLETED]**
+*   **Problem Description:** Even after fixing the installation path, plugins were still not being loaded in production builds because the application was looking in the wrong directory.
+*   **Implementation:**
+    *   **Investigation:** Reviewed `src/electron/renderer/application/dispatch/index.js` and `src/Constants.js`.
+    *   **Root Cause Analysis:** The `getDataPath` function in `src/Constants.js` was incorrectly appending a `/data` subfolder to the `appdata` path. The plugin loading logic in `dispatch/index.js` relied on this incorrect path.
+    *   **Final Fix:** Modified the `getDataPath` function in `src/Constants.js` to return the correct `app.getPath('userData')` path without the `/data` subfolder. This ensures the application looks for plugins in the correct directory.
+*   **Result:** The plugin loading path is now correct, and plugins are successfully loaded from the `appdata/roaming/strawberry-jam/plugins` directory in production builds.
+
+### 4. **Auto-refresh Plugin List After Installation [COMPLETED]**
+*   **Problem Description:** After installing a new plugin from the plugin library, the plugin list was not automatically updated, requiring a manual refresh.
+*   **Implementation:**
+    *   Modified `src/electron/renderer/application/modals/plugins.js` to call `app.dispatch.refresh()` after a successful plugin installation.
+*   **Result:** The plugin list now automatically refreshes after a new plugin is installed, providing a more seamless user experience.
 
 3.  **Full-Den Screenshot Tool [RESEARCHED]:**
     *   Add an option to capture a single screenshot of the entire den, regardless of screen size or zoom level.
@@ -78,6 +113,20 @@
 *   **Result:** The `tfd-automator` plugin is now fully functional and works for any user in any den. The packet construction is now correctly based on dynamically and reliably acquired user and room information, resolving the issue of invalid packets and erroneous room IDs. The full automation cycle (joining, starting, collecting gems, claiming rewards, and leaving) now operates as intended.
 
 ## Completed Tasks
+
+### 7. **Plugin System Overhaul [COMPLETED]**
+*   **Problem Description:** The existing plugin system had several issues: plugins were bundled with the installer, increasing the application size; updates would delete user-installed plugins; and there was no mechanism for plugins to run in the background without being throttled.
+*   **Implementation:**
+    *   **Decoupled Plugins from Installer:** Modified `electron-builder.json` to remove the `plugins` directory from the `extraFiles` array, preventing them from being bundled into the final application package.
+    *   **Persistent Plugin Installation:**
+        *   Updated `src/electron/renderer/application/dispatch/index.js` and `src/electron/renderer/application/modals/plugins.js` to use the user's data directory (`app.getPath('userData')`) for storing plugins.
+        *   Implemented a migration script in `src/electron/renderer/application/modals/plugins.js` to automatically move existing plugins from the old installation directory to the new user data directory, ensuring a seamless transition for existing users.
+    *   **Background Plugin Execution:**
+        *   Added a `runInBackground` property to the `plugin.json` schema.
+        *   Modified `src/electron/index.js` to check for this property when creating plugin windows and set `backgroundThrottling: false` accordingly.
+        *   Added IPC events to notify plugins when the main application is minimized or restored.
+    *   **Improved User Experience:** Replaced the "Plugins directory not found" error with a more user-friendly message: "Head to the plugin library to download plugins!".
+*   **Result:** The plugin system is now more robust and user-friendly. New users will have a smaller initial download and can choose which plugins to install. Existing users' plugins will be preserved during updates. Plugin developers can now create plugins that run in the background without being throttled.
 
 ### 5. **Fix Plugin Window Icon [COMPLETED]**
 *   **Problem Description:** Plugin windows were displaying the ault Electron icon instead of the custom Strawberry Jam icon (`assets/images/icon.png`).
