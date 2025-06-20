@@ -871,9 +871,6 @@ async function loadSwfFileSettings($modal, selectedFile) {
   try {
     // Get available SWF files via IPC
     const swfFiles = await ipcRenderer.invoke('get-swf-files');
-    
-    // Get current active file info
-    const activeInfo = await ipcRenderer.invoke('get-active-swf-info');
 
     // Clear existing options
     $dropdown.empty();
@@ -881,28 +878,24 @@ async function loadSwfFileSettings($modal, selectedFile) {
     // Populate dropdown with available files
     swfFiles.forEach(file => {
       const option = new Option(file.displayName, file.filename);
+      // Set the 'selected' property based on the file from settings
       option.selected = file.filename === selectedFile;
       $dropdown.append(option);
     });
 
-    // Update current file info based on detected active file
-    if (activeInfo && activeInfo.active) {
-      $currentName.text(`${activeInfo.active} ${activeInfo.hasBackup ? '(using backup)' : ''}`);
-      $currentSize.text(formatBytes(activeInfo.size));
-      
-      // Update dropdown selection to match detected active file
-      $dropdown.val(activeInfo.active);
-    } else {
-      const currentFile = swfFiles.find(f => f.filename === selectedFile);
-      if (currentFile) {
-        $currentName.text(currentFile.filename);
-        $currentSize.text(formatBytes(currentFile.size));
-      } else {
-        $currentName.text(selectedFile);
-        $currentSize.text('Unknown');
-      }
-    }
+    // Ensure the dropdown's value is explicitly set to the saved setting
+    $dropdown.val(selectedFile);
 
+    // Update the info display to match the selected setting
+    const currentFile = swfFiles.find(f => f.filename === selectedFile);
+    if (currentFile) {
+      $currentName.text(currentFile.filename);
+      $currentSize.text(formatBytes(currentFile.size));
+    } else {
+      // Fallback if the saved file is not in the list (e.g., it was deleted)
+      $currentName.text(selectedFile || 'N/A');
+      $currentSize.text('Unknown');
+    }
   } catch (error) {
     console.error('Error loading SWF files:', error);
     // Fallback to default options
@@ -1006,6 +999,9 @@ async function loadSettings ($modal, app) { // Made async
 
     // Game client settings
     const selectedSwfFile = await ipcRenderer.invoke('get-setting', 'game.selectedSwfFile');
+
+    // Store the initial SWF file to check for changes on save
+    $modal.data('initialSwfFile', selectedSwfFile || 'ajclient.swf');
 
     // Populate form fields (moved server settings to advanced tab)
     $modal.find('#advancedSmartfoxServer').val(smartfoxServer || '');
@@ -1115,8 +1111,7 @@ async function loadSettings ($modal, app) { // Made async
  * @param {JQuery<HTMLElement>} $modal - The modal element
  * @param {Application} app - The application instance
  */
-async function saveSettings ($modal, app) { // Made async
-  // console.log('[Settings] Attempting to save settings...'); // Log removed
+async function saveSettings ($modal, app) {
   if (typeof ipcRenderer === 'undefined' || !ipcRenderer) {
     console.error('[Settings Save] ipcRenderer not available.');
     showToast('Error: Cannot save settings, IPC unavailable.', 'error');
@@ -1124,87 +1119,84 @@ async function saveSettings ($modal, app) { // Made async
   }
 
   try {
-    // Log the actual values from the inputs before processing
-    const consoleLogLimitRaw = $modal.find('#consoleLogLimit').val();
-    const networkLogLimitRaw = $modal.find('#networkLogLimit').val();
-    logManager.debug(`[Settings Save] Raw input values - Console: ${consoleLogLimitRaw}, Network: ${networkLogLimitRaw}`);
-    
-    const consoleLogLimit = Math.max(100, Math.min(10000, parseInt(consoleLogLimitRaw) || 1000));
-    const networkLogLimit = Math.max(100, Math.min(10000, parseInt(networkLogLimitRaw) || 1000));
-    logManager.debug(`[Settings Save] Processed values - Console: ${consoleLogLimit}, Network: ${networkLogLimit}`);
-    
+    const consoleLogLimit = Math.max(100, Math.min(10000, parseInt($modal.find('#consoleLogLimit').val()) || 1000));
+    const networkLogLimit = Math.max(100, Math.min(10000, parseInt($modal.find('#networkLogLimit').val()) || 1000));
+
+    const initialSwfFile = $modal.data('initialSwfFile');
+    const selectedSwfFile = $modal.find('#selectedSwfFile').val();
+    const swfFileChanged = initialSwfFile !== selectedSwfFile;
+
     const settingsToSave = [
       { key: 'network.smartfoxServer', value: $modal.find('#advancedSmartfoxServer').val() },
       { key: 'network.secureConnection', value: $modal.find('#advancedSecureConnection').is(':checked') },
       { key: 'ui.hideGamePlugins', value: $modal.find('#hideGamePlugins').is(':checked') },
       { key: 'plugins.refreshBehavior', value: $modal.find('#pluginRefreshBehavior').val() },
-      // Using 'plugins.usernameLogger.apiKey' to align with main process Keytar storage
       { key: 'plugins.usernameLogger.apiKey', value: $modal.find('#leakCheckApiKey').val() },
-      { key: 'plugins.usernameLogger.autoCheck.enabled', value: $modal.find('#leakCheckAutoCheck').is(':checked') }, // Corrected key
-      { key: 'plugins.usernameLogger.autoCheck.threshold', value: parseInt($modal.find('#leakCheckThreshold').val()) || 100 }, // Corrected key
-      { key: 'plugins.usernameLogger.collection.enabled', value: $modal.find('#leakCheckEnableLogging').is(':checked') }, // Corrected key
-      { key: 'plugins.usernameLogger.collection.collectNearby', value: $modal.find('#leakCheckCollectNearby').is(':checked') }, // Corrected key
-      { key: 'plugins.usernameLogger.collection.collectBuddies', value: $modal.find('#leakCheckCollectBuddies').is(':checked') }, // Corrected key
-      { key: 'plugins.usernameLogger.outputDir', value: $modal.find('#leakCheckOutputDirInput').val().trim() }, // Corrected key
-      // REMOVED: { key: 'leakCheck.autoClearResults', value: $modal.find('#autoClearResults').is(':checked') }
-      
-      // Log limiting settings
+      { key: 'plugins.usernameLogger.autoCheck.enabled', value: $modal.find('#leakCheckAutoCheck').is(':checked') },
+      { key: 'plugins.usernameLogger.autoCheck.threshold', value: parseInt($modal.find('#leakCheckThreshold').val()) || 100 },
+      { key: 'plugins.usernameLogger.collection.enabled', value: $modal.find('#leakCheckEnableLogging').is(':checked') },
+      { key: 'plugins.usernameLogger.collection.collectNearby', value: $modal.find('#leakCheckCollectNearby').is(':checked') },
+      { key: 'plugins.usernameLogger.collection.collectBuddies', value: $modal.find('#leakCheckCollectBuddies').is(':checked') },
+      { key: 'plugins.usernameLogger.outputDir', value: $modal.find('#leakCheckOutputDirInput').val().trim() },
       { key: 'logs.consoleLimit', value: consoleLogLimit },
       { key: 'logs.networkLimit', value: networkLogLimit },
-
-      // Startup Behavior settings
       { key: 'ui.performServerCheckOnLaunch', value: $modal.find('#performServerCheckOnLaunchToggle').is(':checked') },
       { key: 'dev-log.performServerCheckOnLaunch', value: $modal.find('#performServerCheckOnLaunchToggle').is(':checked') },
-
-      // Auto Update setting
       { key: 'updates.enableAutoUpdates', value: $modal.find('#enableAutoUpdatesToggle').is(':checked') },
-
-      // Game client settings
-      { key: 'game.selectedSwfFile', value: $modal.find('#selectedSwfFile').val() }
+      { key: 'game.selectedSwfFile', value: selectedSwfFile }
     ];
 
-    // Step 1: Update the app.settings renderer cache for each setting.
-    // This ensures the cache is current before flushing.
     for (const setting of settingsToSave) {
       if (app && app.settings && typeof app.settings.update === 'function') {
         await app.settings.update(setting.key, setting.value);
       } else {
         console.error(`[Settings Save] app.settings.update is not available. Cannot update renderer cache for ${setting.key}.`);
         showToast('Critical error: Settings cache cannot be updated.', 'error');
-        return; // Abort save if cache update isn't possible
+        return;
       }
     }
 
-    // Step 2: Notify plugins. This will trigger app.settings.flush()
-    // which saves the now up-to-date renderer cache to the main store.
     if (app && app.dispatch && typeof app.dispatch.notifyPluginsOfSettingsUpdate === 'function') {
-      await app.dispatch.notifyPluginsOfSettingsUpdate(); // Ensure this is awaited
-      
-      // Step 3: Handle SWF file replacement after settings are saved
-      const selectedSwfFile = $modal.find('#selectedSwfFile').val();
-      if (selectedSwfFile) {
+      await app.dispatch.notifyPluginsOfSettingsUpdate();
+
+      let swfSwitchFailed = false;
+      let swfErrorMessage = '';
+
+      if (swfFileChanged) {
         try {
           const result = await ipcRenderer.invoke('replace-swf-file', selectedSwfFile);
           if (result.success) {
-            showToast(`Settings saved! ${result.message}`, 'success');
+            // Use app.consoleMessage to log to the user-facing console
+            let clientType = 'Custom';
+            if (selectedSwfFile === 'ajclient.swf') clientType = 'Production';
+            if (selectedSwfFile === 'ajclientdev.swf') clientType = 'Development';
+            
+            app.consoleMessage({
+              type: 'notify',
+              message: `Game client set to ${clientType}: ${selectedSwfFile}. Changes will apply on next game launch.`
+            });
           } else {
-            showToast(`Settings saved, but SWF switch failed: ${result.error}`, 'warning');
+            swfSwitchFailed = true;
+            swfErrorMessage = result.error;
           }
         } catch (error) {
           console.error('Error switching SWF file:', error);
-          showToast('Settings saved, but error switching SWF file', 'warning');
+          swfSwitchFailed = true;
+          swfErrorMessage = 'An unexpected error occurred during the file switch.';
         }
+      }
+
+      if (swfSwitchFailed) {
+        showToast(`Settings saved, but SWF switch failed: ${swfErrorMessage}`, 'warning');
       } else {
         showToast('Settings saved successfully!', 'success');
       }
       
       app.modals.close();
     } else {
-      console.warn('[Settings Save] Could not notify plugins of settings update: app.dispatch.notifyPluginsOfSettingsUpdate is not a function. Settings are cached locally and will attempt to save via debounce.');
-      // If dispatch is not available, the settings are in the renderer cache and will be saved by the debouncer from app.settings.update.
-      // This might not be ideal for immediate plugin reaction but prevents data loss.
+      console.warn('[Settings Save] Could not notify plugins of settings update. Settings are cached locally and will attempt to save via debounce.');
       showToast('Settings cached. Plugin updates may be delayed.', 'warning');
-      app.modals.close(); // Still close the modal
+      app.modals.close();
     }
 
   } catch (error) {
