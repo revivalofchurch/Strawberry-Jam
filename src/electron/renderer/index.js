@@ -314,7 +314,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const initializeApp = async () => {
   // Start session timer
+  let totalUptime = await ipcRenderer.invoke('get-total-uptime');
   sessionStartTime = new Date();
+
+  window.addEventListener('beforeunload', () => {
+    const now = new Date();
+    const sessionDuration = Math.round((now - sessionStartTime) / 1000);
+    ipcRenderer.send('update-total-uptime', totalUptime + sessionDuration);
+  });
   
   // Removed the initial "Starting Strawberry Jam..." message from here.
   // It's now logged within application.instantiate()
@@ -527,27 +534,36 @@ const setupConnectionMonitoring = () => {
 }
 
 /**
- * Update the timestamp display in the footer to show session time.
+ * Update the timestamp display in the footer to show session time and game time.
  */
-const updateTimestamp = () => {
-  const timestampDisplay = document.getElementById('timestamp-display')
+const updateTimestamp = async () => {
+  const timestampDisplay = document.getElementById('timestamp-display');
   if (timestampDisplay && sessionStartTime) {
-    const now = new Date()
-    const sessionDuration = now - sessionStartTime
+    const now = new Date();
+    const sessionDuration = now - sessionStartTime;
     
-    // Convert milliseconds to hours, minutes, seconds
-    const hours = Math.floor(sessionDuration / (1000 * 60 * 60))
-    const minutes = Math.floor((sessionDuration % (1000 * 60 * 60)) / (1000 * 60))
-    const seconds = Math.floor((sessionDuration % (1000 * 60)) / 1000)
-    
-    // Format the time with leading zeros
-    const formattedHours = String(hours).padStart(2, '0')
-    const formattedMinutes = String(minutes).padStart(2, '0')
-    const formattedSeconds = String(seconds).padStart(2, '0')
-    
-    timestampDisplay.textContent = `${formattedHours}:${formattedMinutes}:${formattedSeconds}`
+    const totalUptime = await ipcRenderer.invoke('get-total-uptime');
+    const combinedUptime = totalUptime * 1000 + sessionDuration;
+
+    const hours = Math.floor(combinedUptime / (1000 * 60 * 60));
+    const minutes = Math.floor((combinedUptime % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((combinedUptime % (1000 * 60)) / 1000);
+
+    const formattedUptime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+    try {
+      const totalGameTime = await ipcRenderer.invoke('get-total-game-time');
+      const gameTimeHours = Math.floor(totalGameTime / 3600);
+      const gameTimeMinutes = Math.floor((totalGameTime % 3600) / 60);
+      const formattedGameTime = `${gameTimeHours}h ${gameTimeMinutes}m`;
+
+      timestampDisplay.textContent = `Uptime: ${formattedUptime} | Game Time: ${formattedGameTime}`;
+    } catch (error) {
+      // Fallback if game time is not available
+      timestampDisplay.textContent = `Uptime: ${formattedUptime}`;
+    }
   }
-}
+};
 
 /**
  * Check if the plugin list is empty and toggle the empty state message.
@@ -828,5 +844,4 @@ const registerAppCommands = (app) => {
     app.consoleMessage({ type: 'error', message: '[Core Commands] Could not register "servers" command. No suitable registration method found on app object.' });
   }
   
-  // ... existing commands ...
 }

@@ -5,7 +5,7 @@ const fs = require('fs')
 class FilesController {
   constructor() {
     this.flashDir = path.resolve('assets', 'flash');
-    this.backupsDir = path.join(this.flashDir, 'backups');
+    this.optionsDir = path.join(this.flashDir, 'options');
   }
 
   /**
@@ -26,37 +26,28 @@ class FilesController {
   }
 
   /**
-   * Initializes the SWF backup system.
+   * Initializes the SWF system.
    * This should be called on application startup.
    * @returns {Promise<void>}
    */
-  async initializeSwfBackups() {
+  async initialize() {
     try {
-      // Ensure backups directory exists
-      if (!fs.existsSync(this.backupsDir)) {
-        await fs.promises.mkdir(this.backupsDir, { recursive: true });
-        console.log('Created backups directory for SWF files.');
+      // Ensure options directory exists
+      if (!fs.existsSync(this.optionsDir)) {
+        await fs.promises.mkdir(this.optionsDir, { recursive: true });
+        console.log('Created options directory for SWF files.');
       }
 
-      // Get all source SWF files from the flash directory
-      const allSwfFiles = fs.readdirSync(this.flashDir)
-        .filter(f => f.endsWith('.swf') && f !== 'ajclient.swf' && !fs.statSync(path.join(this.flashDir, f)).isDirectory());
+      const activeSwfPath = path.join(this.flashDir, 'ajclient.swf');
+      const prodSwfPath = path.join(this.optionsDir, 'ajclient-prod.swf');
 
-      // Also include the base ajclient.swf in the backup process
-      allSwfFiles.push('ajclient.swf');
-
-      for (const file of allSwfFiles) {
-        const sourcePath = path.join(this.flashDir, file);
-        const backupPath = path.join(this.backupsDir, file);
-        
-        // If a backup doesn't exist and the source file does, create the backup.
-        if (!fs.existsSync(backupPath) && fs.existsSync(sourcePath)) {
-          await fs.promises.copyFile(sourcePath, backupPath);
-          console.log(`Created initial backup for ${file}`);
-        }
+      // If active SWF doesn't exist, create it from the production version.
+      if (!fs.existsSync(activeSwfPath) && fs.existsSync(prodSwfPath)) {
+        await fs.promises.copyFile(prodSwfPath, activeSwfPath);
+        console.log('Created active SWF file from production version.');
       }
     } catch (error) {
-      console.error('Failed to initialize SWF backups:', error);
+      console.error('Failed to initialize SWF system:', error);
     }
   }
 
@@ -69,25 +60,20 @@ class FilesController {
   }
 
   /**
-   * Replaces the active ajclient.swf with the selected file from the backups.
+   * Replaces the active ajclient.swf with the selected file from the options.
    * @param {string} selectedFile - The filename to make active
    * @returns {Promise<{success: boolean, message?: string, error?: string}>}
    */
   async replaceSwfFile(selectedFile) {
     const targetFile = path.join(this.flashDir, 'ajclient.swf');
-    const sourceFromBackup = path.join(this.backupsDir, selectedFile);
+    const sourceFromOptions = path.join(this.optionsDir, selectedFile);
 
     try {
-      if (!fs.existsSync(sourceFromBackup)) {
-        console.error(`Backup for ${selectedFile} not found. Attempting to re-initialize backups.`);
-        await this.initializeSwfBackups();
-        // Retry after re-initialization
-        if (!fs.existsSync(sourceFromBackup)) {
-          return { success: false, error: `Backup for ${selectedFile} not found even after re-initialization.` };
-        }
+      if (!fs.existsSync(sourceFromOptions)) {
+        return { success: false, error: `Option for ${selectedFile} not found.` };
       }
 
-      await fs.promises.copyFile(sourceFromBackup, targetFile);
+      await fs.promises.copyFile(sourceFromOptions, targetFile);
       console.log(`Switched active client to ${selectedFile}`);
 
       return {
@@ -105,27 +91,27 @@ class FilesController {
   }
 
   /**
-   * Gets the currently active SWF file info by comparing it against backups.
+   * Gets the currently active SWF file info by comparing it against options.
    * @returns {Object} Info about the currently active file
    */
   getActiveSwfInfo() {
     const targetFile = path.join(this.flashDir, 'ajclient.swf');
 
     try {
-      if (!fs.existsSync(targetFile) || !fs.existsSync(this.backupsDir)) {
-        return { active: null, hasBackup: false, error: 'Active SWF or backups directory not found.' };
+      if (!fs.existsSync(targetFile) || !fs.existsSync(this.optionsDir)) {
+        return { active: null, error: 'Active SWF or options directory not found.' };
       }
 
       const stats = fs.statSync(targetFile);
       let detectedSource = 'ajclient.swf'; // Default assumption
 
-      const backupFiles = fs.readdirSync(this.backupsDir).filter(f => f.endsWith('.swf'));
-      for (const filename of backupFiles) {
-        const backupPath = path.join(this.backupsDir, filename);
-        if (fs.existsSync(backupPath)) {
-          const backupStats = fs.statSync(backupPath);
+      const optionFiles = fs.readdirSync(this.optionsDir).filter(f => f.endsWith('.swf'));
+      for (const filename of optionFiles) {
+        const optionPath = path.join(this.optionsDir, filename);
+        if (fs.existsSync(optionPath)) {
+          const optionStats = fs.statSync(optionPath);
           // Compare by size as a reliable heuristic
-          if (backupStats.size === stats.size) {
+          if (optionStats.size === stats.size) {
             detectedSource = filename;
             break;
           }
@@ -135,12 +121,11 @@ class FilesController {
       return {
         active: detectedSource,
         size: stats.size,
-        modified: stats.mtime,
-        hasBackup: fs.existsSync(path.join(this.backupsDir, detectedSource))
+        modified: stats.mtime
       };
     } catch (error) {
       console.error('Error getting active SWF info:', error.message);
-      return { active: null, hasBackup: false, error: error.message };
+      return { active: null, error: error.message };
     }
   }
 
@@ -150,23 +135,18 @@ class FilesController {
    */
   getAvailableSwfFiles () {
     try {
-        if (!fs.existsSync(this.backupsDir)) {
-            console.warn('Backups directory not found during getAvailableSwfFiles. Returning defaults.');
-            return ['ajclient.swf', 'ajclientdev.swf'];
+        if (!fs.existsSync(this.optionsDir)) {
+            console.warn('Options directory not found during getAvailableSwfFiles. Returning defaults.');
+            return ['ajclient-prod.swf'];
         }
-        // The list of selectable files is simply the list of backups.
-        const files = fs.readdirSync(this.backupsDir)
-            .filter(f => f.endsWith('.swf') && !fs.statSync(path.join(this.backupsDir, f)).isDirectory());
+        // The list of selectable files is simply the list of options.
+        const files = fs.readdirSync(this.optionsDir)
+            .filter(f => f.endsWith('.swf') && !fs.statSync(path.join(this.optionsDir, f)).isDirectory());
         
-        // Ensure production client is always an option if its backup exists
-        if (!files.includes('ajclient.swf') && fs.existsSync(path.join(this.backupsDir, 'ajclient.swf'))) {
-            files.unshift('ajclient.swf');
-        }
-
         return [...new Set(files)].sort(); // Return sorted unique list
     } catch (error) {
         console.error('Error scanning for SWF files:', error);
-        return ['ajclient.swf', 'ajclientdev.swf']; // Fallback
+        return ['ajclient-prod.swf']; // Fallback
     }
   }
 
@@ -178,19 +158,23 @@ class FilesController {
     const files = this.getAvailableSwfFiles();
     
     return files.map(filename => {
-      const backupPath = path.join(this.backupsDir, filename);
+      const optionPath = path.join(this.optionsDir, filename);
       let stats = null;
       let displayName = filename;
       
       try {
-        if (fs.existsSync(backupPath)) {
-          stats = fs.statSync(backupPath);
+        if (fs.existsSync(optionPath)) {
+          stats = fs.statSync(optionPath);
         }
         
-        if (filename === 'ajclient.swf') {
-          displayName = 'Production Client (ajclient.swf)';
-        } else if (filename === 'ajclientdev.swf') {
-          displayName = 'Development Client (ajclientdev.swf)';
+        if (filename === 'ajclient-prod.swf') {
+          displayName = 'Production Client';
+        } else if (filename === 'ajclient-dev.swf') {
+          displayName = 'Development Client';
+        } else if (filename === 'ajclient-jam.swf') {
+            displayName = 'Jam Client';
+        } else if (filename === 'ajclient-old.swf') {
+            displayName = 'Old Client';
         } else {
           displayName = `Custom Client (${filename})`;
         }

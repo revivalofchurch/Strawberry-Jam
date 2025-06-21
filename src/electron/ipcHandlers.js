@@ -600,6 +600,9 @@ function setupIpcHandlers(electronInstance) {
     });
   });
 
+  let gameTimeInterval;
+  let gameStartTime;
+
   ipcMain.on('launch-game-client', () => {
     const exePath = process.platform === 'win32'
       ? path.join(STRAWBERRY_JAM_CLASSIC_BASE_PATH, 'AJ Classic.exe')
@@ -627,13 +630,38 @@ function setupIpcHandlers(electronInstance) {
       });
 
       processManager.add(gameProcess);
-
-      gameProcess.on('close', (code) => {
+      gameStartTime = Date.now();
+      
+      gameProcess.on('close', async (code) => {
         logManager.log(`Game client process exited with code: ${code}`, 'main', logManager.logLevels.INFO);
+        const endTime = Date.now();
+        const durationInSeconds = Math.round((endTime - gameStartTime) / 1000);
+
+        const dataDir = getDataPath(app);
+        const gameTimeFilePath = path.join(dataDir, 'gametime.json');
+        let gameTimeData = { totalGameTime: 0, totalUptime: 0 };
+
+        try {
+          await fsPromises.access(gameTimeFilePath);
+          const fileContent = await fsPromises.readFile(gameTimeFilePath, 'utf-8');
+          gameTimeData = JSON.parse(fileContent);
+        } catch (error) {
+          // File doesn't exist, use defaults
+        }
+
+        gameTimeData.totalGameTime += durationInSeconds;
+
+        try {
+          await fsPromises.writeFile(gameTimeFilePath, JSON.stringify(gameTimeData, null, 2), 'utf-8');
+        } catch (error) {
+          logManager.error(`[Process] Failed to write total game time: ${error.message}`);
+        }
+        gameStartTime = null;
       });
 
       gameProcess.on('error', (err) => {
         logManager.error(`[Process] Error with game client process: ${err.message}`);
+        gameStartTime = null;
       });
     } catch (error) {
       logManager.error(`[Process] Failed to spawn game client process: ${error.message}`);
@@ -699,6 +727,63 @@ function setupIpcHandlers(electronInstance) {
 
   ipcMain.on('update-room-state', (event, roomState) => {
     global.cachedRoomState = roomState;
+  });
+
+  ipcMain.handle('get-total-game-time', async () => {
+    const dataDir = getDataPath(app);
+    const gameTimeFilePath = path.join(dataDir, 'gametime.json');
+    let totalGameTime = 0;
+    try {
+      await fsPromises.access(gameTimeFilePath);
+      const fileContent = await fsPromises.readFile(gameTimeFilePath, 'utf-8');
+      const data = JSON.parse(fileContent);
+      totalGameTime = data.totalGameTime || 0;
+    } catch (error) {
+      // file does not exist
+    }
+
+    if (gameStartTime) {
+      const now = Date.now();
+      const sessionDuration = Math.round((now - gameStartTime) / 1000);
+      totalGameTime += sessionDuration;
+    }
+    
+    return totalGameTime;
+  });
+
+  ipcMain.handle('get-total-uptime', async () => {
+    const dataDir = getDataPath(app);
+    const gameTimeFilePath = path.join(dataDir, 'gametime.json');
+    try {
+      await fsPromises.access(gameTimeFilePath);
+      const fileContent = await fsPromises.readFile(gameTimeFilePath, 'utf-8');
+      const data = JSON.parse(fileContent);
+      return data.totalUptime || 0;
+    } catch (error) {
+      return 0;
+    }
+  });
+
+  ipcMain.on('update-total-uptime', async (event, uptime) => {
+    const dataDir = getDataPath(app);
+    const gameTimeFilePath = path.join(dataDir, 'gametime.json');
+    let gameTimeData = { totalGameTime: 0, totalUptime: 0 };
+
+    try {
+      await fsPromises.access(gameTimeFilePath);
+      const fileContent = await fsPromises.readFile(gameTimeFilePath, 'utf-8');
+      gameTimeData = JSON.parse(fileContent);
+    } catch (error) {
+      // File doesn't exist, use defaults
+    }
+
+    gameTimeData.totalUptime = uptime;
+
+    try {
+      await fsPromises.writeFile(gameTimeFilePath, JSON.stringify(gameTimeData, null, 2), 'utf-8');
+    } catch (error) {
+      logManager.error(`[Process] Failed to write total uptime: ${error.message}`);
+    }
   });
 }
 

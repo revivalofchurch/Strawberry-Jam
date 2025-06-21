@@ -11,7 +11,7 @@ module.exports = {
 
     // Create modal content container
     const $content = $('<div>', {
-      class: 'bg-primary-bg rounded-xl shadow-2xl max-w-xs w-full mx-4 overflow-hidden transform'
+      class: 'bg-primary-bg rounded-xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden transform'
     });
 
     // Modal header
@@ -72,7 +72,8 @@ module.exports = {
       { url: 'https://discord.gg/a2y6bZnhB3', label: 'Discord', icon: 'fab fa-discord', color: 'hover:text-indigo-400' },
       { url: 'https://github.com/glvckoma/Strawberry-Jam', label: 'GitHub', icon: 'fab fa-github', color: 'hover:text-highlight-green' },
       { url: 'https://github.com/glvckoma/Berry-Breach', label: 'Berry Breach', icon: 'fas fa-wine-glass', color: 'hover:text-purple-500' },
-      { url: 'https://github.com/glvckoma/AJC-Price-Checker', label: 'AJC Price Checker', icon: 'fas fa-tags', color: 'hover:text-blue-400' }
+      { url: 'https://github.com/glvckoma/AJC-Price-Checker', label: 'AJC Price Checker', icon: 'fas fa-tags', color: 'hover:text-blue-400' },
+      { url: 'https://chromewebstore.google.com/detail/winkwink-ace-your-studies/pbafopkihldjbcececbibklapleogfdf?authuser=1&hl=en', label: 'WinkWink', icon: 'fas fa-graduation-cap', color: 'hover:text-yellow-500' }
     ];
 
     // Add links to the container
@@ -128,4 +129,4 @@ module.exports = {
 
     return $modal;
   }
-}; 
+};

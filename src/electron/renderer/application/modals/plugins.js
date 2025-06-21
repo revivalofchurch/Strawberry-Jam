@@ -952,7 +952,10 @@ exports.render = function (app) {
 
       pluginData.forEach(({ plugin, installed, metadata }) => {
         // Icon and badge logic
-        let iconHtml, badgeHtml, warningHtml;
+        let iconHtml, badgeHtml, warningHtml, updatedHtml;
+        if (plugin.name === 'phantoms') {
+          updatedHtml = `<div class="mt-2 text-xs text-highlight-green flex items-center"><i class="fas fa-check-circle mr-1"></i>Updated to work with Strawberry Jam</div>`;
+        }
         if (plugin.sourceRepo === 'strawberry-jam') {
           iconHtml = `<img src="app://assets/images/strawberry.png" alt="Strawberry Jam" class="w-6 h-6 mr-2" style="display:inline-block;vertical-align:middle;">`;
           // Reduced padding px-1.5 py-0.5
@@ -1002,6 +1005,7 @@ exports.render = function (app) {
                 ${metadata.description || (plugin.sourceRepo === 'strawberry-jam' ? 'A plugin for Strawberry Jam' : (plugin.sourceRepo === 'original-jam' ? 'A plugin for Jam' : 'A plugin from an external contributor'))}
               </p>
               ${warningHtml}
+              ${updatedHtml || ''}
             </div>
             
             <div class="flex justify-end items-center mt-4 pt-2 border-t border-sidebar-border/30">

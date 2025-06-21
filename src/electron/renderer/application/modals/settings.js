@@ -187,18 +187,23 @@ exports.render = function (app, data = {}) {
           <!-- Plugins Tab Content -->
           <div id="pluginsTabContent" class="settings-tab-content space-y-4 hidden">
             <!-- Hide Game-Specific Plugins -->
-            <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded">
-              <label for="hideGamePlugins" class="text-sm text-text-primary">Hide game-specific plugins in the UI</label>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="hideGamePlugins" class="sr-only peer">
-                <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
-                  <span class="toggle-text-off">OFF</span>
-                  <span class="toggle-text-on">ON</span>
-                </div>
-                <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
-              </label>
+            <div class="space-y-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-eye-slash mr-2 text-highlight-yellow"></i>Plugin Visibility
+              </h4>
+              <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded">
+                <label for="hideGamePlugins" class="text-sm text-text-primary">Hide game-specific plugins in the UI</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="hideGamePlugins" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                    <span class="toggle-text-off">OFF</span>
+                    <span class="toggle-text-on">ON</span>
+                  </div>
+                  <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                </label>
+              </div>
+              <p class="mt-1 text-xs text-gray-400 -mt-3">If checked, game-specific plugins will not be shown in the sidebar or plugin lists.</p>
             </div>
-            <p class="mt-1 text-xs text-gray-400">If checked, game-specific plugins will not be shown in the sidebar or plugin lists.</p>
             
             <!-- Plugin Refresh Behavior -->
             <div class="space-y-4 pt-4">
@@ -333,99 +338,111 @@ exports.render = function (app, data = {}) {
 
           <!-- Advanced Tab Content (Danger Zone) -->
           <div id="advancedTabContent" class="settings-tab-content space-y-4 hidden">
-            <!-- Server Connection Settings -->
-            <h4 class="text-md font-semibold text-text-primary mb-3">
-              <i class="fas fa-server mr-2"></i>Server Connection
-            </h4>
-
-            <!-- Server IP -->
-            <div>
-              <label for="smartfoxServer" class="block mb-2 text-sm font-medium text-text-primary">
-                Server IP
-              </label>
-              <input id="advancedSmartfoxServer" type="text"
-                class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-full"
-                placeholder="lb-iss02-classic-prod.animaljam.com">
-              <p class="mt-1 text-xs text-gray-400">Animal Jam server address</p>
-            </div>
-
-            <!-- Secure Connection -->
-            <div class="flex items-center mt-4 bg-tertiary-bg/30 p-3 rounded">
-              <input id="advancedSecureConnection" type="checkbox"
-                class="w-4 h-4 bg-tertiary-bg rounded focus:ring-custom-pink">
-              <label for="advancedSecureConnection" class="ml-2 text-sm text-text-primary">
-                Use secure connection (SSL/TLS)
-              </label>
-            </div>
-
             <!-- Game Client Settings -->
-            <h4 class="text-md font-semibold text-text-primary mb-3 mt-6">
-              <i class="fas fa-file-code mr-2"></i>Game Client
-            </h4>
+            <div class="space-y-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-file-code mr-2 text-highlight-yellow"></i>Game Client
+              </h4>
 
-            <!-- SWF File Selection -->
-            <div>
-              <label for="selectedSwfFile" class="block mb-2 text-sm font-medium text-text-primary">
-                Active .swf Client
-              </label>
-              <select id="selectedSwfFile" class="bg-tertiary-bg text-text-primary focus:outline-none rounded px-3 py-2 w-full border border-sidebar-border">
-                <option value="ajclient.swf">Production Client (ajclient.swf)</option>
-                <option value="ajclientdev.swf">Development Client (ajclientdev.swf)</option>
-              </select>
-              <p class="mt-1 text-xs text-gray-400">Select which .swf file to serve for game sessions. Requires restarting the game to take effect.</p>
-            </div>
-
-            <!-- SWF File Info Display -->
-            <div id="swfFileInfo" class="mt-3 py-2 px-3 bg-tertiary-bg/30 rounded">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-sm font-medium text-text-primary">Current File:</span>
-                <span id="currentSwfName" class="text-sm text-highlight-yellow">ajclient.swf</span>
+              <!-- SWF File Selection -->
+              <div>
+                <label for="selectedSwfFile" class="block mb-2 text-sm font-medium text-text-primary">
+                  Active .swf Client
+                </label>
+                <select id="selectedSwfFile" class="bg-tertiary-bg text-text-primary focus:outline-none rounded px-3 py-2 w-full border border-sidebar-border">
+                  <option value="ajclient.swf">Production Client (ajclient.swf)</option>
+                  <option value="ajclientdev.swf">Development Client (ajclientdev.swf)</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-400">Select which .swf file to serve for game sessions. Requires restarting the game to take effect.</p>
               </div>
-              <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-400">Size:</span>
-                <span id="currentSwfSize" class="text-xs text-gray-400">Calculating...</span>
+
+              <!-- SWF File Info Display -->
+              <div id="swfFileInfo" class="mt-3 py-2 px-3 bg-tertiary-bg/30 rounded">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-text-primary">Current File:</span>
+                  <span id="currentSwfName" class="text-sm text-highlight-yellow">ajclient.swf</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-400">Size:</span>
+                  <span id="currentSwfSize" class="text-xs text-gray-400">Calculating...</span>
+                </div>
               </div>
-            </div>
 
-            <!-- Refresh SWF List Button -->
-            <div class="mt-3">
-              <button type="button" id="refreshSwfListBtn" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
-                <i class="fas fa-sync-alt mr-2"></i>Refresh Available Files
-              </button>
-              <p class="mt-1 text-xs text-gray-400">Scan the flash directory for new .swf files</p>
-            </div>
-
-            <h4 class="text-md font-semibold text-red-500 mt-6 mb-3">
-              <i class="fas fa-exclamation-triangle mr-2"></i>Danger Zone
-            </h4>
-
-            <!-- Cache Size Display -->
-            <div class="mb-4 py-2 px-3 bg-tertiary-bg/30 rounded">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-sm font-medium text-text-primary">Current Cache Size:</span>
-                <span id="cacheSizeValue" class="text-sm text-highlight-yellow">Calculating...</span>
-              </div>              <div class="text-xs text-gray-400 flex items-center">
-                <i class="fas fa-info-circle mr-1"></i>
-                <span>Cache includes AJ Classic and Strawberry Jam data directories.</span>
-              </div>
-              <div id="cacheSizeDetails" class="mt-2 text-xs text-gray-400 hidden">
-                <!-- Will be populated with cache details -->
+              <!-- Refresh SWF List Button -->
+              <div class="mt-3">
+                <button type="button" id="refreshSwfListBtn" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+                  <i class="fas fa-sync-alt mr-2"></i>Refresh Available Files
+                </button>
+                <p class="mt-1 text-xs text-gray-400">Scan the flash directory for new .swf files</p>
               </div>
             </div>
 
-            <!-- Clear Cache Button -->
-            <div>              <button type="button" id="clearCacheBtn" class="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">
-                Clear Cache Now
-              </button>
-              <p class="mt-1 text-xs text-gray-400">Deletes all cache data including AJ Classic and Strawberry Jam directories. Requires app restart.</p>
-            </div>
+            <!-- Server Connection Settings -->
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-server mr-2 text-highlight-yellow"></i>Server Connection
+              </h4>
 
-            <!-- Uninstall Button -->
-            <div class="mt-4">
-              <button type="button" id="uninstallBtn" class="w-full bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900 transition">
-                Uninstall Strawberry Jam
-              </button>
-              <p class="mt-1 text-xs text-gray-400">Removes Strawberry Jam from your computer. This action is irreversible.</p>
+              <!-- Server IP -->
+              <div>
+                <label for="smartfoxServer" class="block mb-2 text-sm font-medium text-text-primary">
+                  Server IP
+                </label>
+                <input id="advancedSmartfoxServer" type="text"
+                  class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-full"
+                  placeholder="lb-iss02-classic-prod.animaljam.com">
+                <p class="mt-1 text-xs text-gray-400">Animal Jam server address</p>
+              </div>
+
+              <!-- Secure Connection -->
+              <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded mt-4">
+                <label for="advancedSecureConnection" class="text-sm text-text-primary">Use secure connection (SSL/TLS)</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="advancedSecureConnection" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                    <span class="toggle-text-off">OFF</span>
+                    <span class="toggle-text-on">ON</span>
+                  </div>
+                  <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                </label>
+              </div>
+            </div>
+            
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-red-500 border-b border-sidebar-border pb-2">
+                <i class="fas fa-exclamation-triangle mr-2"></i>Danger Zone
+              </h4>
+
+              <!-- Cache Size Display -->
+              <div class="mb-4 py-2 px-3 bg-tertiary-bg/30 rounded">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-text-primary">Current Cache Size:</span>
+                  <span id="cacheSizeValue" class="text-sm text-highlight-yellow">Calculating...</span>
+                </div>
+                <div class="text-xs text-gray-400 flex items-center">
+                  <i class="fas fa-info-circle mr-1"></i>
+                  <span>Cache includes AJ Classic and Strawberry Jam data directories.</span>
+                </div>
+                <div id="cacheSizeDetails" class="mt-2 text-xs text-gray-400 hidden">
+                  <!-- Will be populated with cache details -->
+                </div>
+              </div>
+
+              <!-- Clear Cache Button -->
+              <div>
+                <button type="button" id="clearCacheBtn" class="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">
+                  Clear Cache Now
+                </button>
+                <p class="mt-1 text-xs text-gray-400">Deletes all cache data including AJ Classic and Strawberry Jam directories. Requires app restart.</p>
+              </div>
+
+              <!-- Uninstall Button -->
+              <div class="mt-4">
+                <button type="button" id="uninstallBtn" class="w-full bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900 transition">
+                  Uninstall Strawberry Jam
+                </button>
+                <p class="mt-1 text-xs text-gray-400">Removes Strawberry Jam from your computer. This action is irreversible.</p>
+              </div>
             </div>
           </div>
           <!-- End Advanced Tab Content -->
@@ -900,8 +917,7 @@ async function loadSwfFileSettings($modal, selectedFile) {
     console.error('Error loading SWF files:', error);
     // Fallback to default options
     $dropdown.html(`
-      <option value="ajclient.swf">Production Client (ajclient.swf)</option>
-      <option value="ajclientdev.swf">Development Client (ajclientdev.swf)</option>
+      <option value="ajclient-prod.swf">Production Client</option>
     `);
     $dropdown.val(selectedFile);
     $currentName.text(selectedFile);
@@ -1001,14 +1017,14 @@ async function loadSettings ($modal, app) { // Made async
     const selectedSwfFile = await ipcRenderer.invoke('get-setting', 'game.selectedSwfFile');
 
     // Store the initial SWF file to check for changes on save
-    $modal.data('initialSwfFile', selectedSwfFile || 'ajclient.swf');
+    $modal.data('initialSwfFile', selectedSwfFile || 'ajclient-prod.swf');
 
     // Populate form fields (moved server settings to advanced tab)
     $modal.find('#advancedSmartfoxServer').val(smartfoxServer || '');
     $modal.find('#advancedSecureConnection').prop('checked', secureConnection === true); // Default to false if undefined
 
     // Populate SWF file settings
-    await loadSwfFileSettings($modal, selectedSwfFile || 'ajclient.swf');
+    await loadSwfFileSettings($modal, selectedSwfFile || 'ajclient-prod.swf');
 
     // Populate Plugin settings
     $modal.find('#hideGamePlugins').prop('checked', hideGamePlugins === true); // Default to false if undefined

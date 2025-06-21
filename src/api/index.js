@@ -27,8 +27,8 @@ app.use('/', ApiRouter)
 /**
  * Initialize SWF backups on startup
  */
-FilesController.initializeSwfBackups().catch(err => {
-  console.error('[API Server] Critical error during SWF backup initialization:', err)
+FilesController.initialize().catch(err => {
+  console.error('[API Server] Critical error during SWF initialization:', err)
 })
 
 /**
