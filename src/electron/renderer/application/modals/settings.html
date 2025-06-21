@@ -1,0 +1,444 @@
+<style>
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
+      .peer:checked ~ .peer-checked-bg {
+        background-color: var(--theme-primary);
+        border-color: var(--theme-primary);
+      }
+      .peer:checked ~ .peer-checked-translate {
+        transform: translateX(1rem);
+      }
+      .toggle-text-on, .toggle-text-off {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: white;
+        pointer-events: none;
+        transition: opacity 0.2s ease-in-out;
+      }
+      .toggle-text-on {
+        right: 0.35rem;
+        opacity: 0;
+      }
+      .toggle-text-off {
+        left: 0.35rem;
+        opacity: 1;
+      }
+      .peer:checked ~ .peer-checked-bg .toggle-text-on {
+        opacity: 1;
+      }
+      .peer:checked ~ .peer-checked-bg .toggle-text-off {
+        opacity: 0;
+      }
+    </style>
+    <div class="flex items-center justify-center min-h-screen">
+      <!-- Modal Backdrop -->
+      <div class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm transition-opacity"></div>
+      
+      <div class="relative bg-secondary-bg rounded-lg shadow-xl max-w-md w-full flex flex-col max-h-[85vh] overflow-hidden">
+        <!-- Modal Header -->
+        <div class="flex items-center p-4 border-b border-sidebar-border flex-shrink-0">
+          <h3 class="text-lg font-semibold text-text-primary">
+            <i class="fas fa-cog text-highlight-yellow mr-2"></i>
+            Settings
+          </h3>
+          <button type="button" class="modal-close-button-std text-gray-400 transition-colors duration-200 transform rounded-full p-1 ml-auto flex-shrink-0 flex items-center justify-center" id="closeSettingsBtn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="flex border-b border-sidebar-border flex-shrink-0 px-2 pt-2">
+          <button type="button" class="settings-tab active-tab relative px-4 py-2 text-sm font-medium text-text-primary focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary focus:ring-offset-secondary-bg" data-tab="general">
+            General
+            <span class="tab-underline absolute bottom-0 left-0 w-full h-[2px]" style="background-color: var(--theme-primary); box-shadow: 0 0 6px 0 var(--theme-primary);"></span>
+          </button>
+          <button type="button" class="settings-tab relative px-4 py-2 text-sm font-medium text-sidebar-text hover:text-text-primary focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary focus:ring-offset-secondary-bg" data-tab="plugins">
+            Plugins
+            <span class="tab-underline absolute bottom-0 left-0 w-full h-[2px]" style="background-color: transparent; box-shadow: none;"></span>
+          </button>
+          <button type="button" class="settings-tab relative px-4 py-2 text-sm font-medium text-sidebar-text hover:text-text-primary focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary focus:ring-offset-secondary-bg" data-tab="leakcheck">
+            LeakCheck
+            <span class="tab-underline absolute bottom-0 left-0 w-full h-[2px]" style="background-color: transparent; box-shadow: none;"></span>
+          </button>
+          <button type="button" class="settings-tab relative px-4 py-2 text-sm font-medium text-sidebar-text hover:text-text-primary focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary focus:ring-offset-secondary-bg" data-tab="advanced">
+            Advanced
+            <span class="tab-underline absolute bottom-0 left-0 w-full h-[2px]" style="background-color: transparent; box-shadow: none;"></span>
+          </button>
+        </div>
+
+        <!-- Tab Content Area -->
+        <div class="p-5 overflow-y-auto flex-grow">
+
+          <!-- General Tab Content -->
+          <div id="generalTabContent" class="settings-tab-content space-y-4">
+            <!-- Update Section -->
+            <div class="space-y-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-sync-alt mr-2 text-highlight-yellow"></i>Application Updates
+              </h4>
+              <div>
+                <button type="button" id="checkForUpdatesBtn" class="w-full bg-sidebar-hover text-text-primary px-4 py-2 rounded hover:bg-sidebar-hover/70 transition">
+                  <i class="fas fa-search mr-2"></i>Check for Updates
+                </button>
+                <p class="mt-1 text-xs text-gray-400">Manually check for new versions of Strawberry Jam.</p>
+                <p id="manualUpdateStatusText" class="mt-2 text-xs text-gray-400"></p>
+              </div>
+              <!-- Auto Update Toggle -->
+              <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded mt-4">
+                <label for="enableAutoUpdatesToggle" class="text-sm text-text-primary">Enable Automatic Updates</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="enableAutoUpdatesToggle" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                    <span class="toggle-text-off">OFF</span>
+                    <span class="toggle-text-on">ON</span>
+                  </div>
+                  <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                </label>
+              </div>
+              <p class="mt-1 text-xs text-gray-400 -mt-3">If enabled, the application will automatically download and prompt to install updates when available.</p>
+            </div>
+            <!-- End Update Section -->
+
+            <!-- Startup Behavior Section -->
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-rocket mr-2 text-highlight-yellow"></i>Startup Behavior
+              </h4>
+              <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded">
+                <label for="performServerCheckOnLaunchToggle" class="text-sm text-text-primary">Enable Server Check on Launch</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="performServerCheckOnLaunchToggle" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                    <span class="toggle-text-off">OFF</span>
+                    <span class="toggle-text-on">ON</span>
+                  </div>
+                  <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                </label>
+              </div>
+              <p class="mt-1 text-xs text-gray-400 -mt-3">If unchecked, the app won't verify server status or check for updates at startup.</p>
+            </div>
+            <!-- End Startup Behavior Section -->
+
+            <!-- Log Management Section -->
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-chart-line mr-2 text-highlight-yellow"></i>Log Management
+              </h4>
+              
+              <!-- Console Log Limit -->
+              <div>
+                <label for="consoleLogLimit" class="block mb-2 text-sm font-medium text-text-primary">Console Log Limit</label>
+                <input id="consoleLogLimit" type="number" min="100" max="10000" step="100" class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-full" placeholder="1000">
+                <p class="mt-1 text-xs text-gray-400">Maximum number of console log entries (default: 1000).</p>
+              </div>
+
+              <!-- Network Log Limit -->
+              <div>
+                <label for="networkLogLimit" class="block mb-2 text-sm font-medium text-text-primary">Network Log Limit</label>
+                <input id="networkLogLimit" type="number" min="100" max="10000" step="100" class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-full" placeholder="1000">
+                <p class="mt-1 text-xs text-gray-400">Maximum number of network log entries (default: 1000).</p>
+              </div>
+
+              <!-- Log Cleanup Info Box -->
+              <div class="bg-tertiary-bg/30 p-3 rounded">
+                <div class="flex items-start">
+                  <i class="fas fa-info-circle text-highlight-yellow mt-0.5 mr-2"></i>
+                  <div>
+                    <p class="text-sm text-text-primary mb-2">When logs reach the limit, older entries (about 40%) are automatically removed.</p>
+                    <p class="text-xs text-gray-400">This prevents performance issues from excessive memory usage.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- End Log Management Section -->
+          </div>
+          <!-- End General Tab Content -->
+
+          <!-- Plugins Tab Content -->
+          <div id="pluginsTabContent" class="settings-tab-content space-y-4 hidden">
+            <!-- Hide Game-Specific Plugins -->
+            <div class="space-y-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-eye-slash mr-2 text-highlight-yellow"></i>Plugin Visibility
+              </h4>
+              <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded">
+                <label for="hideGamePlugins" class="text-sm text-text-primary">Hide game-specific plugins in the UI</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="hideGamePlugins" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                    <span class="toggle-text-off">OFF</span>
+                    <span class="toggle-text-on">ON</span>
+                  </div>
+                  <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                </label>
+              </div>
+              <p class="mt-1 text-xs text-gray-400 -mt-3">If checked, game-specific plugins will not be shown in the sidebar or plugin lists.</p>
+            </div>
+            
+            <!-- Plugin Refresh Behavior -->
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-sync-alt mr-2 text-highlight-yellow"></i>Plugin Refresh Behavior
+              </h4>
+              <div>
+                <label for="pluginRefreshBehavior" class="block mb-2 text-sm font-medium text-text-primary">When refreshing plugins with open windows:</label>
+                <select id="pluginRefreshBehavior" class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-full">
+                  <option value="ask">Ask before closing windows</option>
+                  <option value="alwaysClose">Always close windows automatically</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-400">Plugin windows are always closed during refresh to prevent instability. This setting controls whether to ask for confirmation first.</p>
+              </div>
+              
+              <!-- Info Box -->
+              <div class="bg-tertiary-bg/30 p-3 rounded">
+                <div class="flex items-start">
+                  <i class="fas fa-info-circle text-highlight-yellow mt-0.5 mr-2"></i>
+                  <div>
+                    <p class="text-sm text-text-primary mb-2">Plugin windows are automatically closed during refresh</p>
+                    <p class="text-xs text-gray-400">This prevents instability since open windows would become disconnected from the refreshed plugin code.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- End Plugins Tab Content -->
+
+          <!-- LeakCheck Tab Content -->
+          <div id="leakcheckTabContent" class="settings-tab-content space-y-6 hidden">
+            <!-- LeakCheck Service Section -->
+            <div class="space-y-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-shield-alt mr-2 text-highlight-yellow"></i>LeakCheck Service
+              </h4>
+              <!-- API Key -->
+              <div>
+                <label for="leakCheckApiKey" class="block mb-2 text-sm font-medium text-text-primary">API Key</label>
+                <input id="leakCheckApiKey" type="password" class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-full" placeholder="Enter LeakCheck API Key">
+                <p class="mt-1 text-xs text-gray-400">Requires a <a href="https://leakcheck.io/" target="_blank" class="text-highlight-yellow hover:underline">LeakCheck.io</a> Pro subscription.</p>
+              </div>
+              <!-- Auto Leak Check Section -->
+              <div class="bg-tertiary-bg/30 p-4 rounded-lg space-y-3">
+                <div class="flex items-center justify-between">
+                  <label for="leakCheckAutoCheck" class="text-sm font-medium text-text-primary">Auto-check for leaks</label>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="leakCheckAutoCheck" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                      <span class="toggle-text-off">OFF</span>
+                      <span class="toggle-text-on">ON</span>
+                    </div>
+                    <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                  </label>
+                </div>
+                <div id="leakCheckThresholdContainer" class="transition-opacity duration-300">
+                  <label for="leakCheckThreshold" class="block mb-2 text-xs font-medium text-gray-400">Trigger after new usernames are collected:</label>
+                  <div class="flex items-center space-x-2">
+                    <input id="leakCheckThreshold" type="number" min="1" step="1" class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-24 text-center" placeholder="100">
+                    <span class="text-xs text-gray-400">usernames</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Username Collection Section -->
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-users mr-2 text-highlight-yellow"></i>Username Collection
+              </h4>
+              <!-- Master Toggle -->
+              <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded">
+                <label for="leakCheckEnableLogging" class="text-sm text-text-primary">Enable Username Logging</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="leakCheckEnableLogging" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                    <span class="toggle-text-off">OFF</span>
+                    <span class="toggle-text-on">ON</span>
+                  </div>
+                  <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                </label>
+              </div>
+              <p class="mt-1 text-xs text-gray-400 -mt-3">Master toggle for the Username Logger plugin functionality.</p>
+              <!-- Collection Scopes -->
+              <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded">
+                <label for="leakCheckCollectNearby" class="text-sm text-text-primary">Collect Usernames from Nearby Players</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="leakCheckCollectNearby" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                    <span class="toggle-text-off">OFF</span>
+                    <span class="toggle-text-on">ON</span>
+                  </div>
+                  <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                </label>
+              </div>
+              <p class="mt-1 text-xs text-gray-400 -mt-3">Log usernames of players in the same room.</p>
+              <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded">
+                <label for="leakCheckCollectBuddies" class="text-sm text-text-primary">Collect Usernames from Buddy List</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="leakCheckCollectBuddies" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                    <span class="toggle-text-off">OFF</span>
+                    <span class="toggle-text-on">ON</span>
+                  </div>
+                  <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                </label>
+              </div>
+              <p class="mt-1 text-xs text-gray-400 -mt-3">Log usernames from your buddy list updates.</p>
+            </div>
+
+            <!-- File Management Section -->
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-folder-open mr-2 text-highlight-yellow"></i>File Management
+              </h4>
+              <!-- Output Directory -->
+              <div>
+                <label for="leakCheckOutputDirInput" class="block mb-2 text-sm font-medium text-text-primary">Output Directory (Optional)</label>
+                <input id="leakCheckOutputDirInput" type="text" class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-full" placeholder="Default: [App Data]/UsernameLogger/">
+                <p class="mt-1 text-xs text-gray-400">Custom folder for leak check results. Leave blank for default.</p>
+              </div>
+              <!-- Open Directory Button -->
+              <div>
+                <button type="button" id="openOutputDirBtn" class="w-full bg-sidebar-hover text-text-primary px-4 py-2 rounded hover:bg-sidebar-hover/70 transition">
+                  <i class="fas fa-folder-open mr-2"></i>Open Output Directory
+                </button>
+                <p class="mt-1 text-xs text-gray-400">Opens the directory where results and logs are saved.</p>
+              </div>
+            </div>
+          </div>
+          <!-- End LeakCheck Tab Content -->
+
+          <!-- Advanced Tab Content (Danger Zone) -->
+          <div id="advancedTabContent" class="settings-tab-content space-y-4 hidden">
+            <!-- Game Client Settings -->
+            <div class="space-y-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-file-code mr-2 text-highlight-yellow"></i>Game Client
+              </h4>
+
+              <!-- SWF File Selection -->
+              <div>
+                <label for="selectedSwfFile" class="block mb-2 text-sm font-medium text-text-primary">
+                  Active .swf Client
+                </label>
+                <select id="selectedSwfFile" class="bg-tertiary-bg text-text-primary focus:outline-none rounded px-3 py-2 w-full border border-sidebar-border">
+                  <option value="ajclient.swf">Production Client (ajclient.swf)</option>
+                  <option value="ajclientdev.swf">Development Client (ajclientdev.swf)</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-400">Select which .swf file to serve for game sessions. Requires restarting the game to take effect.</p>
+              </div>
+
+              <!-- SWF File Info Display -->
+              <div id="swfFileInfo" class="mt-3 py-2 px-3 bg-tertiary-bg/30 rounded">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-text-primary">Current File:</span>
+                  <span id="currentSwfName" class="text-sm text-highlight-yellow">ajclient.swf</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-400">Size:</span>
+                  <span id="currentSwfSize" class="text-xs text-gray-400">Calculating...</span>
+                </div>
+              </div>
+
+              <!-- Refresh SWF List Button -->
+              <div class="mt-3">
+                <button type="button" id="refreshSwfListBtn" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+                  <i class="fas fa-sync-alt mr-2"></i>Refresh Available Files
+                </button>
+                <p class="mt-1 text-xs text-gray-400">Scan the flash directory for new .swf files</p>
+              </div>
+            </div>
+
+            <!-- Server Connection Settings -->
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-text-primary border-b border-sidebar-border pb-2">
+                <i class="fas fa-server mr-2 text-highlight-yellow"></i>Server Connection
+              </h4>
+
+              <!-- Server IP -->
+              <div>
+                <label for="smartfoxServer" class="block mb-2 text-sm font-medium text-text-primary">
+                  Server IP
+                </label>
+                <input id="advancedSmartfoxServer" type="text"
+                  class="bg-tertiary-bg text-text-primary placeholder-text-primary focus:outline-none rounded px-3 py-2 w-full"
+                  placeholder="lb-iss02-classic-prod.animaljam.com">
+                <p class="mt-1 text-xs text-gray-400">Animal Jam server address</p>
+              </div>
+
+              <!-- Secure Connection -->
+              <div class="flex items-center justify-between bg-tertiary-bg/30 p-3 rounded mt-4">
+                <label for="advancedSecureConnection" class="text-sm text-text-primary">Use secure connection (SSL/TLS)</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="advancedSecureConnection" class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-600 rounded-full transition-colors peer-checked-bg border border-gray-400 relative">
+                    <span class="toggle-text-off">OFF</span>
+                    <span class="toggle-text-on">ON</span>
+                  </div>
+                  <div class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform peer-checked-translate shadow"></div>
+                </label>
+              </div>
+            </div>
+            
+            <div class="space-y-4 pt-4">
+              <h4 class="text-md font-semibold text-red-500 border-b border-sidebar-border pb-2">
+                <i class="fas fa-exclamation-triangle mr-2"></i>Danger Zone
+              </h4>
+
+              <!-- Cache Size Display -->
+              <div class="mb-4 py-2 px-3 bg-tertiary-bg/30 rounded">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-text-primary">Current Cache Size:</span>
+                  <span id="cacheSizeValue" class="text-sm text-highlight-yellow">Calculating...</span>
+                </div>
+                <div class="text-xs text-gray-400 flex items-center">
+                  <i class="fas fa-info-circle mr-1"></i>
+                  <span>Cache includes AJ Classic and Strawberry Jam data directories.</span>
+                </div>
+                <div id="cacheSizeDetails" class="mt-2 text-xs text-gray-400 hidden">
+                  <!-- Will be populated with cache details -->
+                </div>
+              </div>
+
+              <!-- Clear Cache Button -->
+              <div>
+                <button type="button" id="clearCacheBtn" class="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">
+                  Clear Cache Now
+                </button>
+                <p class="mt-1 text-xs text-gray-400">Deletes all cache data including AJ Classic and Strawberry Jam directories. Requires app restart.</p>
+              </div>
+
+              <!-- Uninstall Button -->
+              <div class="mt-4">
+                <button type="button" id="uninstallBtn" class="w-full bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900 transition">
+                  Uninstall Strawberry Jam
+                </button>
+                <p class="mt-1 text-xs text-gray-400">Removes Strawberry Jam from your computer. This action is irreversible.</p>
+              </div>
+            </div>
+          </div>
+          <!-- End Advanced Tab Content -->
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="flex items-center justify-end p-4 border-t border-sidebar-border flex-shrink-0">
+          <button type="button" class="bg-tertiary-bg text-text-primary px-5 py-2.5 mr-3 rounded-lg hover:bg-sidebar-hover transition-all duration-200 border border-sidebar-border" id="cancelSettingsBtn">
+            <i class="fas fa-times mr-1.5"></i> Cancel
+          </button>
+          <button type="button" class="bg-tertiary-bg text-white rounded-lg px-5 py-2.5 shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-100 focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary-bg font-medium" id="saveSettingsBtn">
+            <i class="fas fa-save mr-1.5"></i> Save Changes
+          </button>
+        </div>
+      </div>
+    </div>

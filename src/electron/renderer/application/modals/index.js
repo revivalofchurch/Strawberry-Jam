@@ -123,7 +123,7 @@ class ModalSystem {
    * @param {Object} data - Optional data to pass to the modal
    * @returns {JQuery<HTMLElement>|null} - The rendered modal or null if not found
    */
-  show (name, target = '#modalContainer', data = {}) {
+  async show (name, target = '#modalContainer', data = {}) {
     const modalModule = this.registeredModals.get(name)
     if (!modalModule) {
       this.application.consoleMessage({
@@ -145,7 +145,7 @@ class ModalSystem {
     $container.empty()
 
     try {
-      const $modal = modalModule.render(this.application, data)
+      const $modal = await modalModule.render(this.application, data)
 
       if (!$modal) {
         this.application.consoleMessage({

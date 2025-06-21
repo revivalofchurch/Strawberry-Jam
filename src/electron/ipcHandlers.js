@@ -131,6 +131,16 @@ function setupIpcHandlers(electronInstance) {
     electronInstance._window.webContents.send('maximize-changed', electronInstance._window.isMaximized());
   });
 
+  ipcMain.handle('get-modal-html', async (event, modalName) => {
+    const modalPath = path.join(__dirname, `renderer/application/modals/${modalName}.html`);
+    try {
+      return await fs.promises.readFile(modalPath, 'utf-8');
+    } catch (error) {
+      console.error(`Failed to read modal HTML for ${modalName}:`, error);
+      return null;
+    }
+  });
+
   ipcMain.on('open-settings', (_, url) => shell.openExternal(url));
 
   ipcMain.on('open-url', (_, url) => shell.openExternal(url));
