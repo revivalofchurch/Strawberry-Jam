@@ -76,13 +76,13 @@ class ServerStatusChecker {
           } 
           else if (response.statusCode === 403 || response.statusCode === 401) {
             // Server is up but we're blocked
-            result.isOnline = false;
+            result.isOnline = true;
             result.accessStatus = 'blocked';
           }
           else if (response.statusCode === 429 || response.statusCode === 503) {
             // Server is up but we're rate limited
             // 429 = Too Many Requests, 503 = Service Unavailable (used for rate limiting)
-            result.isOnline = false;
+            result.isOnline = true;
             result.accessStatus = 'limited';
           }
           else if (response.statusCode >= 500) {
@@ -162,12 +162,12 @@ class ServerStatusChecker {
         if (response.statusCode) {
           if (response.statusCode === 403 || response.statusCode === 401) {
             // Server is up but access is blocked
-            result.isOnline = false;
+            result.isOnline = true;
             result.accessStatus = 'blocked';
           }
           else if (response.statusCode === 429 || response.statusCode === 503) {
             // Server is up but we're rate limited
-            result.isOnline = false;
+            result.isOnline = true;
             result.accessStatus = 'limited';
           }
           else if (response.statusCode >= 500) {

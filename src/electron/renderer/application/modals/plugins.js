@@ -702,6 +702,8 @@ exports.render = function (app) {
         type: 'success'
       })
 
+      app.modals.close()
+
       if (typeof app.dispatch.load === 'function') {
         app.dispatch.load()
         app.emit('refresh:plugins')
