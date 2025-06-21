@@ -11,10 +11,7 @@ dev-app-update.yml
 *.swp
 .cursor/
 build/*
-dev/*
+dev
 assets/flash/backups/*
-UsernameLogger/*
-decoding_guide.md
-multi-instance-plan.md
-Current-Tasks.md
-Discord Data/
+Docs
+UsernameLogger
