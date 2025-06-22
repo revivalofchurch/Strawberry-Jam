@@ -214,6 +214,18 @@ function setupIpcHandlers(electronInstance) {
     }
   });
 
+  // IPC handler for reapplying SWF files
+  ipcMain.handle('reapply-swf-file', async (event, selectedFile) => {
+    try {
+      const FilesController = require('../api/controllers/FilesController');
+      // Re-use the same logic as replacing the SWF file
+      return await FilesController.replaceSwfFile(selectedFile);
+    } catch (error) {
+      console.error('Error reapplying SWF file:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // IPC handler for getting active SWF info
   ipcMain.handle('get-active-swf-info', async (event) => {
     try {

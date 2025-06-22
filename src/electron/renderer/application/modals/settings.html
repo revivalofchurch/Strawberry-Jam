@@ -350,13 +350,20 @@
                 </div>
               </div>
 
-              <!-- Refresh SWF List Button -->
-              <div class="mt-3">
+              <!-- Action Buttons -->
+              <div class="mt-3 grid grid-cols-2 gap-2">
                 <button type="button" id="refreshSwfListBtn" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
-                  <i class="fas fa-sync-alt mr-2"></i>Refresh Available Files
+                  <i class="fas fa-sync-alt mr-2"></i>Refresh List
                 </button>
-                <p class="mt-1 text-xs text-gray-400">Scan the flash directory for new .swf files</p>
+                <button type="button" id="reapplySwfBtn" class="w-full bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition">
+                  <i class="fas fa-copy mr-2"></i>Reapply SWF
+                </button>
               </div>
+              <p class="mt-1 text-xs text-gray-400">
+                <b>Refresh List:</b> Scans for new .swf files.
+                <br>
+                <b>Reapply SWF:</b> Forces the selected .swf to be copied to ajclient.swf.
+              </p>
             </div>
 
             <!-- Server Connection Settings -->

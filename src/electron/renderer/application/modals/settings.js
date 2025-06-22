@@ -273,6 +273,41 @@ function setupEventHandlers ($modal, app) {
       $button.html(originalText).prop('disabled', false);
     }
   });
+
+  $modal.find('#reapplySwfBtn').on('click', async function() {
+    const $button = $(this);
+    const originalText = $button.html();
+    
+    $button.html('<i class="fas fa-spinner fa-spin mr-2"></i>Reapplying...').prop('disabled', true);
+    
+    try {
+      const selectedFile = $modal.find('#selectedSwfFile').val();
+      if (!selectedFile) {
+        showToast('No SWF file selected.', 'error');
+        return;
+      }
+      
+      // This will be a new IPC call to the main process
+      const result = await ipcRenderer.invoke('reapply-swf-file', selectedFile);
+
+      if (result.success) {
+        showToast('SWF file reapplied successfully!', 'success');
+        if (app && app.consoleMessage) {
+            app.consoleMessage({
+              type: 'notify',
+              message: `Game client file '${selectedFile}' was reapplied. Changes will apply on next game launch.`
+            });
+        }
+      } else {
+        showToast(`Failed to reapply SWF: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error reapplying SWF file:', error);
+      showToast('Error reapplying SWF file', 'error');
+    } finally {
+      $button.html(originalText).prop('disabled', false);
+    }
+  });
   // --- End SWF File Selection Handlers ---
 
   // --- LeakCheck Threshold Visibility ---
