@@ -542,6 +542,27 @@
                         opacity 0.3s ease; /* Removed padding from transition */
             transform-origin: top center;
             /* width: 250px; is already defined above, ensure it's not overridden */
+            overflow-y: auto; /* Enable vertical scrolling */
+            padding-right: 5px; /* Add some space for the scrollbar */
+          }
+
+          /* Custom Scrollbar Styles */
+          #settings-panel::-webkit-scrollbar {
+            width: 8px;
+          }
+
+          #settings-panel::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1); /* A subtle track background */
+            border-radius: 10px;
+          }
+
+          #settings-panel::-webkit-scrollbar-thumb {
+            background-color: var(--theme-primary); /* Use the primary theme color */
+            border-radius: 10px;
+          }
+
+          #settings-panel::-webkit-scrollbar-thumb:hover {
+            background-color: var(--theme-hover-border); /* Use the theme's hover color */
           }
           
           #settings-panel.show {
@@ -627,6 +648,8 @@
  
             <h5 style="font-family: CCDigitalDelivery; color: #805B47; font-size: 12px; margin-top: 8px; margin-bottom: 4px; font-weight: bold;">In-Game:</h5>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">F5: Toggle In-Game HUD</div>
+            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + C: Clone A Friend</div>
+            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + T: Teleportation</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Shift + Equals / Numpad Add: Zoom In</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Shift + Minus / Numpad Subtract: Zoom Out</div>
 
