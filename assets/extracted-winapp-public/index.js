@@ -751,8 +751,6 @@ async function getSavedAccountsData() {
   return accountsWithPasswords;
 }
 
-const MAX_SAVED_ACCOUNTS = 5;
-
 ipcMain.handle('get-saved-accounts', async () => {
   log('debug', '[AccMan IPC] Handling get-saved-accounts request');
   return await getSavedAccountsData();
@@ -772,14 +770,6 @@ ipcMain.handle('save-account', async (event, accountData) => {
       savedAccountsMetadata[existingAccountIndex] = accountMetadata;
       log('info', `[AccMan] Updated existing account metadata: ${accountData.username}`);
     } else {
-      if (savedAccountsMetadata.length >= MAX_SAVED_ACCOUNTS) {
-        const oldestAccount = savedAccountsMetadata.shift();
-        if (oldestAccount && oldestAccount.username) {
-          store.delete(`savedAccountPasswords.${oldestAccount.username}`);
-          log('warn', `[WINAPP AccMan] Deleted plaintext password for oldest account ${oldestAccount.username} from electron-store due to limit.`);
-        }
-        log('info', '[AccMan] Max accounts reached, removed oldest account metadata and its stored password.');
-      }
       savedAccountsMetadata.push(accountMetadata);
       log('info', `[AccMan] Added new account metadata: ${accountData.username}`);
     }

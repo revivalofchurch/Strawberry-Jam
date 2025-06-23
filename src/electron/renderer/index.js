@@ -82,16 +82,16 @@ const updateConnectionStatus = (connected, serverOnline = null) => {
     } else if (serverStatus.isOnline === true) {
       // Determine specific status based on accessStatus
       if (serverStatus.accessStatus === 'blocked') {
-        // Access blocked
-        statusElement.querySelector('span:last-child').textContent = 'AJ Servers: Access Blocked';
+        // IP blocked
+        statusElement.querySelector('span:last-child').textContent = 'AJ Servers: IP Blocked';
         statusElement.classList.add('text-highlight-yellow');
         dotElement.classList.add('bg-highlight-yellow');
         dotElement.classList.add('pulse-yellow');
         
         // Add tooltip
-        statusElement.setAttribute('title', `Server ${serverStatus.server} is blocking your connection (Status code: ${serverStatus.statusCode})`);
+        statusElement.setAttribute('title', `${serverStatus.details || 'Your IP appears to be blocked from accessing the servers'}`);
       }
-      else if (serverStatus.accessStatus === 'limited') {
+      else if (serverStatus.accessStatus === 'rate_limited') {
         // Rate limited
         statusElement.querySelector('span:last-child').textContent = 'AJ Servers: Rate Limited';
         statusElement.classList.add('text-highlight-yellow');
@@ -99,7 +99,27 @@ const updateConnectionStatus = (connected, serverOnline = null) => {
         dotElement.classList.add('pulse-yellow');
         
         // Add tooltip
-        statusElement.setAttribute('title', `Server ${serverStatus.server} is rate limiting your requests (Status code: ${serverStatus.statusCode})`);
+        statusElement.setAttribute('title', `${serverStatus.details || 'Server is rate limiting requests'}`);
+      }
+      else if (serverStatus.accessStatus === 'auth_error') {
+        // Authentication service having issues
+        statusElement.querySelector('span:last-child').textContent = 'AJ Servers: Auth Issues';
+        statusElement.classList.add('text-highlight-yellow');
+        dotElement.classList.add('bg-highlight-yellow');
+        dotElement.classList.add('pulse-yellow');
+        
+        // Add tooltip
+        statusElement.setAttribute('title', `${serverStatus.details || 'Authentication service issues'}`);
+      }
+      else if (serverStatus.accessStatus === 'unusual') {
+        // Unusual response
+        statusElement.querySelector('span:last-child').textContent = 'AJ Servers: Unusual Status';
+        statusElement.classList.add('text-highlight-yellow');
+        dotElement.classList.add('bg-highlight-yellow');
+        dotElement.classList.add('pulse-yellow');
+        
+        // Add tooltip
+        statusElement.setAttribute('title', `${serverStatus.details || 'Server responding with unusual status'}`);
       }
       else {
         // Servers online but not connected (normal case)
@@ -109,16 +129,18 @@ const updateConnectionStatus = (connected, serverOnline = null) => {
         dotElement.classList.add('pulse-green');
         
         // Add tooltip with server info
-        if (serverStatus.server) {
+        if (serverStatus.details) {
+          statusElement.setAttribute('title', `${serverStatus.details} (Response time: ${serverStatus.responseTime}ms)`);
+        } else if (serverStatus.server) {
           const tooltipText = `Server ${serverStatus.server} is online (Response time: ${serverStatus.responseTime}ms)`;
           statusElement.setAttribute('title', tooltipText);
         }
       }
     } else if (serverStatus.isOnline === false) {
       // Determine specific offline message based on accessStatus
-      if (serverStatus.accessStatus === 'error') {
+      if (serverStatus.accessStatus === 'server_error') {
         statusElement.querySelector('span:last-child').textContent = 'AJ Servers: Error';
-      } else if (serverStatus.accessStatus === 'network-error') {
+      } else if (serverStatus.accessStatus === 'network_error') {
         statusElement.querySelector('span:last-child').textContent = 'Cannot Connect to AJ Servers';
       } else {
         statusElement.querySelector('span:last-child').textContent = 'AJ Servers are offline :(';
@@ -130,14 +152,7 @@ const updateConnectionStatus = (connected, serverOnline = null) => {
       
       // Add tooltip with details
       const lastCheckedTime = new Date(serverStatus.lastChecked).toLocaleTimeString();
-      let errorDetail = '';
-      if (serverStatus.statusCode) {
-        errorDetail = `Status code: ${serverStatus.statusCode}`;
-      } else if (serverStatus.error) {
-        errorDetail = `Error: ${serverStatus.error}`;
-      }
-      
-      const tooltipText = `Unable to connect to ${serverStatus.server || 'Animal Jam servers'} (${errorDetail}). Last checked: ${lastCheckedTime}`;
+      const tooltipText = `${serverStatus.details || 'Unable to connect to Animal Jam servers'}. Last checked: ${lastCheckedTime}`;
       statusElement.setAttribute('title', tooltipText);
     } else {
       // Unknown status
@@ -178,6 +193,7 @@ const checkServerStatus = async () => {
       server: result.server || serverHost,
       accessStatus: result.accessStatus || 'unknown',
       statusCode: result.statusCode,
+      details: result.details || '',
       isChecking: false
     };
     
@@ -206,24 +222,53 @@ const checkServerStatus = async () => {
       if (result.isOnline) {
         if (result.accessStatus === 'ok') {
           message = `AJ Servers are online! ${displayServer} (${result.responseTime}ms)`;
+          if (result.details) {
+            message += ` - ${result.details}`;
+          }
           messageType = 'success';
         } else if (result.accessStatus === 'blocked') {
-          message = `AJ Servers are online but your access appears to be blocked. ${displayServer} (${result.statusCode})`;
+          message = `AJ Servers are online but your IP appears to be blocked. ${displayServer} (${result.responseTime}ms)`;
+          if (result.details) {
+            message += ` - ${result.details}`;
+          }
           messageType = 'warn';
-        } else if (result.accessStatus === 'limited' || result.statusCode === 503) {
-          message = `AJ Servers are online but you appear to be rate limited. ${displayServer} (${result.statusCode})`;
+        } else if (result.accessStatus === 'rate_limited') {
+          message = `AJ Servers are online but rate limiting requests. ${displayServer} (${result.responseTime}ms)`;
+          if (result.details) {
+            message += ` - ${result.details}`;
+          }
           messageType = 'warn';
-        } else {
-          message = `AJ Servers are responding but with an unusual status. ${displayServer} (${result.statusCode})`;
+        } else if (result.accessStatus === 'auth_error') {
+          message = `AJ Servers are online but authentication service has issues. ${displayServer}`;
+          if (result.details) {
+            message += ` - ${result.details}`;
+          }
+          messageType = 'warn';
+        } else if (result.accessStatus === 'unusual') {
+          message = `AJ Servers are responding with unusual status. ${displayServer} (${result.responseTime}ms)`;
+          if (result.details) {
+            message += ` - ${result.details}`;
+          }
           messageType = 'notify';
+        } else {
+          // Fallback for any other online status
+          message = `AJ Servers are online. ${displayServer} (${result.responseTime}ms)`;
+          if (result.details) {
+            message += ` - ${result.details}`;
+          }
+          messageType = 'success';
         }
       } else {
-        if (result.accessStatus === 'error') {
-          message = `AJ Servers are experiencing errors. ${displayServer} (Status ${result.statusCode})`;
-        } else if (result.accessStatus === 'network-error') {
-          message = `Cannot connect to AJ Servers. ${displayServer} (Network error: ${result.error || 'unknown'})`;
+        if (result.accessStatus === 'server_error') {
+          message = `AJ Servers are experiencing errors. ${displayServer}`;
+        } else if (result.accessStatus === 'network_error') {
+          message = `Cannot connect to AJ Servers. ${displayServer}`;
         } else {
           message = `AJ Servers appear to be offline. ${displayServer}`;
+        }
+        
+        if (result.details) {
+          message += ` - ${result.details}`;
         }
         messageType = 'error';
       }
@@ -242,7 +287,8 @@ const checkServerStatus = async () => {
     serverStatus.isOnline = null;
     serverStatus.lastChecked = Date.now();
     serverStatus.isChecking = false;
-    serverStatus.accessStatus = 'error';
+    serverStatus.accessStatus = 'network_error';
+    serverStatus.details = `Error checking server status: ${error.message}`;
     
     // Log the error if console is available
     if (application && application.consoleMessage) {

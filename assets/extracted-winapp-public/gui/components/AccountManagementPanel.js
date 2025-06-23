@@ -124,8 +124,10 @@
       if (!this.savedAccountsListElem) return;
       this.savedAccountsListElem.innerHTML = ''; // Clear existing slots
 
-      const MAX_DISPLAY_SLOTS = 5;
-      for (let i = 0; i < MAX_DISPLAY_SLOTS; i++) {
+      const MIN_DISPLAY_SLOTS = 7;
+      const totalSlots = Math.max(MIN_DISPLAY_SLOTS, accounts.length);
+
+      for (let i = 0; i < totalSlots; i++) {
         const slot = document.createElement('div');
         slot.classList.add('saved-account-slot');
         if (accounts[i]) {
