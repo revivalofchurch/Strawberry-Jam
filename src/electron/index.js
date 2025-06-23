@@ -826,6 +826,21 @@ class Electron {
 
 
     this._initAutoUpdater();
+
+    // Apply SWF on launch if enabled
+    try {
+      const autoReapply = this._store.get('game.autoReapplySwfOnLaunch');
+      if (autoReapply) {
+        const selectedFile = this._store.get('game.selectedSwfFile');
+        if (selectedFile) {
+          logManager.log(`[Auto Reapply] Auto-reapplying SWF file: ${selectedFile}`, 'main', logManager.logLevels.INFO);
+          const FilesController = require('../api/controllers/FilesController');
+          FilesController.replaceSwfFile(selectedFile);
+        }
+      }
+    } catch (error) {
+      console.error('Error applying SWF on launch:', error);
+    }
   }
 
   _handleAppMinimized() {

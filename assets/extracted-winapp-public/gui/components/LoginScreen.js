@@ -650,6 +650,7 @@
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">F5: Toggle In-Game HUD</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + C: Clone A Friend</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + T: Teleportation</div>
+            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + R: Room User Scan</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Shift + Equals / Numpad Add: Zoom In</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Shift + Minus / Numpad Subtract: Zoom Out</div>
 

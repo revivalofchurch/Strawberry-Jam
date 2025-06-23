@@ -226,6 +226,7 @@ function setupIpcHandlers(electronInstance) {
     }
   });
 
+
   // IPC handler for getting active SWF info
   ipcMain.handle('get-active-swf-info', async (event) => {
     try {

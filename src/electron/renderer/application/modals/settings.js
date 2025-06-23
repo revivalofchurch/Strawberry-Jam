@@ -606,6 +606,7 @@ async function loadSettings ($modal, app) { // Made async
 
     // Game client settings
     const selectedSwfFile = await ipcRenderer.invoke('get-setting', 'game.selectedSwfFile');
+    const autoReapplySwfOnLaunch = await ipcRenderer.invoke('get-setting', 'game.autoReapplySwfOnLaunch');
 
     // Store the initial SWF file to check for changes on save
     $modal.data('initialSwfFile', selectedSwfFile || 'ajclient-prod.swf');
@@ -640,6 +641,9 @@ async function loadSettings ($modal, app) { // Made async
 
     // Populate Auto Update setting
     $modal.find('#enableAutoUpdatesToggle').prop('checked', enableAutoUpdates === true);
+
+    // Populate Auto Reapply SWF on Launch setting
+    $modal.find('#autoReapplySwfOnLaunchToggle').prop('checked', autoReapplySwfOnLaunch === true);
 
     // Set initial state for LeakCheck threshold
     if ($leakCheckAutoCheck.length) {
@@ -750,7 +754,8 @@ async function saveSettings ($modal, app) {
       { key: 'ui.performServerCheckOnLaunch', value: $modal.find('#performServerCheckOnLaunchToggle').is(':checked') },
       { key: 'dev-log.performServerCheckOnLaunch', value: $modal.find('#performServerCheckOnLaunchToggle').is(':checked') },
       { key: 'updates.enableAutoUpdates', value: $modal.find('#enableAutoUpdatesToggle').is(':checked') },
-      { key: 'game.selectedSwfFile', value: selectedSwfFile }
+      { key: 'game.selectedSwfFile', value: selectedSwfFile },
+      { key: 'game.autoReapplySwfOnLaunch', value: $modal.find('#autoReapplySwfOnLaunchToggle').is(':checked') }
     ];
 
     for (const setting of settingsToSave) {
