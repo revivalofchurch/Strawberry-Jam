@@ -4,6 +4,8 @@
   display: block; /* Ensures the custom element behaves like a block-level element */
   height: 80%; /* Takes 80% height of its grid area in LoginScreen */
   overflow: hidden; /* Prevents context menu from causing scrollbars on host */
+  position: relative; /* Establish containing block for absolutely positioned children */
+  z-index: 0; /* Ensure host stays in normal stacking context */
 }
 
 #panel-container {
@@ -130,7 +132,8 @@
   justify-content: center;
   align-items: center;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  z-index: 10;
+  z-index: 0; /* Set to 0 to ensure it stays within normal flow */
+  pointer-events: none; /* Prevent any interaction issues */
 }
 
 .saved-account-slot.empty {
