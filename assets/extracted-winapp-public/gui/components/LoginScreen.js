@@ -1338,6 +1338,9 @@
         if (err?.message !== "OTP_NEEDED") {
              this.loginBlocked = false;
              this.logInButtonElem.classList.remove("loading");
+        } else {
+             // For OTP_NEEDED, unblock but keep loading spinner for OTP entry
+             this.loginBlocked = false;
         }
       } 
     }

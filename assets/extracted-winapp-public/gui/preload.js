@@ -36,6 +36,7 @@ const sendWhitelist = new Set()
   .add('get-saved-accounts')
   .add('save-account')
   .add('delete-account')
+  .add('toggle-pin-account')
   .add('open-user-cache-file')
   .add('request-main-log-path'); // CHANGED: For send/on pattern
 

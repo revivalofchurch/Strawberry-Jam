@@ -243,8 +243,12 @@
           return await getGameData({auth_token: authToken}, true);
         },
 
-        async authenticateWithRefreshToken(refreshToken) {
-          return await authenticate({refresh_token: refreshToken});
+        async authenticateWithRefreshToken(refreshToken, otp) {
+          const request = {refresh_token: refreshToken};
+          if (otp) {
+            request.otp = otp;
+          }
+          return await authenticate(request);
         },
 
         async authenticateWithPassword(username, password, otp, customDf) {
@@ -295,17 +299,32 @@
       });
 
       const showOtpModal = () => {
+        console.log("[OTP Modal] Creating OTP modal...");
         const modal = document.createElement("otp-modal");
+        
         modal.addEventListener("close", event => {
+          console.log("[OTP Modal] Close event triggered");
           document.getElementById("modal-layer").removeChild(modal);
         });
+        
         modal.addEventListener("submit", event => {
+          console.log("[OTP Modal] Submit event triggered with OTP:", event.detail.otp);
           document.getElementById("modal-layer").removeChild(modal);
           const loginScreen = document.getElementById("login-screen");
           loginScreen.otp = event.detail.otp;
+          console.log("[OTP Modal] Set OTP on login screen, calling logIn()");
           loginScreen.logIn();
         });
-        document.getElementById("modal-layer").appendChild(modal);
+        
+        const modalLayer = document.getElementById("modal-layer");
+        if (modalLayer) {
+          modalLayer.appendChild(modal);
+          console.log("[OTP Modal] Modal appended to modal-layer, modal should be visible");
+          console.log("[OTP Modal] Modal layer children count:", modalLayer.children.length);
+          console.log("[OTP Modal] Modal element:", modal);
+        } else {
+          console.error("[OTP Modal] modal-layer element not found!");
+        }
       };
 
       const showRenameUserModal = (username, renameToken) => {
@@ -384,10 +403,28 @@
         // unprocessable request
         if (response.status === 422) {
           const authError = JSON.parse(await response.text());
-          if (authError.error == "invalid_otp" || authError.error == "pending_otp_confirmation") {
+          
+          // Log the full error response for debugging
+          console.log("[AUTH] 422 Error Response:", authError);
+          
+          // Check for 2FA/OTP requirements using multiple possible field names and values
+          const errorText = (authError.error || authError.message || '').toLowerCase();
+          const errorCode = authError.error_code;
+          
+          if (authError.error == "invalid_otp" || 
+              authError.error == "pending_otp_confirmation" ||
+              errorText.includes('otp') || 
+              errorText.includes('two') || 
+              errorText.includes('2fa') || 
+              errorText.includes('verification') ||
+              errorCode === 'otp_required' ||
+              errorCode === 'two_factor_required') {
+            console.log("[AUTH] 2FA/OTP required, showing OTP modal");
             showOtpModal();
             throw new Error("OTP_NEEDED");
           }
+          
+          console.log("[AUTH] 422 error but not OTP-related:", errorText);
           throw new Error("LOGIN_ERROR");
         }
         // unexpected response: log details and show generic login error

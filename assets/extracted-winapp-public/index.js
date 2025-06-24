@@ -816,6 +816,35 @@ ipcMain.handle('delete-account', async (event, username) => {
   }
 });
 
+ipcMain.handle('toggle-pin-account', async (event, username) => {
+  log('debug', `[AccMan] Handling toggle-pin-account request for ${username}`);
+  if (!username) {
+    log('error', '[AccMan] Invalid username provided to toggle-pin-account');
+    return { success: false, error: 'Invalid username' };
+  }
+  try {
+    let savedAccountsMetadata = store.get(STORE_KEY_SAVED_ACCOUNTS, []);
+    const accountIndex = savedAccountsMetadata.findIndex(acc => acc.username.toLowerCase() === username.toLowerCase());
+    
+    if (accountIndex === -1) {
+      log('warn', `[AccMan] Account metadata not found for pin toggle: ${username}`);
+      return { success: false, error: 'Account not found' };
+    }
+    
+    // Toggle the pinned status
+    savedAccountsMetadata[accountIndex].pinned = !savedAccountsMetadata[accountIndex].pinned;
+    
+    store.set(STORE_KEY_SAVED_ACCOUNTS, savedAccountsMetadata);
+    log('info', `[AccMan] Toggled pin status for: ${username} to ${savedAccountsMetadata[accountIndex].pinned}`);
+    
+    const updatedAccountsWithPasswords = await getSavedAccountsData();
+    return { success: true, accounts: updatedAccountsWithPasswords };
+  } catch (error) {
+    log('error', `[AccMan] Error toggling pin status: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('open-user-cache-file', async () => {
   try {
     const filePath = store.path;

@@ -124,17 +124,34 @@
       if (!this.savedAccountsListElem) return;
       this.savedAccountsListElem.innerHTML = ''; // Clear existing slots
 
+      // Sort accounts: pinned accounts first, then regular accounts
+      const sortedAccounts = accounts.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return 0; // Maintain relative order for accounts with same pin status
+      });
+
       const MIN_DISPLAY_SLOTS = 7;
-      const totalSlots = Math.max(MIN_DISPLAY_SLOTS, accounts.length);
+      const totalSlots = Math.max(MIN_DISPLAY_SLOTS, sortedAccounts.length);
 
       for (let i = 0; i < totalSlots; i++) {
         const slot = document.createElement('div');
         slot.classList.add('saved-account-slot');
-        if (accounts[i]) {
-          const account = accounts[i];
+        if (sortedAccounts[i]) {
+          const account = sortedAccounts[i];
           slot.textContent = account.username.substring(0, 2).toUpperCase();
-          slot.title = account.username;
-          slot.dataset.username = account.username; // For context menu
+          slot.title = `${account.username}${account.pinned ? ' (Pinned)' : ''}`;
+          slot.dataset.username = account.username;
+          
+          // Add pinned indicator
+          if (account.pinned) {
+            slot.classList.add('pinned');
+            const pinIcon = document.createElement('div');
+            pinIcon.classList.add('pin-indicator');
+            pinIcon.innerHTML = '📌'; // Pin emoji as indicator
+            slot.appendChild(pinIcon);
+          }
+          
           slot.addEventListener('click', () => this._handleAccountSelect(account));
           slot.addEventListener('contextmenu', (event) => this._handleAccountContextMenu(event, account));
           // this._applyThemeToSlot(slot); // Apply theme - This will be handled by the _applyThemeToSlots call below
@@ -243,6 +260,33 @@
       const menu = this._createContextMenuBase(event.clientX, event.clientY);
       const ul = menu.querySelector('ul');
 
+      // Pin/Unpin option
+      const pinItem = document.createElement('li');
+      pinItem.textContent = account.pinned ? `Unpin "${account.username}"` : `Pin "${account.username}" to Top`;
+      pinItem.addEventListener('click', async () => {
+        try {
+          const result = await window.ipc.invoke('toggle-pin-account', account.username);
+          if (result.success) {
+            this._displaySavedAccounts(result.accounts);
+          } else {
+            console.error('[AccountManagementPanel] Error toggling pin status:', result.error);
+            this.dispatchEvent(new CustomEvent('account-operation-error', { 
+              detail: { message: result.error || "Failed to toggle pin status." },
+              bubbles: true,
+              composed: true
+            }));
+          }
+        } catch (error) {
+          console.error('[AccountManagementPanel] IPC Error toggling pin status:', error);
+          this.dispatchEvent(new CustomEvent('account-operation-error', { 
+              detail: { message: "IPC Error toggling pin status." },
+              bubbles: true,
+              composed: true
+          }));
+        }
+        this._removeContextMenu();
+      });
+
       const deleteItem = document.createElement('li');
       deleteItem.textContent = `Delete "${account.username}"`;
       deleteItem.addEventListener('click', async () => {
@@ -279,6 +323,8 @@
         this._removeContextMenu();
       });
       
+      ul.appendChild(pinItem);
+      ul.appendChild(document.createElement('li')).classList.add('separator');
       ul.appendChild(deleteItem);
       ul.appendChild(document.createElement('li')).classList.add('separator'); // Visually a separator
       ul.appendChild(openCacheItem);
