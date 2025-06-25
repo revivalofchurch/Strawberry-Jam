@@ -21,6 +21,9 @@ const STRAWBERRY_JAM_CLASSIC_BASE_PATH = process.platform === 'win32'
 let KEYTAR_SERVICE_LEAK_CHECK_API_KEY;
 const KEYTAR_ACCOUNT_LEAK_CHECK_API_KEY = 'leak_checker_api_key';
 
+// Cache for game time to revert to in case of data corruption
+let lastKnownGoodGameTime = 0;
+
 function setupIpcHandlers(electronInstance) {
   KEYTAR_SERVICE_LEAK_CHECK_API_KEY = `${app.getName()}-leak-check-api-key`;
 
@@ -668,6 +671,14 @@ function setupIpcHandlers(electronInstance) {
           await fsPromises.access(gameTimeFilePath);
           const fileContent = await fsPromises.readFile(gameTimeFilePath, 'utf-8');
           gameTimeData = JSON.parse(fileContent);
+          // Sanity check for game time
+          if (gameTimeData.totalGameTime > Date.now() / 1000) {
+            logManager.warn(`[Process] Detected abnormally high game time (${gameTimeData.totalGameTime}), reverting to last known value: ${lastKnownGoodGameTime}.`);
+            gameTimeData.totalGameTime = lastKnownGoodGameTime;
+          } else {
+            // Update the cache with the valid time from the file
+            lastKnownGoodGameTime = gameTimeData.totalGameTime;
+          }
         } catch (error) {
           // File doesn't exist, use defaults
         }
@@ -761,6 +772,15 @@ function setupIpcHandlers(electronInstance) {
       const fileContent = await fsPromises.readFile(gameTimeFilePath, 'utf-8');
       const data = JSON.parse(fileContent);
       totalGameTime = data.totalGameTime || 0;
+
+      // Sanity check for game time. If it's a future timestamp, revert to the last known good value.
+      if (totalGameTime > Date.now() / 1000) {
+        logManager.warn(`[IPC] Detected abnormally high game time (${totalGameTime}), reverting to last known value: ${lastKnownGoodGameTime}.`);
+        totalGameTime = lastKnownGoodGameTime;
+      } else {
+        // It's a valid time, so update our cache
+        lastKnownGoodGameTime = totalGameTime;
+      }
     } catch (error) {
       // file does not exist
     }
@@ -806,6 +826,21 @@ function setupIpcHandlers(electronInstance) {
       await fsPromises.writeFile(gameTimeFilePath, JSON.stringify(gameTimeData, null, 2), 'utf-8');
     } catch (error) {
       logManager.error(`[Process] Failed to write total uptime: ${error.message}`);
+    }
+  });
+
+  ipcMain.handle('reset-game-time', async () => {
+    const dataDir = getDataPath(app);
+    const gameTimeFilePath = path.join(dataDir, 'gametime.json');
+    const initialData = { totalGameTime: 0, totalUptime: 0 };
+
+    try {
+      await fsPromises.writeFile(gameTimeFilePath, JSON.stringify(initialData, null, 2), 'utf-8');
+      lastKnownGoodGameTime = 0; // Reset the in-memory cache as well
+      return { success: true };
+    } catch (error) {
+      logManager.error(`[IPC] Failed to reset game time file: ${error.message}`);
+      return { success: false, error: error.message };
     }
   });
 }

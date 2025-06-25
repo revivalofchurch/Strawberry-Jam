@@ -648,6 +648,7 @@
  
             <h5 style="font-family: CCDigitalDelivery; color: #805B47; font-size: 12px; margin-top: 8px; margin-bottom: 4px; font-weight: bold;">In-Game:</h5>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">F5: Toggle In-Game HUD</div>
+            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + P: Become a phantom (client side only)</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + C: Clone A Friend</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + T: Teleportation</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + R: Room User Scan</div>

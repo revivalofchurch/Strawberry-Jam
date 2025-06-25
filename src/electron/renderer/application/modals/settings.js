@@ -408,6 +408,25 @@ function setupEventHandlers ($modal, app) {
 
   // --- End Danger Zone Handlers ---
 
+  $modal.find('#resetGameTimeBtn').on('click', async () => {
+    const confirmed = await showConfirmationModal(
+      'Reset Time Counters',
+      'Are you sure you want to reset all game time and uptime counters to zero? This action cannot be undone.',
+      'Reset Counters',
+      'Cancel'
+    );
+
+    if (confirmed) {
+      try {
+        await ipcRenderer.invoke('reset-game-time');
+        showToast('Game time and uptime have been reset.', 'success');
+      } catch (error) {
+        console.error('Error resetting game time:', error);
+        showToast(`Failed to reset time counters: ${error.message}`, 'error');
+      }
+    }
+  });
+
   const $checkForUpdatesBtn = $modal.find('#checkForUpdatesBtn');
   const $manualUpdateStatusText = $modal.find('#manualUpdateStatusText');
 
