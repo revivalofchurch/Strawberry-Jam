@@ -293,8 +293,8 @@ ipcMain.on("loaded", async (event, message) => {
   let refreshToken = null;
 
   if (rememberMe && username) {
-    authToken = null;
-    refreshToken = null;
+    authToken = store.get(`accounts.${username}.authToken`);
+    refreshToken = store.get(`accounts.${username}.refreshToken`);
   }
 
   const df = await getDf();
@@ -377,7 +377,10 @@ ipcMain.on("loginSucceeded", async (event, message) => {
   store.delete("login.refreshToken");
 
   if (message.rememberMe) {
+    store.set(`accounts.${message.username}.authToken`, message.authToken);
+    store.set(`accounts.${message.username}.refreshToken`, message.refreshToken);
   } else {
+    store.delete(`accounts.${message.username}`);
   }
 });
 
@@ -387,6 +390,7 @@ ipcMain.on("rememberMeStateUpdated", async (event, message) => {
   if (message.newValue === false) {
     const username = store.get("login.username");
     if (username) {
+      store.delete(`accounts.${username}`);
     }
   }
 });
@@ -396,6 +400,7 @@ ipcMain.on("clearAuthToken", async (event, message) => {
   store.delete("login.authToken"); 
   const username = store.get("login.username");
   if (username) {
+    store.delete(`accounts.${username}.authToken`);
   }
 });
 
@@ -404,6 +409,7 @@ ipcMain.on("clearRefreshToken", async (event, message) => {
   store.delete("login.refreshToken"); 
   const username = store.get("login.username");
   if (username) {
+    store.delete(`accounts.${username}.refreshToken`);
   }
 });
 

@@ -1303,7 +1303,13 @@
         if (userData.authToken) this.authToken = userData.authToken;
         if (userData.refreshToken) this.refreshToken = userData.refreshToken;
         console.log('[LoginScreen] Login successful, sending loginSucceeded IPC with data:', data); 
-        window.ipc.send("loginSucceeded", data);
+        window.ipc.send("loginSucceeded", {
+          username: data.username,
+          language: data.language,
+          rememberMe: data.rememberMe,
+          authToken: data.authToken,
+          refreshToken: data.refreshToken,
+        });
         this.dispatchEvent(new CustomEvent("loggedIn", {detail: {flashVars}}));
       } catch (err) {
         if (err.message) {
