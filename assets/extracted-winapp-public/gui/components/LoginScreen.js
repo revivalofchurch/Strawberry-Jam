@@ -1217,6 +1217,21 @@
         });
     }
 
+    _isTokenExpired(token) {
+      if (!token) return true;
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const decodedJson = atob(payloadBase64);
+        const decoded = JSON.parse(decodedJson);
+        const exp = decoded.exp;
+        const now = Date.now() / 1000;
+        return exp < now;
+      } catch (e) {
+        console.error("Failed to decode or parse token:", e);
+        return true;
+      }
+    }
+
     async logIn() {
       if (this.loginBlocked) return;
       this.loginBlocked = true;
@@ -1256,27 +1271,28 @@
         }
         
         let authResult;
-        if (this.authToken) {
-          try {
-            authResult = await globals.authenticateWithAuthToken(this.authToken);
-          } catch (err) {
-            if (err.message === "Missing authentication methods in globals") {
-              console.error("[LoginScreen] Authentication methods not available, trying to recover");
-              const freshDf = await window.ipc.getDf();
-              if (freshDf) {
-                globals.df = freshDf;
-                console.log(`[LoginScreen] Retrieved fresh DF for recovery: ${freshDf.substr(0, 8)}...`);
-                authResult = await globals.authenticateWithAuthToken(this.authToken);
-              } else {
-                throw err; 
-              }
-            } else {
-              throw err;
-            }
-          }
+
+        if (this.authToken && !this._isTokenExpired(this.authToken)) {
+          // Auth token exists and is not expired, use it
+          console.log("[LoginScreen] Auth token is valid, authenticating with it.");
+          authResult = await globals.authenticateWithAuthToken(this.authToken);
         } else if (this.refreshToken) {
-          authResult = await globals.authenticateWithRefreshToken(this.refreshToken, this.otp);
+          // Auth token is expired or doesn't exist, try to refresh
+          console.log("[LoginScreen] Auth token expired or missing, attempting to refresh.");
+          try {
+            authResult = await globals.authenticateWithRefreshToken(this.refreshToken, this.otp);
+          } catch (err) {
+            if (err.message === "REFRESH_TOKEN_EXPIRED") {
+              console.log("[LoginScreen] Refresh token expired. Clearing tokens.");
+              this.clearAuthToken();
+              this.clearRefreshToken();
+              this.isFakePassword = false;
+              this.password = "";
+            }
+            throw err; // re-throw other errors
+          }
         } else {
+          // No tokens, proceed with password login
           if (!this.username.length) throw new Error("EMPTY_USERNAME");
           if (!this.password.length) throw new Error("EMPTY_PASSWORD");
           authResult = await globals.authenticateWithPassword(this.username, this.password, this.otp, null); 
@@ -1326,14 +1342,17 @@
             case "OTP_NEEDED": /* handled by modal */ break;
             case "RATE_LIMITED": this.passwordInputElem.error = "Rate limited. Try again later."; break; 
             case "AUTH_TOKEN_EXPIRED":
+              // This case should now be handled by the new logic, but keep as a fallback.
               this.clearAuthToken();
               if (this.canRetry()) setTimeout(() => this.logIn(true), 1000);
               else { this.isFakePassword = false; this.password = ""; }
               break;
             case "REFRESH_TOKEN_EXPIRED":
+              // This case is now handled inside the refresh attempt.
+              this.clearAuthToken();
               this.clearRefreshToken();
-              if (this.canRetry()) setTimeout(() => this.logIn(true), 1000);
-              else { this.isFakePassword = false; this.password = ""; }
+              this.isFakePassword = false;
+              this.password = "";
               break;
             default:
               globals.reportError("webClient", `Error logging in: ${err.stack || err.message}`);

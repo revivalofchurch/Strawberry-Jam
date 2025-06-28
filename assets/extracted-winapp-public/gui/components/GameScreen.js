@@ -345,7 +345,7 @@
          <img id="border-right" class="border-spiral-background"></img>
       </div>
       <div id="flash-game-container">
-        <webview id="flash-game-webview" plugins preload="gamePreload.js" style="height: 100%; width: 100%;"></webview>
+        <webview id="flash-game-webview" plugins preload="gamePreload.js" webpreferences="contextIsolation=false" style="height: 100%; width: 100%;"></webview>
       </div>
     </div>
       `;

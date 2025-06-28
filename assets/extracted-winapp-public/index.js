@@ -584,7 +584,7 @@ ipcMain.on("systemCommand", (event, message) => {
       useContentSize: true,
       resizable: false,
       webPreferences: {
-        contextIsolation: true,
+        contextIsolation: false,
         nodeIntegration: false,
         preload: path.join(__dirname, "gui/printPreload.js"),
       },
