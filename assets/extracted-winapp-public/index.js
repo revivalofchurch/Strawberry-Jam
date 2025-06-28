@@ -292,7 +292,9 @@ ipcMain.on("loaded", async (event, message) => {
   let authToken = null;
   let refreshToken = null;
 
-  if (rememberMe && username) {
+  // Always retrieve tokens for the last user, regardless of rememberMe status.
+  // The renderer will decide whether to use them for auto-login.
+  if (username) {
     authToken = store.get(`accounts.${username}.authToken`);
     refreshToken = store.get(`accounts.${username}.refreshToken`);
   }
@@ -373,26 +375,17 @@ ipcMain.on("loginSucceeded", async (event, message) => {
   translation.setLanguage(message.language);
   store.set("login.rememberMe", message.rememberMe);
 
-  store.delete("login.authToken");
-  store.delete("login.refreshToken");
-
-  if (message.rememberMe) {
-    store.set(`accounts.${message.username}.authToken`, message.authToken);
+  // Always store tokens for the account to allow for quick re-login,
+  // regardless of the "Remember Me" setting for auto-login.
+  store.set(`accounts.${message.username}.authToken`, message.authToken);
+  if (message.refreshToken) {
     store.set(`accounts.${message.username}.refreshToken`, message.refreshToken);
-  } else {
-    store.delete(`accounts.${message.username}`);
   }
 });
 
 ipcMain.on("rememberMeStateUpdated", async (event, message) => {
   log('debug', `[IPC] rememberMeStateUpdated received: ${message.newValue}`);
   store.set("login.rememberMe", message.newValue);
-  if (message.newValue === false) {
-    const username = store.get("login.username");
-    if (username) {
-      store.delete(`accounts.${username}`);
-    }
-  }
 });
 
 ipcMain.on("clearAuthToken", async (event, message) => {

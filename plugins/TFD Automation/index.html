@@ -200,6 +200,30 @@
                 </div>
             </div>
 
+            <!-- Item Filter Whitelist -->
+            <div class="setting-card rounded-lg p-4 mb-6">
+                <h2 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-filter mr-2 text-purple-400"></i>Item Filter
+                </h2>
+                <div>
+                    <label for="itemWhitelist" class="block text-sm font-medium text-text-secondary mb-2">
+                        Enter item IDs to keep, separated by commas. If empty, all items will be kept.
+                    </label>
+                    <textarea id="itemWhitelist" rows="4" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm font-mono" placeholder="e.g., 636, 695, 257"></textarea>
+                    <button id="saveWhitelistButton" class="mt-3 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-200 font-medium shadow-md">
+                        <i class="fas fa-save mr-2"></i>Save Whitelist
+                    </button>
+                    <div class="mt-4 flex space-x-2">
+                        <button id="openClothingJson" class="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all duration-200 font-medium shadow-md">
+                            <i class="fas fa-tshirt mr-2"></i>Find Clothing Items
+                        </button>
+                        <button id="openDenItemsJson" class="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all duration-200 font-medium shadow-md">
+                            <i class="fas fa-couch mr-2"></i>Find Den Items
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Control Panel -->
             <div class="bg-secondary-bg rounded-lg p-4 mb-6">
                 <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">

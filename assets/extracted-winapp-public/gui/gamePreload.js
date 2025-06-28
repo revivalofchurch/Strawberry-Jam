@@ -143,14 +143,53 @@ window.ytTheaterSeekTo = function(time) {
   }
 };
 
-window.ytTheaterDestroy = function() {
-  console.log('[YouTube Theater] Global ytTheaterDestroy called');
-  if (window.ytTheater) {
-    window.ytTheater.destroy();
-  } else {
-    console.error('[YouTube Theater] ytTheater instance not available');
-  }
-};
+      window.ytTheaterDestroy = function() {
+        console.log('[YouTube Theater] Global ytTheaterDestroy called');
+        if (window.ytTheater) {
+          window.ytTheater.destroy();
+        } else {
+          console.error('[YouTube Theater] ytTheater instance not available');
+        }
+      };
+      
+      // REAL-TIME POSITION TRACKING: Function to receive position updates from Flash
+      window.updateYouTubeIframePosition = function(stageX, stageY, width, height, scaleX, scaleY) {
+        var iframe = document.getElementById('yt-theater-screen-fixed');
+        if (iframe) {
+          try {
+            // Find Flash element for coordinate conversion
+            var flashElement = document.querySelector('object, embed') || document.body;
+            var flashRect = flashElement.getBoundingClientRect();
+            
+            // Get Flash stage dimensions (these should match what Flash reports)
+            var stageWidth = 900;  // Standard Animal Jam stage width
+            var stageHeight = 550; // Standard Animal Jam stage height
+            
+            // Convert Flash stage coordinates to browser coordinates
+            // Note: Flash is now sending adjusted coordinates (moved up + smaller)
+            var relativeX = stageX / stageWidth;
+            var relativeY = stageY / stageHeight; 
+            var relativeW = (width * scaleX) / stageWidth;
+            var relativeH = (height * scaleY) / stageHeight;
+            
+            var browserX = flashRect.left + (flashRect.width * relativeX);
+            var browserY = flashRect.top + (flashRect.height * relativeY);
+            var browserW = flashRect.width * relativeW;
+            var browserH = flashRect.height * relativeH;
+            
+            // Update iframe position smoothly
+            iframe.style.left = browserX + 'px';
+            iframe.style.top = browserY + 'px';
+            iframe.style.width = browserW + 'px';
+            iframe.style.height = browserH + 'px';
+            
+            // Log position updates for debugging the adjustments
+            console.log('[Position Update] Adjusted - Stage:', Math.round(stageX), Math.round(stageY), 'Browser:', Math.round(browserX), Math.round(browserY));
+          } catch (error) {
+            console.error('[YouTube Theater] Error updating iframe position:', error);
+          }
+        }
+      };
 
 // SIMPLE TEST FUNCTION: Basic communication test
 window.ytTheaterTest = function(message) {
@@ -404,6 +443,51 @@ function injectIntoMainWindow() {
           console.log('[YouTube Theater] 🎭 Error getting Flash video:', e.message);
         }
         return null;
+      };
+      
+      // REAL-TIME POSITION TRACKING: Function for Flash to call
+      window.updateYouTubeIframePosition = function(stageX, stageY, width, height, scaleX, scaleY) {
+        // Flash is now sending adjusted coordinates (moved up + smaller size)
+        console.log('[YouTube Theater] 🎯 MAIN WINDOW: Position update received - Adjusted Stage:', stageX, stageY, 'Size:', width, height);
+        
+        var iframe = document.getElementById('yt-theater-screen-fixed');
+        if (iframe) {
+          try {
+            // Find Flash element for coordinate conversion
+            var flashElement = document.querySelector('object, embed') || document.body;
+            var flashRect = flashElement.getBoundingClientRect();
+            
+            // Get Flash stage dimensions
+            var stageWidth = 900;
+            var stageHeight = 550;
+            
+            // Convert Flash stage coordinates to browser coordinates
+            // Note: stageX, stageY, width, height are already adjusted by Flash
+            var relativeX = stageX / stageWidth;
+            var relativeY = stageY / stageHeight; 
+            var relativeW = (width * (scaleX || 1)) / stageWidth;
+            var relativeH = (height * (scaleY || 1)) / stageHeight;
+            
+            var browserX = flashRect.left + (flashRect.width * relativeX);
+            var browserY = flashRect.top + (flashRect.height * relativeY);
+            var browserW = flashRect.width * relativeW;
+            var browserH = flashRect.height * relativeH;
+            
+            // Update iframe position
+            iframe.style.left = browserX + 'px';
+            iframe.style.top = browserY + 'px';
+            iframe.style.width = browserW + 'px';
+            iframe.style.height = browserH + 'px';
+            
+            console.log('[YouTube Theater] 🎯 MAIN WINDOW: Iframe positioned - Browser:', Math.round(browserX), Math.round(browserY), 'Size:', Math.round(browserW), Math.round(browserH));
+          } catch (error) {
+            console.error('[YouTube Theater] 🎯 MAIN WINDOW: Error updating position:', error);
+          }
+        } else {
+          console.warn('[YouTube Theater] 🎯 MAIN WINDOW: Iframe not found for position update');
+        }
+        
+        return 'Position updated successfully';
       };
       
       // MOVIEMANAGER INTEGRATION FUNCTIONS - For true in-theater placement

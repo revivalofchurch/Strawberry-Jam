@@ -29,7 +29,15 @@ const closeModal = document.getElementById('closeModal');
 const startAutomationFromModal = document.getElementById('startAutomationFromModal');
 const infoButton = document.getElementById('infoButton');
 
+// Item Filter Elements
+const itemWhitelist = document.getElementById('itemWhitelist');
+const saveWhitelistButton = document.getElementById('saveWhitelistButton');
+const openClothingJson = document.getElementById('openClothingJson');
+const openDenItemsJson = document.getElementById('openDenItemsJson');
+
 // State Variables
+let clothingItems = {};
+let denItems = {};
 let isAutomationRunning = false;
 let currentTimeout = null;
 let currentRoom = null; // Textual room name
@@ -226,8 +234,10 @@ function getRandomizedDelay(baseDelay, isGemPacket = false) {
     return baseDelay * multiplier;
 }
 
-// Function to send a single packet with delay
+// Function to send a single packet with delay and critical connection check
 async function sendPacket(packet, isRaw = false, isGemPacket = false) {
+    if (!isAutomationRunning) return; // Exit if automation was stopped
+
     // Refresh room info before sending each packet
     await refreshRoom();
     
@@ -253,8 +263,14 @@ async function sendPacket(packet, isRaw = false, isGemPacket = false) {
     console.log(`[TFD Automation]  - Content: ${content}`);
     console.log(`[TFD Automation]  - Delay: ${delay}ms`);
 
-    await dispatch.sendRemoteMessage(content);
-    console.log(`[TFD Automation] Packet sent successfully.`);
+    try {
+        await dispatch.sendRemoteMessage(content);
+        console.log(`[TFD Automation] Packet sent successfully.`);
+    } catch (error) {
+        // This is the critical change: if sendRemoteMessage fails, it will throw.
+        // We re-throw a more specific error to be caught by the main try/catch block.
+        throw new Error('Connection lost. Socket not writable.');
+    }
 
     if (delay > 0) {
         // Introduce delay after sending the packet
@@ -340,7 +356,7 @@ async function runSingleAutomation() {
         updateStatus('Joining the adventure...', 'info', 3);
         const adventureJoinPacket = `%xt%o%qaskr%${getRoomIdToUse()}%liza01_%0%1%`;
         console.log(`[TFD Automation] About to send 'qaskr' (Adventure Join) packet.`);
-        await dispatch.sendRemoteMessage(adventureJoinPacket);
+        await sendPacket(adventureJoinPacket, true);
         console.log(`[TFD Automation] The qaskr (Adventure Join) packet was sent correctly: ${adventureJoinPacket}`);
 
         await new Promise(resolve => {
@@ -384,6 +400,16 @@ async function runSingleAutomation() {
                 currentTimeout = setTimeout(resolve, timeUntilSafeReward);
             });
             if (!isAutomationRunning) return;
+
+            // **Proactive Connection Check**
+            // Send a harmless packet to ensure the connection is still alive before proceeding.
+            updateStatus('Pinging server to verify connection...', 'info');
+            await refreshRoom();
+            const pingPacket = `%xt%o%gps%${getRoomIdToUse()}%`; // gps (get player status) is a safe ping
+            await sendPacket(pingPacket, true);
+            // If sendPacket fails, it will throw and be caught by the main try/catch, stopping the automation.
+            updateStatus('Connection verified. Proceeding to collect rewards.', 'info');
+
         } else {
             console.log(`[TFD Automation] Safe to collect rewards immediately (${Math.abs(timeUntilSafeReward)}ms past minimum)`);
         }
@@ -408,7 +434,7 @@ async function runSingleAutomation() {
             if (!isAutomationRunning) return;
             
             const qpgiftPacket = `%xt%o%qpgift%${rewardRoomId}%${i}%0%0%`;
-            await dispatch.sendRemoteMessage(qpgiftPacket);
+            await sendPacket(qpgiftPacket, true);
             console.log(`[TFD Automation] Sent qpgift ${i}: ${qpgiftPacket}`);
             
             // Small delay between qpgift packets
@@ -420,7 +446,7 @@ async function runSingleAutomation() {
         // Send qpgiftdone packet to finalize reward collection
         if (!isAutomationRunning) return;
         const qpgiftdonePacket = `%xt%o%qpgiftdone%${rewardRoomId}%`;
-        await dispatch.sendRemoteMessage(qpgiftdonePacket);
+        await sendPacket(qpgiftdonePacket, true);
         console.log(`[TFD Automation] Sent qpgiftdone: ${qpgiftdonePacket}`);
         
         // Random pause after done packet (500-1000ms)
@@ -442,7 +468,7 @@ async function runSingleAutomation() {
         await refreshRoom();
         const exitRoomId = getRoomIdToUse();
         const leaveQuestPacket = `%xt%o%qx%${exitRoomId}%`;
-        await dispatch.sendRemoteMessage(leaveQuestPacket);
+        await sendPacket(leaveQuestPacket, true);
         console.log(`[TFD Automation] Sent leave quest: ${leaveQuestPacket}`);
         
         // Success
@@ -537,11 +563,112 @@ function hideModal() {
     }
 }
 
+// Whitelist management
+function getWhitelist() {
+    if (!itemWhitelist || !itemWhitelist.value) {
+        return new Set();
+    }
+    // Get value, remove whitespace, split by comma, and filter out empty strings
+    const ids = itemWhitelist.value.split(',').map(id => id.trim()).filter(Boolean);
+    return new Set(ids);
+}
+
+function saveWhitelist() {
+    if (itemWhitelist) {
+        const whitelistValue = getWhitelist();
+        localStorage.setItem('tfd_automation_whitelist', JSON.stringify(Array.from(whitelistValue)));
+        updateStatus('Item whitelist saved successfully.', 'success');
+    }
+}
+
+function loadWhitelist() {
+    if (itemWhitelist) {
+        const savedWhitelist = localStorage.getItem('tfd_automation_whitelist');
+        if (savedWhitelist) {
+            try {
+                const ids = JSON.parse(savedWhitelist);
+                itemWhitelist.value = ids.join(', ');
+            } catch (e) {
+                console.error('[TFD Automation] Failed to load whitelist:', e);
+            }
+        }
+    }
+}
+
+// Packet handler for item filtering
+async function handleIncomingPackets(data) {
+    // The event provides { raw, direction, timestamp }. We only care about incoming packets.
+    if (!isAutomationRunning || !data || data.direction !== 'in') {
+        return;
+    }
+
+    const { raw: rawMessage } = data;
+
+    // We are looking for the 'il' packet, which indicates an item was received
+    if (rawMessage && rawMessage.startsWith('%xt%il%')) {
+        try {
+            const whitelist = getWhitelist();
+            // If the whitelist is empty, do nothing.
+            if (whitelist.size === 0) {
+                console.log('[TFD Automation] Whitelist is empty, skipping filtering.');
+                return;
+            }
+
+            const parts = rawMessage.split('%');
+            const itemId = parts[12];
+            const slotId = parts[11];
+
+            if (itemId && slotId && itemId.length > 0) {
+                const clothingItem = clothingItems[itemId];
+                const denItem = denItems[itemId];
+                let itemName = `Item ID ${itemId}`; // Default to ID
+
+                if (clothingItem) {
+                    itemName = clothingItem.name;
+                } else if (denItem) {
+                    itemName = denItem.name;
+                }
+
+                if (whitelist.has(itemId)) {
+                    updateStatus(`Found ${itemName} in slot ${slotId}. Keeping it.`, 'info');
+                } else {
+                    updateStatus(`Found ${itemName} in slot ${slotId}. Recycling it.`, 'warning');
+                    await refreshRoom();
+                    const recyclePacket = `%xt%o%ir%${getRoomIdToUse()}%${slotId}%`;
+                    // Use sendPacket to ensure connection is still alive
+                    await sendPacket(recyclePacket, true);
+                }
+            }
+        } catch (error) {
+            console.error('[TFD Automation] Error processing item filter packet:', error);
+            updateStatus(`Error during item filtering: ${error.message}`, 'error');
+        }
+    }
+}
+
+
+// Function to open a file in the default editor
+function openFileInEditor(fileName) {
+    if (typeof require === 'function') {
+        try {
+            const { ipcRenderer } = require('electron');
+            // The main process will resolve the full path relative to the plugin directory
+            ipcRenderer.send('open-file-in-editor', fileName);
+        } catch (e) {
+            console.error(`[TFD Automation] Could not open file ${fileName}.`, e);
+            updateStatus(`Error: Could not open file ${fileName}.`, 'error');
+        }
+    }
+}
+
 // Event Listeners for UI buttons
 if (startButton) startButton.addEventListener('click', startAutomation);
 if (stopButton) stopButton.addEventListener('click', stopAutomation);
 if (resetStatsButton) resetStatsButton.addEventListener('click', resetStats);
 if (infoButton) infoButton.addEventListener('click', showModal);
+if (saveWhitelistButton) saveWhitelistButton.addEventListener('click', saveWhitelist);
+if (openClothingJson) openClothingJson.addEventListener('click', () => openFileInEditor('1000-clothing.json'));
+if (openDenItemsJson) openDenItemsJson.addEventListener('click', () => openFileInEditor('1030-denitems.json'));
 
 // Modal event listeners
 if (closeModal) closeModal.addEventListener('click', hideModal);
@@ -561,6 +688,51 @@ if (educationalModal) {
     });
 }
 
+// Function to load item data from JSON files
+async function loadItemData() {
+    try {
+        const clothingResponse = await fetch('./1000-clothing.json');
+        if (clothingResponse.ok) {
+            clothingItems = await clothingResponse.json();
+            console.log('[TFD Automation] Loaded clothing items successfully.');
+        } else {
+            console.error('[TFD Automation] Failed to load clothing.json');
+        }
+
+        const denItemsResponse = await fetch('./1030-denitems.json');
+        if (denItemsResponse.ok) {
+            denItems = await denItemsResponse.json();
+            console.log('[TFD Automation] Loaded den items successfully.');
+        } else {
+            console.error('[TFD Automation] Failed to load den_items.json');
+        }
+    } catch (error) {
+        console.error('[TFD Automation] Error loading item data:', error);
+    }
+}
+
 // Initialize
-loadStats();
-updateStatus('Ready to start TFD automation', 'info');
+async function initialize() {
+    loadStats();
+    loadWhitelist();
+    await loadItemData();
+
+    // The plugin's 'dispatch' object does not have event listeners.
+    // We must use ipcRenderer to listen for the 'packet-event' that the main application broadcasts.
+    if (typeof require === 'function') {
+        try {
+            const { ipcRenderer } = require('electron');
+            ipcRenderer.on('packet-event', (event, data) => {
+                // The handleIncomingPackets function is designed to handle the data object { raw, direction, timestamp }
+                handleIncomingPackets(data);
+            });
+        } catch (e) {
+            console.error('[TFD Automation] Could not set up IPC packet listener.', e);
+            updateStatus('Error: Could not initialize packet listener.', 'error');
+        }
+    }
+
+    updateStatus('Ready to start TFD automation', 'info');
+}
+
+initialize();

@@ -194,6 +194,7 @@ class Electron {
     setupIpcHandlers(this); // Call the new IPC setup function
     this.pluginWindows = new Map();
     this._backgroundPlugins = new Set();
+    this._setupFileOpeningIPC(); // Add this line
     this.manualCheckInProgress = false; // Flag for manual update checks
   }
 
@@ -909,6 +910,40 @@ class Electron {
     });
     
     this._window.webContents.send('app-restored');
+  }
+
+  _setupFileOpeningIPC() {
+    ipcMain.on('open-file-in-editor', (event, relativePath) => {
+      // The event sender is a plugin window. We can find its path.
+      const pluginWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!pluginWindow) return;
+
+      const pluginName = pluginWindow.getTitle();
+      const allWindows = this.pluginWindows;
+      let pluginPath;
+
+      for (const [name, window] of allWindows.entries()) {
+        if (window === pluginWindow) {
+          // We need to get the original path from when it was opened.
+          // This requires a slight modification to how we store plugin data or window info.
+          // For now, let's assume a way to get the base path.
+          // A simple way is to find the plugin by its name in the main app's dispatch.
+          // This is a bit of a workaround. A better way would be to store the path with the window.
+          const mainAppWebContents = this._window.webContents;
+          mainAppWebContents.send('get-plugin-path', pluginName);
+          
+          ipcMain.once('plugin-path-response', (e, pPath) => {
+            if (pPath) {
+              const fullPath = path.join(pPath, relativePath);
+              shell.openPath(fullPath).catch(err => {
+                console.error(`[Electron] Failed to open file: ${fullPath}`, err);
+              });
+            }
+          });
+          return;
+        }
+      }
+    });
   }
 }
 

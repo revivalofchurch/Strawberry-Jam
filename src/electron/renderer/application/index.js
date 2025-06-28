@@ -1331,6 +1331,15 @@ module.exports = class Application extends EventEmitter {
     );
 
     this.pluginInfoModalManager = new PluginInfoModalManager(this.dispatch);
+
+    ipcRenderer.on('get-plugin-path', (event, pluginName) => {
+      const plugin = this.dispatch.plugins.get(pluginName);
+      if (plugin) {
+        ipcRenderer.send('plugin-path-response', plugin.filepath);
+      } else {
+        ipcRenderer.send('plugin-path-response', null);
+      }
+    });
     
     // Register core commands
     registerCoreCommands(this.dispatch, this);
