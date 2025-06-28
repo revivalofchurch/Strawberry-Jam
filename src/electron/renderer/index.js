@@ -560,10 +560,28 @@ const setupConnectionMonitoring = () => {
     const isConnected = application.server && 
                         application.server.clients && 
                         application.server.clients.size > 0
+    if (application.dispatch) {
+      application.dispatch.setState('connected', isConnected);
+    }
     updateConnectionStatus(isConnected)
     updateTimestamp()
     checkEmptyPluginList()
   }, 1000) // Check every second
+
+  // Listen for connection change events from the application
+  if (application) {
+    application.on('connection:change', (isConnected) => {
+      // Broadcast this change to all plugin windows
+      if (typeof require === 'function') {
+        try {
+          const { ipcRenderer } = require('electron');
+          ipcRenderer.send('broadcast-to-plugins', 'connection-status-changed', isConnected);
+        } catch (e) {
+          console.error('[Renderer] Could not broadcast connection status change to plugins.', e);
+        }
+      }
+    });
+  }
   
   // Listen for client connect events
   if (application.server) {

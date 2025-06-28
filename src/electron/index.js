@@ -196,6 +196,14 @@ class Electron {
     this._backgroundPlugins = new Set();
     this._setupFileOpeningIPC(); // Add this line
     this.manualCheckInProgress = false; // Flag for manual update checks
+
+    ipcMain.on('broadcast-to-plugins', (event, channel, ...args) => {
+      this.pluginWindows.forEach((window) => {
+        if (window && !window.isDestroyed()) {
+          window.webContents.send(channel, ...args);
+        }
+      });
+    });
   }
 
   async _migrateLeakCheckApiKeyToKeytar() {

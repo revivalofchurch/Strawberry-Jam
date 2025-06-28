@@ -234,9 +234,23 @@ function getRandomizedDelay(baseDelay, isGemPacket = false) {
     return baseDelay * multiplier;
 }
 
+// Function to check connection status
+async function isConnected() {
+    try {
+        return await dispatch.getState('connected');
+    } catch (e) {
+        return false; // Assume disconnected on error
+    }
+}
+
 // Function to send a single packet with delay and critical connection check
 async function sendPacket(packet, isRaw = false, isGemPacket = false) {
     if (!isAutomationRunning) return; // Exit if automation was stopped
+
+    if (!(await isConnected())) {
+        stopAutomation();
+        throw new Error('Connection lost. Automation stopped.');
+    }
 
     // Refresh room info before sending each packet
     await refreshRoom();
@@ -718,17 +732,27 @@ async function initialize() {
     await loadItemData();
 
     // The plugin's 'dispatch' object does not have event listeners.
-    // We must use ipcRenderer to listen for the 'packet-event' that the main application broadcasts.
+    // We must use ipcRenderer to listen for events from the main application.
     if (typeof require === 'function') {
         try {
             const { ipcRenderer } = require('electron');
+            
+            // Listener for individual packets
             ipcRenderer.on('packet-event', (event, data) => {
-                // The handleIncomingPackets function is designed to handle the data object { raw, direction, timestamp }
                 handleIncomingPackets(data);
             });
+
+            // Listener for global connection status changes
+            ipcRenderer.on('connection-status-changed', (event, isConnected) => {
+                if (!isConnected && isAutomationRunning) {
+                    updateStatus('Connection lost. Stopping automation.', 'error');
+                    stopAutomation();
+                }
+            });
+
         } catch (e) {
-            console.error('[TFD Automation] Could not set up IPC packet listener.', e);
-            updateStatus('Error: Could not initialize packet listener.', 'error');
+            console.error('[TFD Automation] Could not set up IPC listeners.', e);
+            updateStatus('Error: Could not initialize listeners.', 'error');
         }
     }
 
