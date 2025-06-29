@@ -1187,12 +1187,19 @@
     _isTokenExpired(token) {
       if (!token) return true;
       try {
-        const payloadBase64 = token.split('.')[1];
+        const payloadBase64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
         const decodedJson = atob(payloadBase64);
         const decoded = JSON.parse(decodedJson);
-        const exp = decoded.exp;
-        const now = Date.now() / 1000;
-        return exp < now;
+        
+        if (typeof decoded.exp !== 'number') {
+          console.error("Token expiration ('exp') is not a number:", decoded.exp);
+          return true;
+        }
+        
+        const nowInSeconds = (Date.now() / 1000);
+        // Check if token is expired, with a 5-second buffer to account for clock skew
+        return decoded.exp < (nowInSeconds + 5);
+
       } catch (e) {
         console.error("Failed to decode or parse token:", e);
         return true;
@@ -1204,140 +1211,125 @@
       this.loginBlocked = true;
       this.logInButtonElem.disabled = true;
       this.logInButtonElem.classList.add("loading");
-      
+
       try {
-        if (globals.df === null) {
-          console.log('[LoginScreen] No valid DF found, requesting fresh one before login');
+        // Centralized DF handling
+        if (globals.df === null || (this.uuidSpooferToggle && this.uuidSpooferToggle.checked)) {
+          console.log('[LoginScreen] Refreshing DF before login...');
           try {
-            const freshDf = await window.ipc.getDf();
-            if (freshDf) {
-              globals.df = freshDf;
-              console.log(`[LoginScreen] Retrieved fresh DF: ${freshDf.substr(0, 8)}...`);
+            const newDf = await window.ipc.refreshDf();
+            if (newDf) {
+              globals.df = newDf;
+              console.log(`[LoginScreen] Successfully refreshed DF: ${newDf.substr(0, 8)}...`);
             } else {
-              console.warn('[LoginScreen] Failed to get fresh DF, login may fail');
-            }
-          } catch (dfErr) {
-            console.error('[LoginScreen] Error getting fresh DF:', dfErr);
-          }
-        }
-        
-        if (this.uuidSpooferToggle && this.uuidSpooferToggle.checked) {
-          console.log('[LoginScreen] UUID spoofing enabled, refreshing DF before login');
-          try {
-            const newUuid = await window.ipc.refreshDf();
-            if (newUuid) {
-              console.log(`[LoginScreen] Successfully refreshed DF. New UUID: ${newUuid.substr(0, 8)}...`);
-              globals.df = newUuid;
-              console.log(`[LoginScreen] Updated globals.df with new UUID: ${globals.df.substr(0, 8)}...`);
-            } else {
-              console.warn('[LoginScreen] Failed to refresh DF - no new UUID returned');
+              console.warn('[LoginScreen] Failed to get or refresh DF, login may fail.');
             }
           } catch (dfErr) {
             console.error('[LoginScreen] Error refreshing DF:', dfErr);
           }
         }
-        
+
         let authResult;
 
+        // 1. Check for a valid, non-expired auth token
         if (this.authToken && !this._isTokenExpired(this.authToken)) {
-          // Auth token exists and is not expired, use it
-          console.log("[LoginScreen] Auth token is valid, authenticating with it.");
+          console.log("[LoginScreen] Auth token is valid. Attempting authentication with it.");
           authResult = await globals.authenticateWithAuthToken(this.authToken);
-        } else if (this.refreshToken) {
-          // Auth token is expired or doesn't exist, try to refresh
-          console.log("[LoginScreen] Auth token expired or missing, attempting to refresh.");
+        } 
+        // 2. If auth token is expired or missing, try using the refresh token
+        else if (this.refreshToken) {
+          if (this.authToken) {
+            console.log("[LoginScreen] Auth token is expired or invalid. Attempting to refresh.");
+          } else {
+            console.log("[LoginScreen] No auth token found. Attempting to use refresh token.");
+          }
           try {
             authResult = await globals.authenticateWithRefreshToken(this.refreshToken, this.otp);
+            console.log("[LoginScreen] Successfully refreshed token.");
           } catch (err) {
             if (err.message === "REFRESH_TOKEN_EXPIRED") {
-              console.log("[LoginScreen] Refresh token expired. Clearing tokens.");
+              console.warn("[LoginScreen] Refresh token has expired. Clearing all tokens.");
               this.clearAuthToken();
               this.clearRefreshToken();
               this.isFakePassword = false;
-              this.password = "";
+              this.password = ""; // Clear password field
+              this.passwordInputElem.error = "Your session has expired. Please log in again.";
             }
-            throw err; // re-throw other errors
+            // Re-throw to be caught by the main catch block
+            throw err;
           }
-        } else {
-          // No tokens, proceed with password login
+        } 
+        // 3. If no tokens are available or valid, fall back to password login
+        else {
+          console.log("[LoginScreen] No valid tokens. Proceeding with password authentication.");
           if (!this.username.length) throw new Error("EMPTY_USERNAME");
           if (!this.password.length) throw new Error("EMPTY_PASSWORD");
-          authResult = await globals.authenticateWithPassword(this.username, this.password, this.otp, null); 
-        }
-        
-        this.otp = null;
-        const {userData, flashVars} = authResult;
-        let selectedLanguage = 'en'; 
-        try {
-          const langSettingResult = await window.ipc.invoke('get-setting', 'login.language');
-          if (langSettingResult) {
-            selectedLanguage = langSettingResult;
-          }
-        } catch (langErr) {
-          console.warn("[LoginScreen] Error getting language setting:", langErr);
+          authResult = await globals.authenticateWithPassword(this.username, this.password, this.otp, null);
         }
 
-        const data = {
-          username: userData.username,
-          authToken: userData.authToken,
-          refreshToken: userData.refreshToken,
-          accountType: userData.accountType,
-          language: selectedLanguage, 
-          rememberMe: this.rememberMeElem.value,
-        };
+        // If we have a result, proceed to login
+        this.otp = null;
+        const { userData, flashVars } = authResult;
+        
+        // Persist new tokens
         if (userData.authToken) this.authToken = userData.authToken;
         if (userData.refreshToken) this.refreshToken = userData.refreshToken;
-        console.log('[LoginScreen] Login successful, sending loginSucceeded IPC with data:', data); 
+
+        console.log('[LoginScreen] Login successful. Preparing to dispatch events.');
+        
+        // Send login success data to main process
         window.ipc.send("loginSucceeded", {
-          username: data.username,
-          language: data.language,
-          rememberMe: data.rememberMe,
-          authToken: data.authToken,
-          refreshToken: data.refreshToken,
+          username: userData.username,
+          language: userData.language || 'en',
+          rememberMe: this.rememberMeElem.value,
+          authToken: userData.authToken,
+          refreshToken: userData.refreshToken,
         });
-        this.dispatchEvent(new CustomEvent("loggedIn", {detail: {flashVars}}));
+
+        // Dispatch event to switch to the game screen
+        this.dispatchEvent(new CustomEvent("loggedIn", { detail: { flashVars } }));
+
       } catch (err) {
+        // Centralized error handling
+        let userMessage = "Something went wrong. Please try again.";
+        
         if (err.message) {
+          console.error(`[LoginScreen] Login failed: ${err.message}`, err);
           switch (err.message) {
-            case "SUSPENDED": this.usernameInputElem.error = await globals.translate("userSuspended"); break;
-            case "BANNED": this.usernameInputElem.error = await globals.translate("userBanned"); break;
-            case "LOGIN_ERROR": this.usernameInputElem.error = await globals.translate("loginError"); break;
-            case "WRONG_CREDENTIALS": this.passwordInputElem.error = await globals.translate("wrongCredentials"); break;
-            case "EMPTY_USERNAME": this.usernameInputElem.error = await globals.translate("usernameRequired"); break;
-            case "EMPTY_PASSWORD": this.passwordInputElem.error = await globals.translate("emptyPassword"); break;
-            case "USER_RENAME_NEEDED": /* handled by modal */ break;
-            case "OTP_NEEDED": /* handled by modal */ break;
-            case "RATE_LIMITED": this.passwordInputElem.error = "Rate limited. Try again later."; break; 
+            case "SUSPENDED": userMessage = await globals.translate("userSuspended"); break;
+            case "BANNED": userMessage = await globals.translate("userBanned"); break;
+            case "LOGIN_ERROR": userMessage = await globals.translate("loginError"); break;
+            case "WRONG_CREDENTIALS": userMessage = await globals.translate("wrongCredentials"); break;
+            case "EMPTY_USERNAME": userMessage = await globals.translate("usernameRequired"); break;
+            case "EMPTY_PASSWORD": userMessage = await globals.translate("emptyPassword"); break;
+            case "RATE_LIMITED": userMessage = "Rate limited. Please try again in a few moments."; break;
+            case "REFRESH_TOKEN_EXPIRED": userMessage = "Your session has expired. Please log in again."; break;
             case "AUTH_TOKEN_EXPIRED":
-              // This case should now be handled by the new logic, but keep as a fallback.
+              // This should be handled by the logic above, but as a fallback:
+              console.warn("[LoginScreen] Caught AUTH_TOKEN_EXPIRED. Forcing re-login.");
               this.clearAuthToken();
-              if (this.canRetry()) setTimeout(() => this.logIn(true), 1000);
-              else { this.isFakePassword = false; this.password = ""; }
+              // Don't recursively call logIn(), just show error.
+              userMessage = "Your session has expired. Please try again.";
               break;
-            case "REFRESH_TOKEN_EXPIRED":
-              // This case is now handled inside the refresh attempt.
-              this.clearAuthToken();
-              this.clearRefreshToken();
-              this.isFakePassword = false;
-              this.password = "";
-              break;
+            case "USER_RENAME_NEEDED":
+            case "OTP_NEEDED":
+              // These open modals, so no user message needed here.
+              return; // Exit without unblocking UI yet
             default:
-              globals.reportError("webClient", `Error logging in: ${err.stack || err.message}`);
-              if (err.name != "Aborted") window.alert("Something went wrong :(");
+              globals.reportError("webClient", `Unhandled login error: ${err.stack || err.message}`);
               break;
           }
         } else {
-          globals.reportError("webClient", `Error logging in: ${err}`);
-          if (err.name != "Aborted") window.alert("Something went wrong :(");
+          globals.reportError("webClient", `Unknown login error: ${err}`);
         }
-        if (err?.message !== "OTP_NEEDED") {
-             this.loginBlocked = false;
-             this.logInButtonElem.classList.remove("loading");
-        } else {
-             // For OTP_NEEDED, unblock but keep loading spinner for OTP entry
-             this.loginBlocked = false;
-        }
-      } 
+        
+        // Display the determined error message
+        this.passwordInputElem.error = userMessage;
+
+        // Unblock UI
+        this.loginBlocked = false;
+        this.logInButtonElem.classList.remove("loading");
+      }
     }
 
     canRetry() {
