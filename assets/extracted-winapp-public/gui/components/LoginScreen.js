@@ -729,16 +729,13 @@
         this.loginAppIconElem.addEventListener('click', () => {
           this._currentFruitIndex = (this._currentFruitIndex + 1) % this._fruitImages.length;
           const nextFruitKey = this._fruitImages[this._currentFruitIndex];
-          console.log(`[LoginScreen] Fruit icon clicked. New _currentFruitIndex: ${this._currentFruitIndex}, nextFruitKey: '${nextFruitKey}'`);
           
           this.loginAppIconElem.src = `images/${nextFruitKey}`;
-          console.log(`[LoginScreen] Fruit icon click: Calling applyTheme with '${nextFruitKey}'`);
           this.applyTheme(nextFruitKey);
 
           if (window.ipc) {
-            console.log('[LoginScreen] Saving fruit theme preference via IPC:', nextFruitKey);
             window.ipc.invoke('set-setting', 'fruitTheme', nextFruitKey)
-              .catch(err => console.warn('[LoginScreen] Error saving fruit theme preference:', err));
+              .catch(err => {});
           }
 
           this.loginAppIconElem.classList.remove('fruit-animate'); 
@@ -773,12 +770,10 @@
           if (this.countryOverrideInput) {
             const country = this.countryOverrideInput.value.trim();
             await window.ipc.invoke('set-setting', 'debug.country', country);
-            console.log('[Settings] Country override set to:', country || 'none');
           }
           if (this.localeOverrideInput) {
             const locale = this.localeOverrideInput.value.trim();
             await window.ipc.invoke('set-setting', 'debug.locale', locale);
-            console.log('[Settings] Locale override set to:', locale || 'none');
           }
           window.alert('Debug settings saved. Changes will apply on next login.');
           if (this.settingsPanel) {
@@ -793,7 +788,6 @@
           await window.ipc.invoke('set-setting', 'login.language', locale);
           await window.ipc.invoke('set-setting', 'debug.locale', locale);
           await window.ipc.invoke('set-setting', 'debug.country', '');
-          console.log(`[Settings] Server Swap set to: ${locale || 'Default'}`);
           if (globals && globals.setLanguage && locale) {
             globals.setLanguage(locale);
           }
@@ -865,7 +859,6 @@
       });
       this.logInButtonElem.addEventListener("click", () => {
           globals.currentAbortController = new AbortController();
-          console.log('[LoginScreen] Created AbortController for login attempt.');
           this.logIn();
       });
       this.expandButtonElement.addEventListener("click", event => {
@@ -899,12 +892,10 @@
       this.settingsBtn.addEventListener('click', (event) => {
         event.stopPropagation(); // Prevent click from immediately closing panel via document listener
         this.settingsPanel.classList.toggle('show');
-        // console.log('Settings button clicked, panel classList:', this.settingsPanel.classList);
       });
 
       if (this.reportProblemBtn) {
         this.reportProblemBtn.addEventListener('click', () => { // Reverted from async
-          // console.log('[LoginScreen] Report Problem button clicked.');
           
           const logsToReport = [..._winappConsoleLogs];
           
@@ -945,7 +936,6 @@
               });
               
               fsOps.writeFileSync(filePath, logContent, 'utf8');
-              console.log(`[LoginScreen] Successfully saved logs to Desktop: ${filePath}`);
               alert(`Logs saved to your Desktop: ${filename}`);
 
               // Log Rotation Logic for Desktop files REMOVED as per user request.
@@ -982,22 +972,17 @@
               const result = await window.ipc.invoke('toggle-uuid-spoofing', true);
               if (!result || !result.success) {
                 this.uuidSpooferToggle.checked = false;
-                console.log('[Settings] UUID spoofing canceled by user or failed:', result?.message);
                 return;
               }
               this.uuidSpoofingWarning.classList.add('show');
-              console.log('[Settings] UUID spoofing set to:', this.uuidSpooferToggle.checked);
             } catch (err) {
-              console.error('[Settings] Error toggling UUID spoofing:', err);
               this.uuidSpooferToggle.checked = false;
               return;
             }
           } else {
             await window.ipc.invoke('toggle-uuid-spoofing', false);
             this.uuidSpoofingWarning.classList.remove('show');
-            console.log('[Settings] UUID spoofing set to:', this.uuidSpooferToggle.checked);
             globals.df = null;
-            console.log('[Settings] Cleared cached DF value to force refresh on next login');
           }
         });
       }
@@ -1006,7 +991,6 @@
         this.serverSwapSelect.addEventListener('change', (e) => {
           const newLanguage = e.target.value;
           window.ipc.invoke('set-setting', 'login.language', newLanguage);
-          console.log(`[Settings] Language changed to: ${newLanguage}`);
           if (globals && globals.setLanguage) {
             globals.setLanguage(newLanguage);
           }
@@ -1041,10 +1025,8 @@
     }
 
     applyTheme(fruitKey) {
-      console.log(`[LoginScreen] applyTheme: Called with fruitKey: '${fruitKey}'`);
       const theme = this._fruitThemes[fruitKey]; // Uses class _fruitThemes
       if (!theme) {
-        console.warn(`[LoginScreen] applyTheme: No theme found for fruitKey: '${fruitKey}'`);
         return;
       }
       const root = this.shadowRoot.host; 
@@ -1128,15 +1110,12 @@
       }
 
       if (this.accountPanelInstance && typeof this.accountPanelInstance.updateTheme === 'function') {
-        console.log(`[LoginScreen] applyTheme: Calling accountPanelInstance.updateTheme with fruitKey: '${fruitKey}'`);
         this.accountPanelInstance.updateTheme(fruitKey);
       } else {
-        console.warn(`[LoginScreen] applyTheme: accountPanelInstance not found or updateTheme is not a function when trying to update with fruitKey: '${fruitKey}'`);
       }
     }
 
     _initializeAsyncSettings() {
-      console.log('[LoginScreen] Running async settings initialization');
       
       window.ipc.invoke('get-setting', 'uuidSpoofingEnabled')
         .then(uuidSpoofingEnabled => {
@@ -1148,25 +1127,20 @@
           }
         })
         .catch(err => {
-          console.warn("Error getting uuidSpoofingEnabled setting:", err);
         });
         
       window.ipc.invoke('get-setting', 'debug.locale')
         .then(locale => {
           if (this.serverSwapSelect) {
             this.serverSwapSelect.value = locale || '';
-            console.log('[LoginScreen] Server swap set to:', locale || 'Default');
           }
         })
         .catch(err => {
-          console.warn("Error getting server swap setting:", err);
         });
     }    initializeSettings() {
-      console.log('[LoginScreen] Initializing settings...');
       
       window.ipc.invoke('get-setting', 'fruitTheme')
         .then(savedFruitTheme => {
-          console.log(`[LoginScreen] initializeSettings: Loaded savedFruitTheme: '${savedFruitTheme}'`);
           
           // Handle different path formats - extract just the filename
           let fruitFilename = savedFruitTheme;
@@ -1178,22 +1152,18 @@
             if (this.loginAppIconElem) {
               this.loginAppIconElem.src = `images/${fruitFilename}`;
               this._currentFruitIndex = this._fruitImages.indexOf(fruitFilename);
-              console.log(`[LoginScreen] initializeSettings: Applying saved theme: '${fruitFilename}' (currentFruitIndex: ${this._currentFruitIndex})`);
               this.applyTheme(fruitFilename);
             }
           } else {
-            console.log(`[LoginScreen] initializeSettings: No valid saved theme or theme not in _fruitImages. Defaulting to 'strawberry.png'. Saved was: '${savedFruitTheme}'`);
             this.applyTheme('strawberry.png');
           }
         })
         .catch(err => {
-          console.warn('[LoginScreen] initializeSettings: Error getting fruitTheme setting, defaulting to strawberry:', err);
           this.applyTheme('strawberry.png');
         });
       
       window.ipc.invoke('get-setting', 'uuid_spoofer_enabled')
         .then(uuidSpoofingEnabled => {
-          console.log('[LoginScreen] UUID spoofing enabled:', uuidSpoofingEnabled);
           if (this.uuidSpooferToggle) {
             this.uuidSpooferToggle.checked = uuidSpoofingEnabled;
             if (uuidSpoofingEnabled && this.uuidSpoofingWarning) {
@@ -1202,18 +1172,15 @@
           }
         })
         .catch(err => {
-          console.warn('[LoginScreen] Error getting uuidSpoofingEnabled setting:', err);
         });
 
       window.ipc.invoke('get-setting', 'debug.locale')
         .then(locale => {
-          console.log('[LoginScreen] Server swap setting:', locale || 'Default');
           if (this.serverSwapSelect) {
             this.serverSwapSelect.value = locale || '';
           }
         })
         .catch(err => {
-          console.warn('[LoginScreen] Error initializing server swap setting:', err);
         });
     }
 
@@ -1397,7 +1364,6 @@
           }
       }
       if (!val && globals.currentAbortController) {
-          console.log('[LoginScreen] Clearing AbortController in loginBlocked setter.');
           globals.currentAbortController = null;
       }
     }
@@ -1455,9 +1421,7 @@
     }
 
     async connectedCallback() {
-      console.log('[LoginScreen] connectedCallback: Starting.');
       await this.localize();
-      console.log('[LoginScreen] connectedCallback: Localization complete.');
       
       if (this.accountPanelInstance) {
         this.accountPanelInstance.addEventListener('account-selected', (e) => {
@@ -1470,12 +1434,10 @@
             this.passwordInputElem.focus(); // Focus password field for user input
             // this.rememberMeElem.value = true; // Prevent auto-enabling "Remember Me"
             // window.ipc.send("rememberMeStateUpdated", {newValue: true}); // Prevent auto-enabling "Remember Me"
-            console.log(`[LoginScreen] Account selected from panel: ${e.detail.username}. Password field populated. Tokens cleared. "Remember Me" state preserved.`);
           }
         });
 
         this.accountPanelInstance.addEventListener('request-credentials-for-add', async () => {
-          console.log('[LoginScreen] Panel requested credentials for add.');
           const username = this.usernameInputElem.value.trim();
           const password = this.passwordInputElem.value;
           if (!username || !password) {
