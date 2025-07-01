@@ -38,6 +38,13 @@
             border: 1px solid rgba(99, 102, 241, 0.3);
             backdrop-filter: blur(20px);
         }
+        #itemLog {
+            overflow-y: auto;
+            transition: max-height 0.3s ease-in-out;
+        }
+        #itemLog.collapsed {
+            max-height: 180px; /* Approx 5 items */
+        }
     </style>
 </head>
 <body class="bg-primary-bg text-text-primary h-screen flex flex-col overflow-hidden">
@@ -153,40 +160,44 @@
                     <i class="fas fa-cogs mr-2 text-blue-400"></i>Settings
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    <div class="space-y-2">
                         <label class="flex items-center space-x-2">
                             <input type="checkbox" id="autoRetryCheckbox" checked class="form-checkbox h-4 w-4 text-blue-600 rounded">
                             <span class="text-sm">Auto-retry on failure</span>
                         </label>
-                    </div>
-                    <div>
                         <label class="flex items-center space-x-2">
                             <input type="checkbox" id="soundNotificationCheckbox" checked class="form-checkbox h-4 w-4 text-blue-600 rounded">
                             <span class="text-sm">Sound notifications</span>
                         </label>
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" id="dontLogRecycledCheckbox" checked class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                            <span class="text-sm">Don't log recycled items</span>
+                        </label>
                     </div>
-                    <div>
-                        <label for="maxRetries" class="block text-sm font-medium text-text-secondary mb-1">Max Retries:</label>
-                        <select id="maxRetries" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm">
-                            <option value="1">1</option>
-                            <option value="3" selected>3</option>
-                            <option value="5">5</option>
-                            <option value="10">10</option>
-                        </select>
-                    </div>
-                    <div class="md:col-span-2">
-                        <label for="loopMode" class="block text-sm font-medium text-text-secondary mb-1">Loop Mode:</label>
-                        <select id="loopMode" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm">
-                            <option value="1">Run Once</option>
-                            <option value="2">2 Times</option>
-                            <option value="3">3 Times</option>
-                            <option value="5">5 Times</option>
-                            <option value="10">10 Times</option>
-                            <option value="25">25 Times</option>
-                            <option value="50">50 Times</option>
-                            <option value="100">100 Times</option>
-                            <option value="infinite" selected>Loop Forever</option>
-                        </select>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="maxRetries" class="block text-sm font-medium text-text-secondary mb-1">Max Retries:</label>
+                            <select id="maxRetries" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm">
+                                <option value="1">1</option>
+                                <option value="3" selected>3</option>
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="loopMode" class="block text-sm font-medium text-text-secondary mb-1">Loop Mode:</label>
+                            <select id="loopMode" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm">
+                                <option value="1">Run Once</option>
+                                <option value="2">2 Times</option>
+                                <option value="3">3 Times</option>
+                                <option value="5">5 Times</option>
+                                <option value="10">10 Times</option>
+                                <option value="25">25 Times</option>
+                                <option value="50">50 Times</option>
+                                <option value="100">100 Times</option>
+                                <option value="infinite" selected>Loop Forever</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -223,7 +234,7 @@
                         <textarea id="denWhitelist" rows="3" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm font-mono" placeholder="e.g., 720, 646"></textarea>
                     </div>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div class="mt-3 flex flex-wrap justify-center gap-2">
                     <button id="saveWhitelistsButton" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-200 font-medium shadow-md">
                         <i class="fas fa-save mr-2"></i>Save Whitelists
                     </button>
@@ -321,11 +332,16 @@
                     <h2 class="text-lg font-semibold flex items-center">
                         <i class="fas fa-gift mr-2 text-yellow-400"></i>Received Items
                     </h2>
-                    <button id="clearLogButton" class="px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all duration-200 text-xs font-medium">
-                        <i class="fas fa-trash-alt mr-1"></i>Clear Log
-                    </button>
+                    <div>
+                        <button id="toggleLogButton" class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 text-xs font-medium" style="display: none;">
+                            Show All
+                        </button>
+                        <button id="clearLogButton" class="px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all duration-200 text-xs font-medium">
+                            <i class="fas fa-trash-alt mr-1"></i>Clear Log
+                        </button>
+                    </div>
                 </div>
-                <div id="itemLog" class="max-h-44 overflow-y-auto space-y-2 pr-2 bg-gray-800/50 rounded-lg p-2 border border-gray-700">
+                <div id="itemLog" class="bg-gray-800/50 rounded-lg p-2 border border-gray-700 space-y-2 pr-2 collapsed">
                     <!-- Items will be dynamically added here -->
                     <p class="text-sm text-text-secondary text-center">No items received yet.</p>
                 </div>

@@ -19,6 +19,7 @@ const totalRuns = document.getElementById('totalRuns');
 // Settings Elements
 const autoRetryCheckbox = document.getElementById('autoRetryCheckbox');
 const soundNotificationCheckbox = document.getElementById('soundNotificationCheckbox');
+const dontLogRecycledCheckbox = document.getElementById('dontLogRecycledCheckbox');
 const maxRetries = document.getElementById('maxRetries');
 const loopMode = document.getElementById('loopMode');
 
@@ -41,6 +42,7 @@ const filterStatusText = document.getElementById('filterStatusText');
 // Received Items Log Elements
 const itemLog = document.getElementById('itemLog');
 const clearLogButton = document.getElementById('clearLogButton');
+const toggleLogButton = document.getElementById('toggleLogButton');
 
 // State Variables
 let receivedItems = [];
@@ -305,17 +307,17 @@ async function sendPacket(packet, isRaw = false, isGemPacket = false) {
 }
 
 async function sendPacketWithRetry(packet, isRaw = false, isGemPacket = false, retryCount = 0) {
-    const maxRetries = 3;
+    const maxRetriesValue = parseInt(maxRetries.value, 10);
     try {
         await sendPacket(packet, isRaw, isGemPacket);
     } catch (error) {
-        if (retryCount < maxRetries) {
+        if (retryCount < maxRetriesValue) {
             const delay = 5000 * (retryCount + 1);
-            updateStatus(`Connection error. Retrying in ${delay / 1000}s... (${retryCount + 1}/${maxRetries})`, 'warning');
+            updateStatus(`Connection error. Retrying in ${delay / 1000}s... (${retryCount + 1}/${maxRetriesValue})`, 'warning');
             await new Promise(resolve => setTimeout(resolve, delay));
             await sendPacketWithRetry(packet, isRaw, isGemPacket, retryCount + 1);
         } else {
-            throw new Error(`Failed to send packet after ${maxRetries} retries. Stopping automation.`);
+            throw new Error(`Failed to send packet after ${maxRetriesValue} retries. Stopping automation.`);
         }
     }
 }
@@ -824,6 +826,9 @@ async function processItemForFiltering(defId, invId, itemType) {
 
 // Function to add item to the received items log
 function logReceivedItem(itemName, status) {
+    if (dontLogRecycledCheckbox.checked && status === 'recycled') {
+        return; // Do not log recycled items if the setting is checked
+    }
     receivedItems.push({ name: itemName, status });
     renderItemLog();
     localStorage.setItem('tfd_item_log', JSON.stringify(receivedItems));
@@ -831,13 +836,18 @@ function logReceivedItem(itemName, status) {
 
 function renderItemLog() {
     if (!itemLog) return;
+
+    const isCollapsed = itemLog.classList.contains('collapsed');
+    const itemsToRender = isCollapsed ? receivedItems.slice(-5) : receivedItems;
+
     if (receivedItems.length === 0) {
         itemLog.innerHTML = '<p class="text-sm text-text-secondary text-center">No items received yet.</p>';
+        toggleLogButton.style.display = 'none';
         return;
     }
 
     itemLog.innerHTML = ''; // Clear the log before rendering
-    receivedItems.forEach(item => {
+    itemsToRender.forEach(item => {
         const iconClass = item.status === 'kept' ? 'fa-star text-yellow-400' : 'fa-trash text-red-400';
         const itemElement = document.createElement('div');
         itemElement.className = 'flex items-center justify-between text-sm p-1 bg-gray-900/50 rounded';
@@ -847,6 +857,15 @@ function renderItemLog() {
         `;
         itemLog.appendChild(itemElement);
     });
+
+    // Manage toggle button visibility and text
+    if (receivedItems.length > 5) {
+        toggleLogButton.style.display = 'inline-block';
+        toggleLogButton.textContent = isCollapsed ? `Show All (${receivedItems.length})` : 'Show Less';
+    } else {
+        toggleLogButton.style.display = 'none';
+    }
+
     itemLog.scrollTop = itemLog.scrollHeight;
 }
 
@@ -872,6 +891,21 @@ function openFileInEditor(fileName) {
     }
 }
 
+// --- Settings Persistence ---
+function saveSettings() {
+    localStorage.setItem('tfd_dont_log_recycled', dontLogRecycledCheckbox.checked);
+}
+
+function loadSettings() {
+    const dontLogRecycled = localStorage.getItem('tfd_dont_log_recycled');
+    if (dontLogRecycled !== null) {
+        dontLogRecycledCheckbox.checked = JSON.parse(dontLogRecycled);
+    }
+}
+
+// --- Event Listeners ---
+if (dontLogRecycledCheckbox) dontLogRecycledCheckbox.addEventListener('change', saveSettings);
+
 // Event Listeners for UI buttons
 if (startButton) startButton.addEventListener('click', startAutomation);
 if (stopButton) stopButton.addEventListener('click', stopAutomation);
@@ -880,6 +914,12 @@ if (infoButton) infoButton.addEventListener('click', showModal);
 if (saveWhitelistsButton) saveWhitelistsButton.addEventListener('click', saveWhitelists);
 if (clearWhitelistsButton) clearWhitelistsButton.addEventListener('click', clearWhitelists);
 if (clearLogButton) clearLogButton.addEventListener('click', clearItemLog);
+if (toggleLogButton) {
+    toggleLogButton.addEventListener('click', () => {
+        itemLog.classList.toggle('collapsed');
+        renderItemLog(); // Re-render to update view and button text
+    });
+}
 if (openClothingJson) openClothingJson.addEventListener('click', () => openFileInEditor('1000-clothing.json'));
 if (openDenItemsJson) openDenItemsJson.addEventListener('click', () => openFileInEditor('1030-denitems.json'));
 
@@ -945,6 +985,7 @@ function loadItemLog() {
 // Initialize
 async function initialize() {
     loadStats();
+    loadSettings();
     loadWhitelists();
     loadItemLog();
     await loadItemData();
