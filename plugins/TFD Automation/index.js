@@ -19,7 +19,6 @@ const totalRuns = document.getElementById('totalRuns');
 // Settings Elements
 const autoRetryCheckbox = document.getElementById('autoRetryCheckbox');
 const soundNotificationCheckbox = document.getElementById('soundNotificationCheckbox');
-const delayMultiplier = document.getElementById('delayMultiplier');
 const maxRetries = document.getElementById('maxRetries');
 const loopMode = document.getElementById('loopMode');
 
@@ -37,6 +36,10 @@ const openClothingJson = document.getElementById('openClothingJson');
 const openDenItemsJson = document.getElementById('openDenItemsJson');
 const enableFilteringCheckbox = document.getElementById('enableFilteringCheckbox');
 const filterStatusText = document.getElementById('filterStatusText');
+
+// Received Items Log Elements
+const itemLog = document.getElementById('itemLog');
+const clearLogButton = document.getElementById('clearLogButton');
 
 // State Variables
 let clothingItems = {};
@@ -236,8 +239,7 @@ function getRandomizedDelay(baseDelay, isGemPacket = false) {
         // Randomize between 500-1000ms for gem packets to avoid bot detection
         return Math.floor(Math.random() * (1000 - 500 + 1)) + 500;
     }
-    const multiplier = delayMultiplier ? parseFloat(delayMultiplier.value) : 1;
-    return baseDelay * multiplier;
+    return baseDelay;
 }
 
 // Function to check connection status
@@ -564,12 +566,13 @@ async function runSingleAutomation() {
 
 // Function to stop the automation sequence
 function stopAutomation() {
-    const wasLooping = isLooping && currentLoopCount > 0;
+    const completedRuns = currentLoopCount; // Capture the count before resetting
+    const wasLooping = isLooping && completedRuns > 0;
     isAutomationRunning = false; // Set flag to halt further execution BEFORE updating status
     isLooping = false;
     currentLoopCount = 0;
     totalLoopsToRun = 1;
-    updateStatus(`Automation stopped${wasLooping ? ` after ${currentLoopCount} run(s)` : ''}.`, 'info');
+    updateStatus(`Automation stopped${wasLooping ? ` after ${completedRuns} run(s)` : ''}.`, 'info');
     if (startButton) startButton.disabled = false;
     if (stopButton) stopButton.disabled = true;
     if (progressBar) progressBar.style.width = '0%';
@@ -795,9 +798,11 @@ async function processItemForFiltering(defId, invId, itemType) {
         
         if (whitelist.has(defId)) {
             updateStatus(`✓ Whitelisted: ${itemName}. Keeping it.`, 'info');
+            logReceivedItem(itemName, 'kept');
             console.log(`[TFD Automation] RESULT: KEEPING item ${defId} (${itemName}) - found on whitelist.`);
         } else {
             updateStatus(`♻ Recycling: ${itemName}.`, 'warning');
+            logReceivedItem(itemName, 'recycled');
             console.log(`[TFD Automation] ACTION: RECYCLING item ${defId} (${itemName}) - not on whitelist.`);
             
             await new Promise(resolve => setTimeout(resolve, 150)); // Small delay
@@ -828,6 +833,36 @@ async function processItemForFiltering(defId, invId, itemType) {
     }
 }
 
+// Function to add item to the received items log
+function logReceivedItem(itemName, status) {
+    if (!itemLog) return;
+
+    // Remove the "No items" placeholder if it exists
+    const placeholder = itemLog.querySelector('.text-center');
+    if (placeholder) {
+        itemLog.innerHTML = '';
+    }
+
+    const iconClass = status === 'kept' ? 'fa-star text-yellow-400' : 'fa-trash text-red-400';
+    const itemElement = document.createElement('div');
+    itemElement.className = 'flex items-center justify-between text-sm p-1 bg-gray-900/50 rounded';
+    itemElement.innerHTML = `
+        <span class="truncate">${itemName}</span>
+        <i class="fas ${iconClass} ml-2"></i>
+    `;
+
+    itemLog.appendChild(itemElement);
+    itemLog.scrollTop = itemLog.scrollHeight; // Auto-scroll to the bottom
+}
+
+// Function to clear the received items log
+function clearItemLog() {
+    if (itemLog) {
+        itemLog.innerHTML = '<p class="text-sm text-text-secondary text-center">No items received yet.</p>';
+        updateStatus('Item log cleared.', 'info');
+    }
+}
+
 // Function to open a file in the default editor
 function openFileInEditor(fileName) {
     if (typeof require === 'function') {
@@ -849,6 +884,7 @@ if (resetStatsButton) resetStatsButton.addEventListener('click', resetStats);
 if (infoButton) infoButton.addEventListener('click', showModal);
 if (saveWhitelistButton) saveWhitelistButton.addEventListener('click', saveWhitelist);
 if (clearWhitelistButton) clearWhitelistButton.addEventListener('click', clearWhitelist);
+if (clearLogButton) clearLogButton.addEventListener('click', clearItemLog);
 if (openClothingJson) openClothingJson.addEventListener('click', () => openFileInEditor('1000-clothing.json'));
 if (openDenItemsJson) openDenItemsJson.addEventListener('click', () => openFileInEditor('1030-denitems.json'));
 

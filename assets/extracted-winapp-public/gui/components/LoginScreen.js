@@ -1248,8 +1248,19 @@
         } 
         // 2. If auth token is expired or missing, try using the refresh token
         else if (this.refreshToken) {
+          // **NEW**: First, check if the refresh token itself is expired client-side
+          if (this._isTokenExpired(this.refreshToken)) {
+            console.warn("[LoginScreen] Refresh token has expired (client-side check). Clearing all tokens.");
+            this.clearAuthToken();
+            this.clearRefreshToken();
+            this.isFakePassword = false;
+            this.password = ""; // Clear password field
+            // Throw the specific error to be handled by the catch block
+            throw new Error("REFRESH_TOKEN_EXPIRED");
+          }
+
           if (this.authToken) {
-            console.log("[LoginScreen] Auth token is expired or invalid. Attempting to refresh.");
+            console.log("[LoginScreen] Auth token is expired or invalid. Attempting to refresh with a valid refresh token.");
           } else {
             console.log("[LoginScreen] No auth token found. Attempting to use refresh token.");
           }
@@ -1258,17 +1269,17 @@
             console.log("[LoginScreen] Successfully refreshed token.");
           } catch (err) {
             if (err.message === "REFRESH_TOKEN_EXPIRED") {
-              console.warn("[LoginScreen] Refresh token has expired. Clearing all tokens.");
+              console.warn("[LoginScreen] Refresh token has expired (server-side check). Clearing all tokens.");
               this.clearAuthToken();
               this.clearRefreshToken();
               this.isFakePassword = false;
               this.password = ""; // Clear password field
-              this.passwordInputElem.error = "Your session has expired. Please log in again.";
+              // Error message is already set in the main catch block, just ensure tokens are cleared.
             }
             // Re-throw to be caught by the main catch block
             throw err;
           }
-        } 
+        }
         // 3. If no tokens are available or valid, fall back to password login
         else {
           console.log("[LoginScreen] No valid tokens. Proceeding with password authentication.");

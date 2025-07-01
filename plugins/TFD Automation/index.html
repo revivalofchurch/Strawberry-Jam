@@ -166,15 +166,6 @@
                         </label>
                     </div>
                     <div>
-                        <label for="delayMultiplier" class="block text-sm font-medium text-text-secondary mb-1">Delay Multiplier:</label>
-                        <select id="delayMultiplier" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm">
-                            <option value="0.5">0.5x (Faster)</option>
-                            <option value="1" selected>1x (Normal)</option>
-                            <option value="1.5">1.5x (Slower)</option>
-                            <option value="2">2x (Much Slower)</option>
-                        </select>
-                    </div>
-                    <div>
                         <label for="maxRetries" class="block text-sm font-medium text-text-secondary mb-1">Max Retries:</label>
                         <select id="maxRetries" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm">
                             <option value="1">1</option>
@@ -318,17 +309,20 @@
                 </div>
             </div>
 
-            <!-- Info Panel -->
-            <div class="mt-6 bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-                <h3 class="text-sm font-semibold text-blue-300 mb-2">
-                    <i class="fas fa-info-circle mr-2"></i>Information
-                </h3>
-                <ul class="text-xs text-blue-200 space-y-1">
-                    <li>• This plugin automates The Forgotten Desert (Quest ID: 23)</li>
-                    <li>• Make sure you're in a room before starting</li>
-                    <li>• The automation will create a private quest, collect gems, and exit</li>
-                    <li>• You can adjust settings above to customize the automation behavior</li>
-                </ul>
+            <!-- Received Items Log -->
+            <div id="receivedItemsContainer" class="setting-card rounded-lg p-4 mt-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold flex items-center">
+                        <i class="fas fa-gift mr-2 text-yellow-400"></i>Received Items
+                    </h2>
+                    <button id="clearLogButton" class="px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all duration-200 text-xs font-medium">
+                        <i class="fas fa-trash-alt mr-1"></i>Clear Log
+                    </button>
+                </div>
+                <div id="itemLog" class="max-h-40 overflow-y-auto space-y-2 pr-2 bg-gray-800/50 rounded-lg p-2 border border-gray-700">
+                    <!-- Items will be dynamically added here -->
+                    <p class="text-sm text-text-secondary text-center">No items received yet.</p>
+                </div>
             </div>
         </div>
     </div>
