@@ -354,8 +354,7 @@
 
       this.gameFrameElem = this.shadowRoot.getElementById("game-frame-container");
 
-      // Create UserTray using the global manager
-      this.userTray = window.UserTrayManager.create();
+      // UserTray is created in loadGame now
 
       // Handle logout requests from the user tray
       document.addEventListener("logout-requested", () => {
@@ -476,7 +475,10 @@
 
     }
 
-    loadGame(flashVars) {
+    loadGame(flashVars, theme) {
+      if (!this.userTray) {
+        this.userTray = window.UserTrayManager.create(theme);
+      }
       console.log(flashVars)
       // prevent race condition with reloads
       if (this.closeGameTimeout) {

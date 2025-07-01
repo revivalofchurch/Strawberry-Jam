@@ -23,7 +23,8 @@
             font-family: CCDigitalDelivery;
             font-size: 13px;
             color: #FFFFFF;
-            border: #FF4A26 1px solid;
+            background-color: #333333;
+            border: var(--theme-primary, #FF4A26) 1px solid;
             border-radius: 20px;
             letter-spacing: .7px;
             text-align: center;
@@ -36,7 +37,7 @@
             /*position: absolute;*/
             border-top: 10px solid transparent;
             border-bottom: 10px solid transparent;
-            border-left: 14px solid #FF4A26;
+            border-left: 14px solid #333333;
             /*margin-top: auto;
             margin-bottom: auto;*/
             /*margin-left: 190px;*/

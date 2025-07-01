@@ -208,8 +208,8 @@
                 this.addAccountButtonElem.style.setProperty('borderColor', '#4A4A4A', 'important'); // Dark gray for border
             } else {
                 console.log(`[AccountManagementPanel] _applyThemeToSlots: Reverting add button style for ${this._currentThemeKey}`);
-                this.addAccountButtonElem.style.setProperty('color', '', ''); // Revert to CSS var (--theme-primary)
-                this.addAccountButtonElem.style.setProperty('borderColor', '', ''); // Revert to CSS var (--theme-primary)
+                this.addAccountButtonElem.style.setProperty('color', ''); // Revert to CSS var (--theme-primary)
+                this.addAccountButtonElem.style.setProperty('borderColor', ''); // Revert to CSS var (--theme-primary)
             }
         } else {
             console.warn('[AccountManagementPanel] _applyThemeToSlots: addAccountButtonElem not found when trying to apply theme (this implies re-query also failed).');

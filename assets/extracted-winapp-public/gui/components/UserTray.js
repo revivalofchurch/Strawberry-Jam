@@ -174,28 +174,32 @@
     async localize() {
       // Placeholder for localization if needed in the future
     }
+
+    updateTheme(theme) {
+      if (!theme) return;
+      this.style.setProperty('--theme-primary', theme.primary);
+      this.style.setProperty('--theme-secondary', theme.secondary);
+      this.style.setProperty('--theme-hover-border', theme.hoverBorder);
+      this.style.setProperty('--theme-shadow', theme.shadow);
+      this.style.setProperty('--theme-box-background', theme.boxBackground);
+      this.style.setProperty('--theme-settings-hover', theme.settingsHover);
+    }
   });
 
   // Global UserTray manager
   window.UserTrayManager = {
     instance: null,
     
-    create() {
+    create(theme) {
       if (this.instance) {
         this.destroy();
       }
       
       this.instance = document.createElement('ajd-user-tray');
+      if (theme) {
+        this.instance.updateTheme(theme);
+      }
       document.body.appendChild(this.instance);
-      
-      // Listen for logout events at document level
-      document.addEventListener('logout-requested', (event) => {
-        // Dispatch to game screen if it exists
-        const gameScreen = document.getElementById('game-screen');
-        if (gameScreen) {
-          gameScreen.dispatchEvent(new CustomEvent('logout-requested', { bubbles: true }));
-        }
-      });
       
       return this.instance;
     },

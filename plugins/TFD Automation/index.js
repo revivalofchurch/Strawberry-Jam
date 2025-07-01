@@ -300,6 +300,22 @@ async function sendPacket(packet, isRaw = false, isGemPacket = false) {
     }
 }
 
+async function sendPacketWithRetry(packet, isRaw = false, isGemPacket = false, retryCount = 0) {
+    const maxRetries = 3;
+    try {
+        await sendPacket(packet, isRaw, isGemPacket);
+    } catch (error) {
+        if (retryCount < maxRetries) {
+            const delay = 5000 * (retryCount + 1);
+            updateStatus(`Connection error. Retrying in ${delay / 1000}s... (${retryCount + 1}/${maxRetries})`, 'warning');
+            await new Promise(resolve => setTimeout(resolve, delay));
+            await sendPacketWithRetry(packet, isRaw, isGemPacket, retryCount + 1);
+        } else {
+            throw new Error(`Failed to send packet after ${maxRetries} retries. Stopping automation.`);
+        }
+    }
+}
+
 // Main function to start the automation sequence
 async function startAutomation() {
     // Check room availability before starting
@@ -350,11 +366,15 @@ async function runSingleAutomation() {
 
         playerSfsUserId = await getPlayerSfsUserId(); // Get player SFS User ID
 
+        // Send a request for the current den inventory to establish a baseline
+        console.log('[TFD Automation] Requesting current den inventory before starting quest...');
+        await sendPacketWithRetry(`%xt%o%di%${getRoomIdToUse()}%`, true);
+
         // Step 1: Quest Creation
         updateStatus(`Creating TFD private quest (ID: ${QUEST_ID})...`, 'info', 1);
         const createQuestPacket = `%xt%o%qjc%${getRoomIdToUse()}%${textualRoomName}%${QUEST_ID}%0%`;
         console.log(`[TFD Automation] About to send 'qjc' (Create Quest) packet.`);
-        await sendPacket(createQuestPacket, true);
+        await sendPacketWithRetry(createQuestPacket, true);
 
         // Increased delay to allow game client to process qjc and join quest room
         await new Promise(resolve => {
@@ -366,7 +386,7 @@ async function runSingleAutomation() {
         updateStatus('Quest room joined. Sending quest start request...', 'info', 2);
         const startQuestPacket = `%xt%o%qs%${getRoomIdToUse()}%${textualRoomName}%`;
         console.log(`[TFD Automation] About to send 'qs' (Start Quest) packet.`);
-        await sendPacket(startQuestPacket, true);
+        await sendPacketWithRetry(startQuestPacket, true);
 
         // Record quest start time for timer calculations
         questStartTime = Date.now();
@@ -381,7 +401,7 @@ async function runSingleAutomation() {
         updateStatus('Joining the adventure...', 'info', 3);
         const adventureJoinPacket = `%xt%o%qaskr%${getRoomIdToUse()}%liza01_%0%1%`;
         console.log(`[TFD Automation] About to send 'qaskr' (Adventure Join) packet.`);
-        await sendPacket(adventureJoinPacket, true);
+        await sendPacketWithRetry(adventureJoinPacket, true);
         console.log(`[TFD Automation] The qaskr (Adventure Join) packet was sent correctly: ${adventureJoinPacket}`);
 
         await new Promise(resolve => {
@@ -404,7 +424,7 @@ async function runSingleAutomation() {
             }
             const packet = TFD_packets.packets[i];
             updateStatus(`Collecting gem ${i + 1}/${TFD_packets.packets.length}...`, 'info', 4 + i);
-            await sendPacket(packet, false, true); // Send packet with randomized delay for gems
+            await sendPacketWithRetry(packet, false, true); // Send packet with randomized delay for gems
         }
         if (!isAutomationRunning) return; // Check if automation was stopped after loop
 
@@ -431,7 +451,7 @@ async function runSingleAutomation() {
             updateStatus('Pinging server to verify connection...', 'info');
             await refreshRoom();
             const pingPacket = `%xt%o%gps%${getRoomIdToUse()}%`; // gps (get player status) is a safe ping
-            await sendPacket(pingPacket, true);
+            await sendPacketWithRetry(pingPacket, true);
             // If sendPacket fails, it will throw and be caught by the main try/catch, stopping the automation.
             updateStatus('Connection verified. Proceeding to collect rewards.', 'info');
 
@@ -456,7 +476,7 @@ async function runSingleAutomation() {
 
         // Send a request for the current den inventory to establish a baseline
         console.log('[TFD Automation] Requesting current den inventory before collecting gifts...');
-        await sendPacket(`%xt%o%di%${rewardRoomId}%`, true);
+        await sendPacketWithRetry(`%xt%o%di%${rewardRoomId}%`, true);
         
         // Wait a moment for the initial `di` packet to be processed
         await new Promise(resolve => {
@@ -468,7 +488,7 @@ async function runSingleAutomation() {
             if (!isAutomationRunning) return;
             
             const qpgiftPacket = `%xt%o%qpgift%${rewardRoomId}%${i}%0%0%`;
-            await sendPacket(qpgiftPacket, true);
+            await sendPacketWithRetry(qpgiftPacket, true);
             console.log(`[TFD Automation] Sent qpgift ${i}: ${qpgiftPacket}`);
             
             // Small delay between qpgift packets
@@ -480,7 +500,7 @@ async function runSingleAutomation() {
         // Send qpgiftdone packet to finalize reward collection
         if (!isAutomationRunning) return;
         const qpgiftdonePacket = `%xt%o%qpgiftdone%${rewardRoomId}%`;
-        await sendPacket(qpgiftdonePacket, true);
+        await sendPacketWithRetry(qpgiftdonePacket, true);
         console.log(`[TFD Automation] Sent qpgiftdone: ${qpgiftdonePacket}`);
         
         // Random pause after done packet (500-1000ms)
@@ -502,7 +522,7 @@ async function runSingleAutomation() {
         await refreshRoom();
         const exitRoomId = getRoomIdToUse();
         const leaveQuestPacket = `%xt%o%qx%${exitRoomId}%`;
-        await sendPacket(leaveQuestPacket, true);
+        await sendPacketWithRetry(leaveQuestPacket, true);
         console.log(`[TFD Automation] Sent leave quest: ${leaveQuestPacket}`);
         
         // Success
@@ -536,20 +556,7 @@ async function runSingleAutomation() {
         updateStatus(`Error: ${error.message}`, 'error');
         playNotificationSound('error');
         
-        // Auto-retry logic
-        const maxRetriesValue = maxRetries ? parseInt(maxRetries.value) : 3;
-        if (autoRetryCheckbox && autoRetryCheckbox.checked && retryCount < maxRetriesValue) {
-            retryCount++;
-            const loopStatus = isLooping ? ` (${currentLoopCount}/${totalLoopsToRun === Infinity ? '∞' : totalLoopsToRun})` : '';
-            updateStatus(`Retrying in 5 seconds... (${retryCount}/${maxRetriesValue})${loopStatus}`, 'warning');
-            await new Promise(resolve => {
-                currentTimeout = setTimeout(resolve, 5000);
-            });
-            if (isAutomationRunning) {
-                await runSingleAutomation();
-                return;
-            }
-        }
+        // Auto-retry logic is now handled by sendPacketWithRetry
     }
     
     stopAutomation();
@@ -796,10 +803,20 @@ async function processItemForFiltering(defId, invId, itemType) {
             await new Promise(resolve => setTimeout(resolve, 150)); // Small delay
             
             await refreshRoom();
-            const recyclePacket = `%xt%o%ir%${getRoomIdToUse()}%${invId}%`;
+            
+            let recyclePacket;
+            if (itemType === 'den') {
+                // Use the den-specific recycling packet with the correct format
+                recyclePacket = `%xt%o%dr%${getRoomIdToUse()}%0%${invId}%`;
+                console.log(`[TFD Automation] Using DEN recycle packet: ${recyclePacket}`);
+            } else {
+                // Default to the standard item recycling packet for clothing
+                recyclePacket = `%xt%o%ir%${getRoomIdToUse()}%${invId}%`;
+                console.log(`[TFD Automation] Using CLOTHING recycle packet: ${recyclePacket}`);
+            }
             
             try {
-                await sendPacket(recyclePacket, true);
+                await sendPacketWithRetry(recyclePacket, true);
                 console.log(`[TFD Automation] SUCCESS: Recycle request sent for InvID ${invId}.`);
             } catch (error) {
                 console.error(`[TFD Automation] FAILED: Could not send recycle request for InvID ${invId}:`, error);

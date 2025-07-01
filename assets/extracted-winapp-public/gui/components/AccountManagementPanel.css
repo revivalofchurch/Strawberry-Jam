@@ -108,14 +108,14 @@
 /* Pinned account styles */
 .saved-account-slot.pinned {
   border: 2px solid var(--theme-primary, #e83d52);
-  box-shadow: 0 0 8px rgba(232, 61, 82, 0.3);
+  box-shadow: 0 0 8px var(--theme-primary);
   background-color: var(--theme-primary, rgba(232, 61, 82, 0.1));
   color: white !important; /* Ensure text is white for good contrast */
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Add text shadow for better readability */
 }
 
 .saved-account-slot.pinned:hover {
-  box-shadow: 0 0 12px rgba(232, 61, 82, 0.5);
+  box-shadow: 0 0 12px var(--theme-primary);
 }
 
 /* Pin indicator */

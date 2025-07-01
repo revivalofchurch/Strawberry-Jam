@@ -642,7 +642,7 @@
         const gameScreen = document.getElementById("game-screen");
 
         loginScreen.addEventListener("loggedIn", event => {
-          gameScreen.loadGame(event.detail.flashVars);
+          gameScreen.loadGame(event.detail.flashVars, event.detail.theme);
         });
         gameScreen.addEventListener("gameLoaded", event => {
           loginScreen.loginBlocked = false;

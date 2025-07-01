@@ -131,7 +131,7 @@
             width: 32px;
             height: 32px;
             font-size: 18px; /* Adjusted for potentially smaller icons */
-            border: 2px solid var(--theme-secondary);
+            border: 2px solid var(--theme-primary, #e83d52);
             border-radius: 8px;
             background-color: rgba(255, 245, 230, 0.95); /* Keep neutral */
             cursor: pointer;
@@ -473,7 +473,7 @@
             font-size: 16px;
             line-height: 24px;
             letter-spacing: -0.5px;
-            color: #684A26;
+            color: var(--theme-primary, #684A26);
             text-decoration: none;
             user-select: none;
             cursor: pointer;
@@ -522,6 +522,13 @@
           #button-tray ajd-button {
             width: 54px;
             height: 54px;
+            border: 2px solid var(--theme-primary, #e83d52);
+            border-radius: 8px;
+            transition: border-color 0.3s ease;
+          }
+
+          #button-tray ajd-button:hover {
+            border-color: var(--theme-hover-border, #e83d52);
           }
 
           /* Account Management Panel Styling MOVED to AccountManagementPanel.css */
@@ -696,6 +703,7 @@
       this.closeButtonElement = this.shadowRoot.getElementById("close-button");
       this.loginAppIconElem = this.shadowRoot.getElementById("login-app-icon"); // Get reference to the icon
       this.accountPanelInstance = this.shadowRoot.getElementById("account-panel-instance"); // Reference to the new panel
+      this.userTray = null;
 
 
 
@@ -1111,7 +1119,9 @@
 
       if (this.accountPanelInstance && typeof this.accountPanelInstance.updateTheme === 'function') {
         this.accountPanelInstance.updateTheme(fruitKey);
-      } else {
+      }
+      if (window.UserTrayManager.instance && typeof window.UserTrayManager.instance.updateTheme === 'function') {
+        window.UserTrayManager.instance.updateTheme(theme);
       }
     }
 
@@ -1287,11 +1297,13 @@
         });
 
         // Dispatch event to switch to the game screen
-        this.dispatchEvent(new CustomEvent("loggedIn", { detail: { flashVars } }));
+        const theme = this._fruitThemes[this._fruitImages[this._currentFruitIndex]];
+        theme.boxBackground = getComputedStyle(this.shadowRoot.host).getPropertyValue('--theme-box-background');
+        this.dispatchEvent(new CustomEvent("loggedIn", { detail: { flashVars, theme } }));
 
       } catch (err) {
         // Centralized error handling
-        let userMessage = "Something went wrong. Please try again.";
+        let userMessage = "Servers are down or Your IP is blocked. Please try again later.";
         
         if (err.message) {
           console.error(`[LoginScreen] Login failed: ${err.message}`, err);
@@ -1414,7 +1426,7 @@
 
     async connectedCallback() {
       await this.localize();
-      
+
       if (this.accountPanelInstance) {
         this.accountPanelInstance.addEventListener('account-selected', (e) => {
           if (e.detail && e.detail.username) {

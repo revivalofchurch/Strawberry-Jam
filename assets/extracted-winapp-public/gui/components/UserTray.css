@@ -25,7 +25,7 @@
   flex-direction: row;
   align-items: center;
   background-color: var(--theme-box-background);
-  border: 2px solid var(--theme-secondary);
+  border: 2px solid var(--theme-primary);
   border-radius: 8px;
   box-shadow: 0 8px 32px var(--theme-shadow);
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
@@ -51,7 +51,7 @@
 }
 
 #arrow-container:hover {
-  background-color: rgba(232, 61, 82, 0.1);
+  background-color: var(--theme-settings-hover);
 }
 
 #arrow-container:active {
@@ -113,7 +113,7 @@
 }
 
 #tray-content button:hover {
-  background-color: rgba(232, 61, 82, 0.8);
+  background-color: var(--theme-hover-border);
 }
 
 #tray-content button svg {
@@ -123,4 +123,4 @@
   stroke: white; 
   stroke-width: 2;
   flex-shrink: 0;
-} 
+}
