@@ -29,9 +29,10 @@ const startAutomationFromModal = document.getElementById('startAutomationFromMod
 const infoButton = document.getElementById('infoButton');
 
 // Item Filter Elements
-const itemWhitelist = document.getElementById('itemWhitelist');
-const saveWhitelistButton = document.getElementById('saveWhitelistButton');
-const clearWhitelistButton = document.getElementById('clearWhitelistButton');
+const clothingWhitelist = document.getElementById('clothingWhitelist');
+const denWhitelist = document.getElementById('denWhitelist');
+const saveWhitelistsButton = document.getElementById('saveWhitelistsButton');
+const clearWhitelistsButton = document.getElementById('clearWhitelistsButton');
 const openClothingJson = document.getElementById('openClothingJson');
 const openDenItemsJson = document.getElementById('openDenItemsJson');
 const enableFilteringCheckbox = document.getElementById('enableFilteringCheckbox');
@@ -42,6 +43,7 @@ const itemLog = document.getElementById('itemLog');
 const clearLogButton = document.getElementById('clearLogButton');
 
 // State Variables
+let receivedItems = [];
 let clothingItems = {};
 let denItems = {};
 let isAutomationRunning = false;
@@ -608,67 +610,53 @@ function hideModal() {
 }
 
 // Whitelist management
-function getWhitelist() {
-    if (!itemWhitelist || !itemWhitelist.value.trim()) {
-        return new Set();
-    }
-    // Get value, remove whitespace, split by comma, and filter out empty strings
-    const ids = itemWhitelist.value.split(',').map(id => id.trim()).filter(Boolean);
-    return new Set(ids);
+function getWhitelists() {
+    const getIds = (element) => {
+        if (!element || !element.value.trim()) return new Set();
+        return new Set(element.value.split(',').map(id => id.trim()).filter(Boolean));
+    };
+    return {
+        clothing: getIds(clothingWhitelist),
+        den: getIds(denWhitelist),
+    };
 }
 
 function isFilteringEnabled() {
-    // Only enable filtering if user has entered specific item IDs
-    const whitelist = getWhitelist();
-    const hasWhitelistItems = whitelist.size > 0;
-    
-    // Check if filtering checkbox exists and is checked, or if whitelist has items
-    const checkboxEnabled = enableFilteringCheckbox ? enableFilteringCheckbox.checked : false;
-    
-    return hasWhitelistItems && (checkboxEnabled || hasWhitelistItems);
+    const whitelists = getWhitelists();
+    return whitelists.clothing.size > 0 || whitelists.den.size > 0;
 }
 
-function saveWhitelist() {
-    if (itemWhitelist) {
-        const whitelistValue = getWhitelist();
-        localStorage.setItem('tfd_automation_whitelist', JSON.stringify(Array.from(whitelistValue)));
-        updateStatus('Item whitelist saved successfully.', 'success');
-        
-        // Update UI to show filtering status
-        updateFilteringStatus();
-    }
+function saveWhitelists() {
+    const whitelists = getWhitelists();
+    localStorage.setItem('tfd_clothing_whitelist', JSON.stringify(Array.from(whitelists.clothing)));
+    localStorage.setItem('tfd_den_whitelist', JSON.stringify(Array.from(whitelists.den)));
+    updateStatus('Whitelists saved successfully.', 'success');
+    updateFilteringStatus();
 }
 
-function loadWhitelist() {
-    if (itemWhitelist) {
-        const savedWhitelist = localStorage.getItem('tfd_automation_whitelist');
-        if (savedWhitelist) {
+function loadWhitelists() {
+    const loadList = (key, element) => {
+        const saved = localStorage.getItem(key);
+        if (saved && element) {
             try {
-                const ids = JSON.parse(savedWhitelist);
-                itemWhitelist.value = ids.join(', ');
-                updateFilteringStatus();
+                element.value = JSON.parse(saved).join(', ');
             } catch (e) {
-                console.error('[TFD Automation] Failed to load whitelist:', e);
+                console.error(`[TFD Automation] Failed to load whitelist ${key}:`, e);
             }
         }
-    }
+    };
+    loadList('tfd_clothing_whitelist', clothingWhitelist);
+    loadList('tfd_den_whitelist', denWhitelist);
+    updateFilteringStatus();
 }
 
 function updateFilteringStatus() {
-    const filteringEnabled = isFilteringEnabled();
-    const whitelist = getWhitelist();
-    
-    // Update console log
-    if (filteringEnabled && whitelist.size > 0) {
-        console.log(`[TFD Automation] Item filtering is ENABLED for ${whitelist.size} item(s): ${Array.from(whitelist).join(', ')}`);
-    } else {
-        console.log('[TFD Automation] Item filtering is DISABLED (no items specified or filtering disabled)');
-    }
-    
-    // Update UI status text
+    const whitelists = getWhitelists();
+    const totalCount = whitelists.clothing.size + whitelists.den.size;
+
     if (filterStatusText) {
-        if (whitelist.size > 0) {
-            filterStatusText.textContent = `Enabled for ${whitelist.size} item(s): ${Array.from(whitelist).slice(0, 10).join(', ')}${whitelist.size > 10 ? '...' : ''}`;
+        if (totalCount > 0) {
+            filterStatusText.textContent = `Enabled (${whitelists.clothing.size} clothing, ${whitelists.den.size} den)`;
             filterStatusText.className = 'text-green-300';
         } else {
             filterStatusText.textContent = 'Disabled (no item IDs specified)';
@@ -677,14 +665,14 @@ function updateFilteringStatus() {
     }
 }
 
-function clearWhitelist() {
-    if (itemWhitelist) {
-        if (itemWhitelist.value.trim() === '' || confirm('Are you sure you want to clear all whitelisted items? This will disable filtering.')) {
-            itemWhitelist.value = '';
-            localStorage.removeItem('tfd_automation_whitelist');
-            updateFilteringStatus();
-            updateStatus('Item whitelist cleared. Filtering disabled.', 'info');
-        }
+function clearWhitelists() {
+    if (confirm('Are you sure you want to clear both whitelists?')) {
+        if (clothingWhitelist) clothingWhitelist.value = '';
+        if (denWhitelist) denWhitelist.value = '';
+        localStorage.removeItem('tfd_clothing_whitelist');
+        localStorage.removeItem('tfd_den_whitelist');
+        updateFilteringStatus();
+        updateStatus('Whitelists cleared.', 'info');
     }
 }
 
@@ -694,10 +682,10 @@ function getItemName(defId, itemType) {
 
     try {
         if (itemType === 'clothing' && clothingItems && clothingItems[defId]) {
-            return `${clothingItems[defId].name || `Clothing ID ${defId}`} (Clothing)`;
+            return `${clothingItems[defId].name || `Clothing ID ${defId}`}`;
         }
         if (itemType === 'den' && denItems && denItems[defId]) {
-            return `${denItems[defId].name || `Den ID ${defId}`} (Den Item)`;
+            return `${denItems[defId].abbrName || `Den ID ${defId}`}`;
         }
     } catch (error) {
         console.warn(`[TFD Automation] Error looking up item name for ID ${defId}:`, error);
@@ -790,12 +778,13 @@ async function handleIncomingPackets(data) {
 
 // Helper function to process an item for filtering
 async function processItemForFiltering(defId, invId, itemType) {
-    const whitelist = getWhitelist();
-    
+    const whitelists = getWhitelists();
+    const whitelist = itemType === 'clothing' ? whitelists.clothing : whitelists.den;
+
     if (defId && invId && defId.length > 0 && invId.length > 0) {
         const itemName = getItemName(defId, itemType);
         console.log(`[TFD Automation] FILTERING - Item Type: ${itemType}, Name: ${itemName}, DefID: ${defId}, InvID: ${invId}`);
-        
+
         if (whitelist.has(defId)) {
             updateStatus(`✓ Whitelisted: ${itemName}. Keeping it.`, 'info');
             logReceivedItem(itemName, 'kept');
@@ -835,32 +824,38 @@ async function processItemForFiltering(defId, invId, itemType) {
 
 // Function to add item to the received items log
 function logReceivedItem(itemName, status) {
-    if (!itemLog) return;
+    receivedItems.push({ name: itemName, status });
+    renderItemLog();
+    localStorage.setItem('tfd_item_log', JSON.stringify(receivedItems));
+}
 
-    // Remove the "No items" placeholder if it exists
-    const placeholder = itemLog.querySelector('.text-center');
-    if (placeholder) {
-        itemLog.innerHTML = '';
+function renderItemLog() {
+    if (!itemLog) return;
+    if (receivedItems.length === 0) {
+        itemLog.innerHTML = '<p class="text-sm text-text-secondary text-center">No items received yet.</p>';
+        return;
     }
 
-    const iconClass = status === 'kept' ? 'fa-star text-yellow-400' : 'fa-trash text-red-400';
-    const itemElement = document.createElement('div');
-    itemElement.className = 'flex items-center justify-between text-sm p-1 bg-gray-900/50 rounded';
-    itemElement.innerHTML = `
-        <span class="truncate">${itemName}</span>
-        <i class="fas ${iconClass} ml-2"></i>
-    `;
-
-    itemLog.appendChild(itemElement);
-    itemLog.scrollTop = itemLog.scrollHeight; // Auto-scroll to the bottom
+    itemLog.innerHTML = ''; // Clear the log before rendering
+    receivedItems.forEach(item => {
+        const iconClass = item.status === 'kept' ? 'fa-star text-yellow-400' : 'fa-trash text-red-400';
+        const itemElement = document.createElement('div');
+        itemElement.className = 'flex items-center justify-between text-sm p-1 bg-gray-900/50 rounded';
+        itemElement.innerHTML = `
+            <span class="truncate">${item.name}</span>
+            <i class="fas ${iconClass} ml-2"></i>
+        `;
+        itemLog.appendChild(itemElement);
+    });
+    itemLog.scrollTop = itemLog.scrollHeight;
 }
 
 // Function to clear the received items log
 function clearItemLog() {
-    if (itemLog) {
-        itemLog.innerHTML = '<p class="text-sm text-text-secondary text-center">No items received yet.</p>';
-        updateStatus('Item log cleared.', 'info');
-    }
+    receivedItems = [];
+    renderItemLog();
+    localStorage.removeItem('tfd_item_log');
+    updateStatus('Item log cleared.', 'info');
 }
 
 // Function to open a file in the default editor
@@ -882,16 +877,15 @@ if (startButton) startButton.addEventListener('click', startAutomation);
 if (stopButton) stopButton.addEventListener('click', stopAutomation);
 if (resetStatsButton) resetStatsButton.addEventListener('click', resetStats);
 if (infoButton) infoButton.addEventListener('click', showModal);
-if (saveWhitelistButton) saveWhitelistButton.addEventListener('click', saveWhitelist);
-if (clearWhitelistButton) clearWhitelistButton.addEventListener('click', clearWhitelist);
+if (saveWhitelistsButton) saveWhitelistsButton.addEventListener('click', saveWhitelists);
+if (clearWhitelistsButton) clearWhitelistsButton.addEventListener('click', clearWhitelists);
 if (clearLogButton) clearLogButton.addEventListener('click', clearItemLog);
 if (openClothingJson) openClothingJson.addEventListener('click', () => openFileInEditor('1000-clothing.json'));
 if (openDenItemsJson) openDenItemsJson.addEventListener('click', () => openFileInEditor('1030-denitems.json'));
 
 // Add event listener for whitelist input changes to update status in real-time
-if (itemWhitelist) {
-    itemWhitelist.addEventListener('input', updateFilteringStatus);
-}
+if (clothingWhitelist) clothingWhitelist.addEventListener('input', updateFilteringStatus);
+if (denWhitelist) denWhitelist.addEventListener('input', updateFilteringStatus);
 
 // Modal event listeners
 if (closeModal) closeModal.addEventListener('click', hideModal);
@@ -934,10 +928,25 @@ async function loadItemData() {
     }
 }
 
+// Function to load the item log from localStorage
+function loadItemLog() {
+    const savedLog = localStorage.getItem('tfd_item_log');
+    if (savedLog) {
+        try {
+            receivedItems = JSON.parse(savedLog);
+            renderItemLog();
+        } catch (e) {
+            console.error('[TFD Automation] Failed to load item log:', e);
+            receivedItems = [];
+        }
+    }
+}
+
 // Initialize
 async function initialize() {
     loadStats();
-    loadWhitelist();
+    loadWhitelists();
+    loadItemLog();
     await loadItemData();
 
     // The plugin's 'dispatch' object does not have event listeners.

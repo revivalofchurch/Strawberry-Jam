@@ -207,24 +207,30 @@
                     </div>
                 </div>
                 
-                <div>
-                    <label for="itemWhitelist" class="block text-sm font-medium text-text-secondary mb-2">
-                        <strong>Item IDs to Keep (Whitelist)</strong><br>
-                        <span class="text-xs text-gray-400">
-                            Enter specific item IDs separated by commas. Items NOT listed will be automatically recycled.<br>
-                            Leave empty to disable filtering and keep all items.
-                        </span>
-                    </label>
-                    <textarea id="itemWhitelist" rows="4" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm font-mono" placeholder="e.g., 636, 695, 257, 1023"></textarea>
-                    
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        <button id="saveWhitelistButton" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-200 font-medium shadow-md">
-                            <i class="fas fa-save mr-2"></i>Save Whitelist
-                        </button>
-                        <button id="clearWhitelistButton" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all duration-200 font-medium shadow-md">
-                            <i class="fas fa-trash mr-2"></i>Clear All
-                        </button>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="clothingWhitelist" class="block text-sm font-medium text-text-secondary mb-2">
+                            <strong>Clothing IDs to Keep</strong>
+                            <span class="block text-xs text-gray-400">Comma-separated IDs. Others will be recycled.</span>
+                        </label>
+                        <textarea id="clothingWhitelist" rows="3" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm font-mono" placeholder="e.g., 277, 695"></textarea>
                     </div>
+                    <div>
+                        <label for="denWhitelist" class="block text-sm font-medium text-text-secondary mb-2">
+                            <strong>Den Item IDs to Keep</strong>
+                            <span class="block text-xs text-gray-400">Comma-separated IDs. Others will be recycled.</span>
+                        </label>
+                        <textarea id="denWhitelist" rows="3" class="w-full rounded-md bg-secondary-bg border-transparent focus:border-primary-accent focus:ring focus:ring-primary-accent focus:ring-opacity-50 text-text-primary text-sm font-mono" placeholder="e.g., 720, 646"></textarea>
+                    </div>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button id="saveWhitelistsButton" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-200 font-medium shadow-md">
+                        <i class="fas fa-save mr-2"></i>Save Whitelists
+                    </button>
+                    <button id="clearWhitelistsButton" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all duration-200 font-medium shadow-md">
+                        <i class="fas fa-trash mr-2"></i>Clear Whitelists
+                    </button>
+                </div>
                     
                     <div class="mt-4 flex space-x-2">
                         <button id="openClothingJson" class="flex-1 px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-lg hover:from-pink-700 hover:to-purple-700 transition-all duration-200 font-medium shadow-md">
@@ -319,7 +325,7 @@
                         <i class="fas fa-trash-alt mr-1"></i>Clear Log
                     </button>
                 </div>
-                <div id="itemLog" class="max-h-40 overflow-y-auto space-y-2 pr-2 bg-gray-800/50 rounded-lg p-2 border border-gray-700">
+                <div id="itemLog" class="max-h-44 overflow-y-auto space-y-2 pr-2 bg-gray-800/50 rounded-lg p-2 border border-gray-700">
                     <!-- Items will be dynamically added here -->
                     <p class="text-sm text-text-secondary text-center">No items received yet.</p>
                 </div>
