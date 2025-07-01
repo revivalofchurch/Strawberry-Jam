@@ -30,7 +30,6 @@ contextBridge.exposeInMainWorld(
 );
 
 ipcRenderer.on("redirect-url", (event, url) => {
-  console.log("REDIRECT");
 });
 
 // YouTube Theater Integration - Inject into webview context
@@ -62,14 +61,6 @@ setInterval(() => {
   } else {
   }
 }, 5000);
-
-// INTERCEPT: Monitor Flash console.log calls
-const originalConsoleLog = console.log;
-console.log = function(...args) {
-  if (args.length > 0 && typeof args[0] === 'string' && args[0].includes('ytTheaterLoadVideo')) {
-  }
-  originalConsoleLog(...args);
-};
 
 // Expose YouTube control functions globally for Flash ExternalInterface.call()
 window.ytTheaterLoadVideo = function(videoId) {
@@ -1072,11 +1063,9 @@ if (typeof window.YouTubeTheater === 'undefined') {
     }
 
     tryLoadingStrategy3() {
-      console.log('[YouTube Theater] 🚀 Trying Strategy 3: Manual YT object creation + iframe approach');
       
       // Prevent multiple Strategy 3 attempts
       if (this.strategy3Attempted) {
-        console.log('[YouTube Theater] 🔍 Strategy 3 already attempted, all strategies exhausted');
         this.notifyFlash('onYouTubeError', 'All loading strategies failed');
         return false;
       }
@@ -1085,13 +1074,11 @@ if (typeof window.YouTubeTheater === 'undefined') {
       try {
         // Force clear any existing broken YT object
         if (window.YT && !window.YT.Player) {
-          console.log('[YouTube Theater] 🔧 Strategy 3: Clearing broken YT object...');
           delete window.YT;
         }
         
         // Create a minimal YT-like object for basic functionality
         if (!window.YT || !window.YT.Player) {
-          console.log('[YouTube Theater] 🔧 Strategy 3: Creating minimal YT object...');
           
           window.YT = {
             PlayerState: {
@@ -1103,7 +1090,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
               CUED: 5
             },
             Player: function(containerId, config) {
-              console.log('[YouTube Theater] 🔧 Strategy 3: Creating custom player for:', containerId);
               this.containerId = containerId;
               this.config = config;
               this.playerState = -1;
@@ -1128,20 +1114,17 @@ if (typeof window.YouTubeTheater === 'undefined') {
                 `;
                 
                 this.iframe = container.querySelector('iframe');
-                console.log('[YouTube Theater] 🔧 Strategy 3: Iframe created');
               }
               
               // Simulate ready event
               setTimeout(() => {
                 if (config.events && config.events.onReady) {
-                  console.log('[YouTube Theater] 🔧 Strategy 3: Triggering onReady');
                   config.events.onReady({ target: this });
                 }
               }, 100);
               
               // Player methods
               this.loadVideoById = (videoId) => {
-                console.log('[YouTube Theater] 🔧 Strategy 3: Loading video:', videoId);
                 this.currentVideoId = videoId;
                 if (this.iframe) {
                   this.iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&modestbranding=1&fs=1`;
@@ -1153,7 +1136,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
               };
               
               this.playVideo = () => {
-                console.log('[YouTube Theater] 🔧 Strategy 3: Play video');
                 if (this.currentVideoId && this.iframe) {
                   this.iframe.src = `https://www.youtube.com/embed/${this.currentVideoId}?autoplay=1&controls=1&rel=0&modestbranding=1&fs=1`;
                 }
@@ -1164,7 +1146,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
               };
               
               this.pauseVideo = () => {
-                console.log('[YouTube Theater] 🔧 Strategy 3: Pause video');
                 // Note: Can't actually pause embedded iframe, but we can simulate
                 this.playerState = 2;
                 if (this.config.events && this.config.events.onStateChange) {
@@ -1173,7 +1154,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
               };
               
               this.stopVideo = () => {
-                console.log('[YouTube Theater] 🔧 Strategy 3: Stop video');
                 if (this.iframe) {
                   this.iframe.src = 'about:blank';
                 }
@@ -1184,7 +1164,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
               };
               
               this.seekTo = (seconds) => {
-                console.log('[YouTube Theater] 🔧 Strategy 3: Seek to:', seconds);
                 // Basic seek functionality - reload with time parameter
                 if (this.currentVideoId && this.iframe) {
                   this.iframe.src = `https://www.youtube.com/embed/${this.currentVideoId}?autoplay=1&controls=1&rel=0&modestbranding=1&start=${Math.floor(seconds)}&fs=1`;
@@ -1197,7 +1176,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
               };
               
               this.destroy = () => {
-                console.log('[YouTube Theater] 🔧 Strategy 3: Destroy player');
                 if (this.iframe && this.iframe.parentNode) {
                   this.iframe.parentNode.removeChild(this.iframe);
                 }
@@ -1207,16 +1185,12 @@ if (typeof window.YouTubeTheater === 'undefined') {
             }
           };
           
-          console.log('[YouTube Theater] ✅ Strategy 3: Custom YT object created successfully');
-          console.log('[YouTube Theater] ✅ Strategy 3: YT.Player available:', !!window.YT.Player);
           
           // Trigger the ready callback
           setTimeout(() => {
-            console.log('[YouTube Theater] 🔧 Strategy 3: Triggering onYouTubeIframeAPIReady');
             this.onYouTubeIframeAPIReady();
           }, 200);
         } else {
-          console.log('[YouTube Theater] ✅ Strategy 3: YT object already exists, triggering ready callback');
           setTimeout(() => {
             this.onYouTubeIframeAPIReady();
           }, 100);
@@ -1224,37 +1198,25 @@ if (typeof window.YouTubeTheater === 'undefined') {
         
         return true;
       } catch (error) {
-        console.error('[YouTube Theater] ❌ Strategy 3 exception:', error);
         this.notifyFlash('onYouTubeError', 'All loading strategies failed: ' + error.message);
         return false;
       }
     }
 
     onYouTubeIframeAPIReady() {
-      console.log('[YouTube Theater] 🎬 YouTube API ready, creating player...');
-      console.log('[YouTube Theater] 🎬 API validation:', {
-        YT: !!window.YT,
-        YTPlayer: !!(window.YT && window.YT.Player),
-        containerId: this.containerId,
-        containerExists: !!document.getElementById(this.containerId),
-        isInitialized: this.isInitialized
-      });
       
       // Prevent multiple initializations
       if (this.isInitialized) {
-        console.log('[YouTube Theater] 🎬 Already initialized, skipping...');
         return;
       }
       
       // Verify container exists
       const container = document.getElementById(this.containerId);
       if (!container) {
-        console.error('[YouTube Theater] 🎬 Container not found, recreating...');
         this.createPlayerContainer();
       }
       
       try {
-        console.log('[YouTube Theater] 🎬 Creating YT.Player instance...');
         this.player = new YT.Player(this.containerId, {
           height: '360',
           width: '640',
@@ -1277,26 +1239,20 @@ if (typeof window.YouTubeTheater === 'undefined') {
         });
 
         this.isInitialized = true;
-        console.log('[YouTube Theater] 🎬 ✅ Player created successfully!');
-        console.log('[YouTube Theater] 🎬 Player object:', !!this.player);
         
         // Notify Flash that player is ready
         this.notifyFlash('onYouTubePlayerReady', null);
         
       } catch (error) {
-        console.error('[YouTube Theater] 🎬 ❌ Error creating player:', error);
-        console.error('[YouTube Theater] 🎬 Error stack:', error.stack);
         this.notifyFlash('onYouTubeError', 'Error creating player: ' + error.message);
       }
     }
 
     onPlayerReady(event) {
-      console.log('[YouTube Theater] Player ready');
     }
 
     onPlayerStateChange(event) {
       const state = this.getStateName(event.data);
-      console.log('[YouTube Theater] State changed to:', state);
       
       // Notify Flash of state changes
       this.notifyFlash('onYouTubeStateChange', state);
@@ -1311,7 +1267,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
 
     onPlayerError(event) {
       const errorMsg = this.getErrorMessage(event.data);
-      console.error('[YouTube Theater] Player error:', errorMsg);
       this.notifyFlash('onYouTubeError', errorMsg);
     }
 
@@ -1347,7 +1302,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
             const currentTime = this.player.getCurrentTime();
             this.notifyFlash('onYouTubeTimeUpdate', currentTime);
           } catch (error) {
-            console.error('[YouTube Theater] Error getting current time:', error);
           }
         }
       }, 1000);
@@ -1361,19 +1315,10 @@ if (typeof window.YouTubeTheater === 'undefined') {
     }
 
     loadVideo(videoId) {
-      console.log('[YouTube Theater] Loading video:', videoId);
-      console.log('[YouTube Theater] Player state:', {
-        isInitialized: this.isInitialized,
-        hasPlayer: !!this.player,
-        playerState: this.player ? 'exists' : 'null',
-        currentVideoId: this.currentVideoId
-      });
       
       if (!this.isInitialized || !this.player) {
-        console.error('[YouTube Theater] Player not initialized, attempting to initialize...');
         
         if (!this.isInitialized) {
-          console.log('[YouTube Theater] Attempting to initialize YouTube API...');
           this.loadYouTubeAPI();
         }
         
@@ -1382,23 +1327,17 @@ if (typeof window.YouTubeTheater === 'undefined') {
       }
 
       try {
-        console.log('[YouTube Theater] Setting current video ID and loading...');
         this.currentVideoId = videoId;
         this.player.loadVideoById(videoId);
         this.showPlayer();
-        console.log('[YouTube Theater] Video load command sent successfully:', videoId);
       } catch (error) {
-        console.error('[YouTube Theater] Error loading video:', error);
-        console.error('[YouTube Theater] Error details:', error.stack);
         this.notifyFlash('onYouTubeError', 'Error loading video: ' + error.message);
       }
     }
 
     playVideo() {
-      console.log('[YouTube Theater] Playing video');
       
       if (!this.player) {
-        console.error('[YouTube Theater] Player not available');
         return;
       }
 
@@ -1406,32 +1345,26 @@ if (typeof window.YouTubeTheater === 'undefined') {
         this.player.playVideo();
         this.showPlayer();
       } catch (error) {
-        console.error('[YouTube Theater] Error playing video:', error);
         this.notifyFlash('onYouTubeError', 'Error playing video: ' + error.message);
       }
     }
 
     pauseVideo() {
-      console.log('[YouTube Theater] Pausing video');
       
       if (!this.player) {
-        console.error('[YouTube Theater] Player not available');
         return;
       }
 
       try {
         this.player.pauseVideo();
       } catch (error) {
-        console.error('[YouTube Theater] Error pausing video:', error);
         this.notifyFlash('onYouTubeError', 'Error pausing video: ' + error.message);
       }
     }
 
     stopVideo() {
-      console.log('[YouTube Theater] Stopping video');
       
       if (!this.player) {
-        console.error('[YouTube Theater] Player not available');
         return;
       }
 
@@ -1439,23 +1372,19 @@ if (typeof window.YouTubeTheater === 'undefined') {
         this.player.stopVideo();
         this.hidePlayer();
       } catch (error) {
-        console.error('[YouTube Theater] Error stopping video:', error);
         this.notifyFlash('onYouTubeError', 'Error stopping video: ' + error.message);
       }
     }
 
     seekTo(time) {
-      console.log('[YouTube Theater] Seeking to time:', time);
       
       if (!this.player) {
-        console.error('[YouTube Theater] Player not available');
         return;
       }
 
       try {
         this.player.seekTo(time, true);
       } catch (error) {
-        console.error('[YouTube Theater] Error seeking:', error);
         this.notifyFlash('onYouTubeError', 'Error seeking: ' + error.message);
       }
     }
@@ -1464,7 +1393,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
       const container = document.getElementById(this.containerId);
       if (container) {
         container.style.display = 'block';
-        console.log('[YouTube Theater] Player shown');
       }
     }
 
@@ -1472,12 +1400,10 @@ if (typeof window.YouTubeTheater === 'undefined') {
       const container = document.getElementById(this.containerId);
       if (container) {
         container.style.display = 'none';
-        console.log('[YouTube Theater] Player hidden');
       }
     }
 
     destroy() {
-      console.log('[YouTube Theater] Destroying player...');
       
       this.stopTimeUpdateInterval();
       
@@ -1485,7 +1411,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
         try {
           this.player.destroy();
         } catch (error) {
-          console.error('[YouTube Theater] Error destroying player:', error);
         }
         this.player = null;
       }
@@ -1498,17 +1423,14 @@ if (typeof window.YouTubeTheater === 'undefined') {
       this.isInitialized = false;
       this.currentVideoId = null;
       
-      console.log('[YouTube Theater] Player destroyed');
     }
 
     // IN-GAME THEATER INTEGRATION METHODS
     
     hasActiveVideos() {
-      console.log('[YouTube Theater] 🎭 Checking for active videos');
       
       // Check if we have a currently playing video
       if (this.currentVideoId) {
-        console.log('[YouTube Theater] 🎭 Has current video:', this.currentVideoId);
         return true;
       }
       
@@ -1518,31 +1440,26 @@ if (typeof window.YouTubeTheater === 'undefined') {
         if (savedData) {
           const data = JSON.parse(savedData);
           const hasActiveVideos = data.videoQueue && data.videoQueue.length > 0 && data.isPlaying;
-          console.log('[YouTube Theater] 🎭 Saved data shows active videos:', hasActiveVideos);
           return hasActiveVideos;
         }
       } catch (e) {
-        console.error('[YouTube Theater] Error checking saved data:', e);
       }
       
       return false;
     }
     
     setupInGameTheater() {
-      console.log('[YouTube Theater] 🎭 Setting up YouTube Theater for in-game theater screen');
       
       try {
         // CRITICAL: Try to get current video from Flash popup first
         let flashVideoId = null;
         try {
-          console.log('[YouTube Theater] 🎭 Attempting to get current video from Flash popup...');
           
           // Try multiple methods to get Flash video data
           if (typeof window.getFlashYouTubeTheaterCurrentVideo === 'function') {
             const flashVideoData = window.getFlashYouTubeTheaterCurrentVideo();
             if (flashVideoData && flashVideoData.url) {
               flashVideoId = this.extractVideoId(flashVideoData.url);
-              console.log('[YouTube Theater] 🎭 Got Flash video ID:', flashVideoId);
             }
           }
           
@@ -1550,24 +1467,19 @@ if (typeof window.YouTubeTheater === 'undefined') {
           if (!flashVideoId && typeof window.gMainFrame !== 'undefined' && window.gMainFrame.guiManager) {
             try {
               // This will be implemented in Flash side
-              console.log('[YouTube Theater] 🎭 Trying to get Flash popup current video via GuiManager...');
             } catch (e) {
-              console.log('[YouTube Theater] 🎭 GuiManager method not available:', e.message);
             }
           }
         } catch (e) {
-          console.log('[YouTube Theater] 🎭 Could not get Flash video data:', e.message);
         }
         
         // CRITICAL FIX: Find Flash container and position iframe INSIDE it, not as overlay
         const flashContainer = this.findFlashContainer();
         const container = document.getElementById(this.containerId);
         if (container && flashContainer) {
-          console.log('[YouTube Theater] 🎭 Repositioning player INSIDE Flash container for true integration');
           
           // Get Flash container bounds
           const flashRect = flashContainer.getBoundingClientRect();
-          console.log('[YouTube Theater] 🎭 Flash container bounds:', flashRect);
           
           // Position iframe INSIDE Flash container using absolute positioning
           container.style.cssText = 
@@ -1585,7 +1497,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
           // CRITICAL: Append to Flash container, not body
           if (container.parentNode !== flashContainer) {
             flashContainer.appendChild(container);
-            console.log('[YouTube Theater] 🎭 Iframe moved INSIDE Flash container');
           }
           
           // Add integration indicator (smaller, less intrusive)
@@ -1608,9 +1519,7 @@ if (typeof window.YouTubeTheater === 'undefined') {
             container.appendChild(indicator);
           }
           
-          console.log('[YouTube Theater] 🎭 Player positioned INSIDE Flash container for true integration');
         } else if (container) {
-          console.log('[YouTube Theater] 🎭 Flash container not found, using fallback positioning');
           
           // Fallback: Position relative to viewport but try to integrate better
           container.style.cssText = 
@@ -1625,22 +1534,17 @@ if (typeof window.YouTubeTheater === 'undefined') {
             'border-radius: 8px;' +
             'display: block;';
           
-          console.log('[YouTube Theater] 🎭 Player positioned with fallback integration method');
         }
         
         // Load video: Priority to Flash popup video, then saved video
         if (flashVideoId) {
-          console.log('[YouTube Theater] 🎭 Loading Flash popup video:', flashVideoId);
           this.loadVideo(flashVideoId);
         } else if (this.hasActiveVideos()) {
-          console.log('[YouTube Theater] 🎭 Loading saved video for in-game theater');
           this.loadSavedVideo();
         } else {
-          console.log('[YouTube Theater] 🎭 No active videos found, theater ready for content');
         }
         
       } catch (error) {
-        console.error('[YouTube Theater] 🎭 Error setting up in-game theater:', error);
       }
     }
     
@@ -1654,14 +1558,12 @@ if (typeof window.YouTubeTheater === 'undefined') {
             if (currentVideo && currentVideo.url) {
               const videoId = this.extractVideoId(currentVideo.url);
               if (videoId) {
-                console.log('[YouTube Theater] 🎭 Loading saved video:', videoId);
                 this.loadVideo(videoId);
               }
             }
           }
         }
       } catch (e) {
-        console.error('[YouTube Theater] Error loading saved video:', e);
       }
     }
     
@@ -1678,7 +1580,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
     }
     
     findFlashContainer() {
-      console.log('[YouTube Theater] 🎭 Looking for Flash container...');
       
       // Try multiple methods to find the Flash container
       let flashContainer = null;
@@ -1687,7 +1588,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
       const embeds = document.querySelectorAll('embed[src*=".swf"]');
       if (embeds.length > 0) {
         flashContainer = embeds[0].parentNode;
-        console.log('[YouTube Theater] 🎭 Found Flash via embed tag:', flashContainer);
       }
       
       // Method 2: Look for object tags with Flash content
@@ -1695,7 +1595,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
         const objects = document.querySelectorAll('object[data*=".swf"]');
         if (objects.length > 0) {
           flashContainer = objects[0].parentNode;
-          console.log('[YouTube Theater] 🎭 Found Flash via object tag:', flashContainer);
         }
       }
       
@@ -1706,7 +1605,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
           const element = document.getElementById(id);
           if (element) {
             flashContainer = element;
-            console.log('[YouTube Theater] 🎭 Found Flash via ID:', id, flashContainer);
             break;
           }
         }
@@ -1717,7 +1615,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
         const flashElements = document.querySelectorAll('.flash, .swf, .game');
         if (flashElements.length > 0) {
           flashContainer = flashElements[0];
-          console.log('[YouTube Theater] 🎭 Found Flash via class:', flashContainer);
         }
       }
       
@@ -1738,38 +1635,24 @@ if (typeof window.YouTubeTheater === 'undefined') {
         
         if (largestContainer) {
           flashContainer = largestContainer;
-          console.log('[YouTube Theater] 🎭 Found Flash via largest container:', flashContainer);
         }
       }
       
       if (flashContainer) {
-        console.log('[YouTube Theater] 🎭 Flash container found:', {
-          tagName: flashContainer.tagName,
-          id: flashContainer.id,
-          className: flashContainer.className,
-          bounds: flashContainer.getBoundingClientRect()
-        });
       } else {
-        console.log('[YouTube Theater] 🎭 No Flash container found, will use fallback positioning');
       }
       
       return flashContainer;
     }
 
     notifyFlash(eventName, data) {
-      console.log('[YouTube Theater] Attempting to notify Flash:', eventName, 'with data:', data);
       
       try {
         if (typeof window[eventName] === 'function') {
-          console.log('[YouTube Theater] Calling Flash callback via global function:', eventName);
           window[eventName](data);
-          console.log('[YouTube Theater] Flash callback completed successfully');
         } else {
-          console.warn('[YouTube Theater] Flash callback not found as global function:', eventName);
         }
       } catch (error) {
-        console.error('[YouTube Theater] Error notifying Flash:', error);
-        console.error('[YouTube Theater] Error stack:', error.stack);
       }
     }
   };
@@ -1777,7 +1660,6 @@ if (typeof window.YouTubeTheater === 'undefined') {
 
 // Auto-initialize when ready
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('[YouTube Theater] Webview DOM loaded, setting up YouTube Theater...');
   
   // Initialize immediately since class is already defined
   if (typeof window.initYouTubeTheater === 'function') {

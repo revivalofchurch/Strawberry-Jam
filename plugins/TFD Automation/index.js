@@ -32,8 +32,11 @@ const infoButton = document.getElementById('infoButton');
 // Item Filter Elements
 const itemWhitelist = document.getElementById('itemWhitelist');
 const saveWhitelistButton = document.getElementById('saveWhitelistButton');
+const clearWhitelistButton = document.getElementById('clearWhitelistButton');
 const openClothingJson = document.getElementById('openClothingJson');
 const openDenItemsJson = document.getElementById('openDenItemsJson');
+const enableFilteringCheckbox = document.getElementById('enableFilteringCheckbox');
+const filterStatusText = document.getElementById('filterStatusText');
 
 // State Variables
 let clothingItems = {};
@@ -55,6 +58,9 @@ let questStartTime = null; // Track when quest started
 let currentLoopCount = 0;
 let totalLoopsToRun = 1;
 let isLooping = false;
+let knownDenInvIds = new Set();
+let isFirstDiPacket = true;
+let hasCapturedInitialDenState = false; // New state for den inventory
 const QUEST_DURATION_MS = 17 * 60 * 1000; // 17 minutes in milliseconds
 const MIN_WAIT_TIME_MS = 4 * 60 * 1000; // Must wait at least 4 minutes (17:00 - 13:00)
 
@@ -326,6 +332,11 @@ async function runSingleAutomation() {
     totalSteps = 5 + TFD_packets.packets.length; // 5 main steps + packet count
     retryCount = 0;
     currentLoopCount++;
+    
+    // Reset state for the new run
+    knownDenInvIds.clear();
+    isFirstDiPacket = true;
+    hasCapturedInitialDenState = false; // Reset for each new adventure
 
     try {
         await refreshRoom();
@@ -442,6 +453,15 @@ async function runSingleAutomation() {
         }
 
         console.log(`[TFD Automation] Using room ID ${rewardRoomId} for reward collection`);
+
+        // Send a request for the current den inventory to establish a baseline
+        console.log('[TFD Automation] Requesting current den inventory before collecting gifts...');
+        await sendPacket(`%xt%o%di%${rewardRoomId}%`, true);
+        
+        // Wait a moment for the initial `di` packet to be processed
+        await new Promise(resolve => {
+            currentTimeout = setTimeout(resolve, 2000);
+        });
 
         // Send qpgift packets for each reward slot (0-5 for TFD)
         for (let i = 0; i < 6; i++) {
@@ -579,7 +599,7 @@ function hideModal() {
 
 // Whitelist management
 function getWhitelist() {
-    if (!itemWhitelist || !itemWhitelist.value) {
+    if (!itemWhitelist || !itemWhitelist.value.trim()) {
         return new Set();
     }
     // Get value, remove whitespace, split by comma, and filter out empty strings
@@ -587,11 +607,25 @@ function getWhitelist() {
     return new Set(ids);
 }
 
+function isFilteringEnabled() {
+    // Only enable filtering if user has entered specific item IDs
+    const whitelist = getWhitelist();
+    const hasWhitelistItems = whitelist.size > 0;
+    
+    // Check if filtering checkbox exists and is checked, or if whitelist has items
+    const checkboxEnabled = enableFilteringCheckbox ? enableFilteringCheckbox.checked : false;
+    
+    return hasWhitelistItems && (checkboxEnabled || hasWhitelistItems);
+}
+
 function saveWhitelist() {
     if (itemWhitelist) {
         const whitelistValue = getWhitelist();
         localStorage.setItem('tfd_automation_whitelist', JSON.stringify(Array.from(whitelistValue)));
         updateStatus('Item whitelist saved successfully.', 'success');
+        
+        // Update UI to show filtering status
+        updateFilteringStatus();
     }
 }
 
@@ -602,6 +636,7 @@ function loadWhitelist() {
             try {
                 const ids = JSON.parse(savedWhitelist);
                 itemWhitelist.value = ids.join(', ');
+                updateFilteringStatus();
             } catch (e) {
                 console.error('[TFD Automation] Failed to load whitelist:', e);
             }
@@ -609,57 +644,172 @@ function loadWhitelist() {
     }
 }
 
-// Packet handler for item filtering
-async function handleIncomingPackets(data) {
-    // The event provides { raw, direction, timestamp }. We only care about incoming packets.
-    if (!isAutomationRunning || !data || data.direction !== 'in') {
-        return;
+function updateFilteringStatus() {
+    const filteringEnabled = isFilteringEnabled();
+    const whitelist = getWhitelist();
+    
+    // Update console log
+    if (filteringEnabled && whitelist.size > 0) {
+        console.log(`[TFD Automation] Item filtering is ENABLED for ${whitelist.size} item(s): ${Array.from(whitelist).join(', ')}`);
+    } else {
+        console.log('[TFD Automation] Item filtering is DISABLED (no items specified or filtering disabled)');
     }
-
-    const { raw: rawMessage } = data;
-
-    // We are looking for the 'il' packet, which indicates an item was received
-    if (rawMessage && rawMessage.startsWith('%xt%il%')) {
-        try {
-            const whitelist = getWhitelist();
-            // If the whitelist is empty, do nothing.
-            if (whitelist.size === 0) {
-                console.log('[TFD Automation] Whitelist is empty, skipping filtering.');
-                return;
-            }
-
-            const parts = rawMessage.split('%');
-            const itemId = parts[12];
-            const slotId = parts[11];
-
-            if (itemId && slotId && itemId.length > 0) {
-                const clothingItem = clothingItems[itemId];
-                const denItem = denItems[itemId];
-                let itemName = `Item ID ${itemId}`; // Default to ID
-
-                if (clothingItem) {
-                    itemName = clothingItem.name;
-                } else if (denItem) {
-                    itemName = denItem.name;
-                }
-
-                if (whitelist.has(itemId)) {
-                    updateStatus(`Found ${itemName} in slot ${slotId}. Keeping it.`, 'info');
-                } else {
-                    updateStatus(`Found ${itemName} in slot ${slotId}. Recycling it.`, 'warning');
-                    await refreshRoom();
-                    const recyclePacket = `%xt%o%ir%${getRoomIdToUse()}%${slotId}%`;
-                    // Use sendPacket to ensure connection is still alive
-                    await sendPacket(recyclePacket, true);
-                }
-            }
-        } catch (error) {
-            console.error('[TFD Automation] Error processing item filter packet:', error);
-            updateStatus(`Error during item filtering: ${error.message}`, 'error');
+    
+    // Update UI status text
+    if (filterStatusText) {
+        if (whitelist.size > 0) {
+            filterStatusText.textContent = `Enabled for ${whitelist.size} item(s): ${Array.from(whitelist).slice(0, 10).join(', ')}${whitelist.size > 10 ? '...' : ''}`;
+            filterStatusText.className = 'text-green-300';
+        } else {
+            filterStatusText.textContent = 'Disabled (no item IDs specified)';
+            filterStatusText.className = 'text-gray-400';
         }
     }
 }
 
+function clearWhitelist() {
+    if (itemWhitelist) {
+        if (itemWhitelist.value.trim() === '' || confirm('Are you sure you want to clear all whitelisted items? This will disable filtering.')) {
+            itemWhitelist.value = '';
+            localStorage.removeItem('tfd_automation_whitelist');
+            updateFilteringStatus();
+            updateStatus('Item whitelist cleared. Filtering disabled.', 'info');
+        }
+    }
+}
+
+// Enhanced item name lookup with better error handling
+function getItemName(defId, itemType) {
+    if (!defId) return 'Unknown Item';
+
+    try {
+        if (itemType === 'clothing' && clothingItems && clothingItems[defId]) {
+            return `${clothingItems[defId].name || `Clothing ID ${defId}`} (Clothing)`;
+        }
+        if (itemType === 'den' && denItems && denItems[defId]) {
+            return `${denItems[defId].name || `Den ID ${defId}`} (Den Item)`;
+        }
+    } catch (error) {
+        console.warn(`[TFD Automation] Error looking up item name for ID ${defId}:`, error);
+    }
+    
+    return `Unknown ${itemType || 'Item'} (ID: ${defId})`;
+}
+
+// Improved packet handler for item filtering with better packet parsing
+async function handleIncomingPackets(data) {
+    // Only process packets if automation is running and filtering is enabled
+    if (!isAutomationRunning || !data || data.direction !== 'in' || !isFilteringEnabled()) {
+        return;
+    }
+
+    const { raw: rawMessage } = data;
+    const parts = rawMessage.split('%');
+
+    // Handle clothing/accessory item packets (%xt%il%)
+    if (rawMessage.startsWith('%xt%il%') && parts.length > 10 && parts[4] === '2') {
+        console.log('[TFD Automation] Received clothing/accessory gift packet (`il`). Processing...');
+        try {
+            const numAdded = parseInt(parts[9]);
+            if (numAdded > 0) {
+                console.log(`[TFD Automation] Packet indicates ${numAdded} new clothing item(s).`);
+                let currentIndex = 11;
+                for (let i = 0; i < numAdded; i++) {
+                    if (parts.length > currentIndex + 1) {
+                        const invId = parts[currentIndex];
+                        const defId = parts[currentIndex + 1];
+                        console.log(`[TFD Automation] Detected new clothing item - DefID: ${defId}, InvID: ${invId}`);
+                        await processItemForFiltering(defId, invId, 'clothing');
+                        currentIndex += 2; // Move to the next pair
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[TFD Automation] Error processing `il` packet:', error);
+        }
+    }
+    
+    // Handle den item inventory packets (%xt%di%)
+    else if (rawMessage.startsWith('%xt%di%')) {
+        console.log(`[TFD Automation] Received den inventory update packet: ${rawMessage}`);
+        try {
+            const isAdventureRunning = questStartTime !== null; // A simple check to see if we're in an active run
+
+            // Only capture the initial state ONCE per adventure run, before gifts are opened
+            if (isAdventureRunning && !hasCapturedInitialDenState) {
+                console.log('[TFD Automation] Capturing initial den inventory state...');
+                const denItemCount = parseInt(parts[5]);
+                if (isNaN(denItemCount)) return;
+
+                knownDenInvIds.clear();
+                let currentIndex = 7;
+                for (let i = 0; i < denItemCount; i++) {
+                    if (parts.length > currentIndex) {
+                        knownDenInvIds.add(parts[currentIndex]);
+                    }
+                    currentIndex += 9;
+                }
+                console.log(`[TFD Automation] Stored initial den inventory state with ${knownDenInvIds.size} items.`);
+                hasCapturedInitialDenState = true; // Mark as captured
+            } else if (isAdventureRunning) {
+                // This is a subsequent `di` packet, likely a gift update.
+                console.log('[TFD Automation] Processing potential den item gift packet...');
+                const denItemCount = parseInt(parts[5]);
+                if (isNaN(denItemCount)) return;
+
+                let currentIndex = 7;
+                for (let i = 0; i < denItemCount; i++) {
+                    if (parts.length > currentIndex + 1) {
+                        const invId = parts[currentIndex];
+                        const defId = parts[currentIndex + 1];
+
+                        if (!knownDenInvIds.has(invId)) {
+                            console.log(`[TFD Automation] Detected new den item by comparing inventories - DefID: ${defId}, InvID: ${invId}`);
+                            await processItemForFiltering(defId, invId, 'den');
+                            knownDenInvIds.add(invId); // Add to known list to avoid reprocessing
+                        }
+                    }
+                    currentIndex += 9;
+                }
+            }
+        } catch (error) {
+            console.error('[TFD Automation] Error processing `di` packet:', error);
+        }
+    }
+}
+
+// Helper function to process an item for filtering
+async function processItemForFiltering(defId, invId, itemType) {
+    const whitelist = getWhitelist();
+    
+    if (defId && invId && defId.length > 0 && invId.length > 0) {
+        const itemName = getItemName(defId, itemType);
+        console.log(`[TFD Automation] FILTERING - Item Type: ${itemType}, Name: ${itemName}, DefID: ${defId}, InvID: ${invId}`);
+        
+        if (whitelist.has(defId)) {
+            updateStatus(`✓ Whitelisted: ${itemName}. Keeping it.`, 'info');
+            console.log(`[TFD Automation] RESULT: KEEPING item ${defId} (${itemName}) - found on whitelist.`);
+        } else {
+            updateStatus(`♻ Recycling: ${itemName}.`, 'warning');
+            console.log(`[TFD Automation] ACTION: RECYCLING item ${defId} (${itemName}) - not on whitelist.`);
+            
+            await new Promise(resolve => setTimeout(resolve, 150)); // Small delay
+            
+            await refreshRoom();
+            const recyclePacket = `%xt%o%ir%${getRoomIdToUse()}%${invId}%`;
+            
+            try {
+                await sendPacket(recyclePacket, true);
+                console.log(`[TFD Automation] SUCCESS: Recycle request sent for InvID ${invId}.`);
+            } catch (error) {
+                console.error(`[TFD Automation] FAILED: Could not send recycle request for InvID ${invId}:`, error);
+                updateStatus(`Error recycling ${itemName}: ${error.message}`, 'error');
+            }
+        }
+    } else {
+        console.warn(`[TFD Automation] WARNING: Could not process item. Invalid DefID or InvID. DefID: ${defId}, InvID: ${invId}`);
+    }
+}
 
 // Function to open a file in the default editor
 function openFileInEditor(fileName) {
@@ -681,8 +831,14 @@ if (stopButton) stopButton.addEventListener('click', stopAutomation);
 if (resetStatsButton) resetStatsButton.addEventListener('click', resetStats);
 if (infoButton) infoButton.addEventListener('click', showModal);
 if (saveWhitelistButton) saveWhitelistButton.addEventListener('click', saveWhitelist);
+if (clearWhitelistButton) clearWhitelistButton.addEventListener('click', clearWhitelist);
 if (openClothingJson) openClothingJson.addEventListener('click', () => openFileInEditor('1000-clothing.json'));
 if (openDenItemsJson) openDenItemsJson.addEventListener('click', () => openFileInEditor('1030-denitems.json'));
+
+// Add event listener for whitelist input changes to update status in real-time
+if (itemWhitelist) {
+    itemWhitelist.addEventListener('input', updateFilteringStatus);
+}
 
 // Modal event listeners
 if (closeModal) closeModal.addEventListener('click', hideModal);
