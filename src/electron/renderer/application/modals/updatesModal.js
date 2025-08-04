@@ -512,7 +512,7 @@ function showToast($modal, message, type = 'success') {
 
     const toastId = `updates-toast-${Date.now()}`;
     const toast = $(`
-        <div id="${toastId}" class="fixed top-4 right-4 px-4 py-2 rounded-lg shadow-xl z-[100000] text-sm font-medium ${colors[type] || colors.success}">
+        <div id="${toastId}" class="absolute top-4 right-4 px-4 py-2 rounded-lg shadow-xl z-[100000] text-sm font-medium ${colors[type] || colors.success}">
             <i class="${icons[type]} mr-2"></i>${message}
         </div>
     `);
@@ -525,7 +525,7 @@ function showToast($modal, message, type = 'success') {
         'transition': 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.2s ease-out'
     });
     
-    $('body').append(toast);
+    $modal.append(toast);
     
     // Animate in
     setTimeout(() => {

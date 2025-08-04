@@ -1,8 +1,152 @@
 {
+  "3.5.0": {
+    "version": "3.5.0",
+    "releaseDate": "2025-07-31",
+    "isLatest": true,
+    "categories": {
+      "features": [
+        {
+          "icon": "🌙",
+          "title": "Dark Mode for Login Screen",
+          "description": "Introduced a dark mode option for the login screen.",
+          "priority": "major"
+        },
+        {
+          "icon": "🔊",
+          "title": "TFD Auto Sound on Failure",
+          "description": "Added a new setting to enable sound notifications upon TFD automation failure.",
+          "priority": "major"
+        },
+        {
+          "icon": "🗑️",
+          "title": "Bulk Account Deletion",
+          "description": "Added a new button to the login screen for bulk deletion of accounts.",
+          "priority": "major"
+        },
+        {
+          "icon": "🎡",
+          "title": "Auto Wheel Starting Point",
+          "description": "Added a new dropdown on the auto wheel to select where to start the process.",
+          "priority": "major"
+        },
+        {
+          "icon": "⌨️",
+          "title": "WASD Movement Mode",
+          "description": "Added WASD movement mode in-game (Ctrl + Shift + W). Use 'Esc' to unfocus textbox when needed. This is not perfect but it works.",
+          "priority": "major"
+        },
+        {
+          "icon": "🏠",
+          "title": "Login to Den",
+          "description": "Added a 'Den on Login' feature (Ctrl + Shift + D) to default to the den on login. Intended to prevent hits from being logged by other users.",
+          "priority": "major"
+        },
+        {
+          "icon": "🧹",
+          "title": "Clear Personal Shop",
+          "description": "Added a 'Clear all' button to personal shops to clear entire shop.",
+          "priority": "major"
+        },
+        {
+          "icon": "🤖",
+          "title": "Automatic Crane Game",
+          "description": "Crane machines now play automatically(win determined server side). With auto keep & optional 20x speed in top left.",
+          "priority": "major"
+        },
+        {
+          "icon": "👑",
+          "title": "Customizable Membership Level",
+          "description": "Membership plugin you can now specify the value. example 3 for beta member or 4 for internal. look into sbiconstants.as in the .swf file to mess around with it.",
+          "priority": "major"
+        }
+      ],
+      "improvements": [
+        {
+          "icon": "🔢",
+          "title": "Shop Price Input",
+          "description": "Slight tweak to number input of shop prices.",
+          "priority": "enhancement"
+        },
+        {
+          "icon": "🔗",
+          "title": "Credits and Links",
+          "description": "Credits and links to my Github added across the UI.",
+          "priority": "enhancement"
+        },
+        {
+          "icon": "🏷️",
+          "title": "Custom SWF Naming",
+          "description": "Tweaked custom .swf setting naming in dropdown.",
+          "priority": "enhancement"
+        },
+        {
+          "icon": "💨",
+          "title": "Auto-Dismissing Sold Popup",
+          "description": "Item sold popup now dismisses itself after a few seconds.",
+          "priority": "enhancement"
+        },
+        {
+          "icon": "🚫",
+          "title": "Removed Game Cheats",
+          "description": "Removed MicroDucky game cheats.",
+          "priority": "enhancement"
+        }
+      ],
+      "fixes": [
+        {
+          "icon": "🐛",
+          "title": "Multi-Select Trading Fix",
+          "description": "Fixed adding more than 20 items in trade with multi-select.",
+          "priority": "fix"
+        },
+        {
+          "icon": "🐛",
+          "title": "Shop Member Indicator Fix",
+          "description": "Fixed member indicators in the shop.",
+          "priority": "fix"
+        },
+        {
+          "icon": "🐛",
+          "title": "Bulk Purchase Confirmation",
+          "description": "Addressed 'Are you sure you want to buy...' during bulk purchase or cart purchases. A popup should not appear for each item.",
+          "priority": "fix"
+        },
+        {
+          "icon": "🐛",
+          "title": "Animal Price Display",
+          "description": "Fixed animal prices to display actual cost(not 1000 gems) - however animals you own will display incorrect cost until you actually buy it.",
+          "priority": "fix"
+        }
+      ],
+      "shortcuts": [
+        {
+          "icon": "⌨️",
+          "title": "Ctrl + Shift + W",
+          "description": "Toggles on/off WASD mode in-game.",
+          "keys": ["Ctrl", "Shift", "W"]
+        },
+        {
+          "icon": "⌨️",
+          "title": "Ctrl + Shift + D",
+          "description": "Toggles on/off Den on Login.",
+          "keys": ["Ctrl", "Shift", "D"]
+        }
+      ],
+      "commands": [],
+      "messages": [
+        {
+          "icon": "⚠️",
+          "title": "Trading & Shop Limits Enforced",
+          "description": "20 item for trading & 24 item Shop limits enforced to prevent over stocking/trading issues.",
+          "priority": "enhancement"
+        }
+      ]
+    }
+  },
   "3.4.1": {
     "version": "3.4.1",
     "releaseDate": "2025-07-08",
-    "isLatest": true,
+    "isLatest": false,
     "categories": {
       "features": [
         {

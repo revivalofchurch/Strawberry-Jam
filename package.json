@@ -8,7 +8,7 @@
     "dev": "npm run pack && npx cross-env NODE_ENV=development electron .",
     "test": "npm run pack && npx cross-env NODE_ENV=production electron .",
     "pack": "npx asar pack assets/extracted-winapp-public assets/winapp.asar --unpack *.node",
-    "build": "npm run pack && npx electron-builder build -w",
+    "build": "npm run pack && node scripts/generate-installer-script.js && npx electron-builder build -w",
     "publish": "npm run pack && npm run build && npx electron-builder build -w -p always",
     "postinstall": "electron-builder install-app-deps",
     "version:bump": "node scripts/version-bump.js"

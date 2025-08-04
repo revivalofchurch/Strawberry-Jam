@@ -9,7 +9,6 @@ dev-app-update.yml
 *.bak
 *.tmp
 *.swp
-.cursor/
 build/*
 dev
 assets/flash/backups/*
@@ -17,4 +16,4 @@ UsernameLogger
 .claude
 Multi-Client-Feature.md
 data/*
-CLAUDE.md
+scripts/
