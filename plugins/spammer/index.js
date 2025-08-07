@@ -188,9 +188,13 @@ class Spammer {
 
     const type = this.inputType.value
     const content = this.input.value
-    const delay = this.inputDelay.value || '1' // Default to 1 if empty
+    let delay = parseFloat(this.inputDelay.value)
 
-    this.createRow(type, content, delay)
+    if (isNaN(delay) || delay < 0) {
+      delay = 1
+    }
+
+    this.createRow(type, content, delay.toString())
   }
 
   /**
@@ -425,7 +429,11 @@ class Spammer {
 
     const type = row.cells[0].querySelector('select').value
     const content = row.cells[1].innerText
-    const delay = parseFloat(row.cells[2].innerText)
+    let delay = parseFloat(row.cells[2].innerText)
+
+    if (isNaN(delay) || delay < 0) {
+      delay = 1
+    }
 
     activeRow = row
     row.classList.add('bg-tertiary-bg/40')

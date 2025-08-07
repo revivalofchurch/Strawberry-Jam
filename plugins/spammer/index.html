@@ -51,7 +51,7 @@
             <option value="connection">Client</option>
             <option value="aj">Animal Jam</option>
           </select>
-          <input type="text" id="inputDelay" class="w-1/4 bg-tertiary-bg text-text-primary p-2 rounded-md focus:outline-none text-sm" placeholder="Delay (s)">
+          <input type="number" id="inputDelay" step="0.1" min="0" class="w-1/4 bg-tertiary-bg text-text-primary p-2 rounded-md focus:outline-none text-sm" placeholder="Delay (s)">
           <button type="button" onclick="spammer.addClick()" class="flex-1 px-4 py-2 bg-tertiary-bg hover:bg-sidebar-hover text-text-primary rounded-md transition text-sm">
             <i class="fas fa-plus mr-2"></i> Add to Queue
           </button>
