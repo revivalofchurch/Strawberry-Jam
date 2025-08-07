@@ -38,23 +38,7 @@ Using tools like Strawberry Jam might break the game's rules and result in accou
 **Distribution and Sale Restrictions:**
 - Selling or commercially distributing Strawberry Jam without explicit written permission from me is **strictly prohibited**.
 - Any unauthorized commercial use or distribution may result in legal action.
-- For inquiries, please contact me through GitHub issues or Discord.
-
-## 💡 Have an Idea?
-
-Got a cool idea for Strawberry Jam? We'd love to hear it!
-
-*   **📝 Create an Issue:**
-    *   Visit our [Issues page](https://github.com/glvckoma/strawberry-jam/issues)
-    *   Click "New Issue"
-    *   Tell us:
-        *   What your idea does
-        *   Why it would be fun/useful
-    *   Don't worry about making it perfect!
-
-*   **💬 Message on Discord:**
-    *   Rather chat? Message me (**_glockoma**) on Discord!
-    *   I'm always happy to hear your ideas
+- For inquiries, please contact me through Discord.
 
 ## 👩‍💻 For Developers
 
