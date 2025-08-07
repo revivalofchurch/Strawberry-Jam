@@ -1,6 +1,31 @@
+const { ipcRenderer } = require('electron')
+
 module.exports = function ({ dispatch, application }) {
-  let active = true // Default to ON
-  let membershipLevel = 2 // Default membership level
+  let active = true
+  let membershipLevel = 2
+  const SETTINGS_FILE = 'membership-settings.json'
+
+  /**
+   * Load settings from the settings file.
+   */
+  const loadSettings = async () => {
+    const settings = await ipcRenderer.invoke('read-json-file', SETTINGS_FILE, {
+      active: true,
+      membershipLevel: 2
+    })
+    active = settings.active
+    membershipLevel = settings.membershipLevel
+  }
+
+  /**
+   * Save settings to the settings file.
+   */
+  const saveSettings = async () => {
+    await ipcRenderer.invoke('write-json-file', SETTINGS_FILE, {
+      active,
+      membershipLevel
+    })
+  }
 
   /**
    * Handles the membership command to toggle fake membership.
@@ -22,6 +47,7 @@ module.exports = function ({ dispatch, application }) {
         console.log('[Membership] Fake membership OFF. Re-login to see changes.')
       }
     }
+    await saveSettings()
   }
 
   /**
@@ -58,4 +84,7 @@ module.exports = function ({ dispatch, application }) {
       }
     ]
   })
+
+  // Load settings when the plugin is initialized
+  loadSettings()
 }
