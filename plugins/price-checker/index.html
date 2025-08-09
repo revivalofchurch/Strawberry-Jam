@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Price Checker</title>
+    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-primary-bg text-text-primary h-screen flex flex-col overflow-hidden">
+
+    <!-- Standardized Draggable Header -->
+    <div class="jam-plugin-header">
+        <span class="jam-plugin-title">Price Checker</span>
+        <div class="jam-plugin-controls">
+            <button class="jam-plugin-minimize" aria-label="Minimize">
+                <i class="fas fa-minus"></i>
+            </button>
+            <button class="jam-plugin-close" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="jam-plugin-content flex-1 overflow-y-auto">
+        <div class="container mx-auto max-w-3xl p-6">
+            <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-4">AJ Item Price Checker</h1>
+
+            <div class="search-bar flex mb-4">
+                <input type="text" id="searchInput" placeholder="Enter item name..." class="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400">
+                <button id="searchButton" class="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r-md transition duration-150 ease-in-out">Search</button>
+            </div>
+
+            <div id="statusBar" class="mb-4 p-2 bg-gray-200 dark:bg-gray-700 italic rounded-md text-sm">Status: Ready</div>
+
+            <div class="results-container border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-4 bg-gray-50 dark:bg-gray-800">
+                <h2 class="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">Search Results</h2>
+                <ul id="resultsList" class="list-none p-0 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700">
+                </ul>
+            </div>
+
+            <div class="details-container border border-gray-200 dark:border-gray-700 rounded-md p-4 bg-gray-50 dark:bg-gray-800">
+                <h2 class="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">Worth Details</h2>
+                <div id="detailsArea" class="mt-2 p-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md min-h-[100px] text-sm overflow-x-auto text-gray-900 dark:text-gray-100">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg max-w-3xl max-h-[80vh] relative">
+            <button id="closeModalButton" class="absolute top-2 right-2 text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white text-2xl font-bold">&times;</button>
+            <img id="modalImage" src="" alt="Expanded Item Image" class="block max-w-full max-h-[70vh] object-contain"/>
+        </div>
+    </div>
+
+    <script src="index.js"></script>
+    <script src="../../assets/javascript/plugin-utils.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        initializePluginUI();
+      });
+    </script>
+</body>
+</html>

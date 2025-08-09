@@ -9,6 +9,7 @@ const logManager = require('../utils/LogManager');
 const os = require('os');
 const { autoUpdater } = require('electron-updater');
 const { getDataPath } = require('../Constants');
+const PriceCheckerScraper = require('../services/PriceCheckerScraper');
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -1028,6 +1029,26 @@ function setupIpcHandlers(electronInstance) {
   });
 
   // End AJ Classic processes handler
+  ipcMain.handle('search-wiki', async (event, searchTerm) => {
+    try {
+      const results = await PriceCheckerScraper.searchForItems(searchTerm);
+      return results;
+    } catch (error) {
+      console.error('[IPC] Error in search-wiki:', error);
+      throw error; // Rethrow to send error back to renderer
+    }
+  });
+
+  ipcMain.handle('get-page-details', async (event, pageUrl) => {
+    try {
+      const details = await PriceCheckerScraper.getItemDetails(pageUrl);
+      return details;
+    } catch (error) {
+      console.error('[IPC] Error in get-page-details:', error);
+      throw error;
+    }
+  });
+
   ipcMain.handle('end-aj-classic-processes', async () => {
     const { exec } = require('child_process');
     const util = require('util');
