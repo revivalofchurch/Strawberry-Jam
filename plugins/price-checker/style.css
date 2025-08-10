@@ -10,6 +10,7 @@ h1, h2, h3 { font-size: inherit; font-weight: inherit; } /* Added h3 */
 ul { list-style: none; }
 img { display: block; vertical-align: middle; max-width: 100%; height: auto; }
 button, input { font-family: inherit; font-size: 100%; line-height: inherit; color: inherit; }
+input#searchInput { color: #1f2937; }
 button { text-transform: none; background-color: transparent; background-image: none; cursor: pointer; }
 button:focus, input:focus { outline: 2px solid transparent; outline-offset: 2px; }
 table { border-collapse: collapse; text-indent: 0; border-color: inherit; }
@@ -18,7 +19,7 @@ input::placeholder { color: #9ca3af; opacity: 1; }
 /* Dark Mode Styles (applied when .dark class is present) */
 .dark .container { background-color: #1f2937; } /* Dark container */
 .dark h1, .dark h2, .dark h3 { color: #d1d5db; } /* Added h3 */
-.dark input { border-color: #4b5563; background-color: #374151; color: #f9fafb; }
+.dark input { border-color: #4b5563; background-color: #374151; color: #111827; }
 .dark input::placeholder { color: #9ca3af; }
 .dark button { background-color: #2563eb; }
 .dark button:hover { background-color: #1d4ed8; }

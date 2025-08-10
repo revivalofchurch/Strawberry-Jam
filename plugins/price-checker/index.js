@@ -203,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response && Array.isArray(response.sections)) {
                 displayDetails(response.sections, response.source_url);
                 updateStatus('Details loaded.', 'success');
+                document.getElementById('detailsArea').scrollIntoView({ behavior: 'smooth' });
             } else {
                 throw new Error(`Invalid data structure received from main process.`);
             }
