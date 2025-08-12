@@ -1,8 +1,53 @@
 {
+  "3.5.1": {
+    "version": "3.5.1",
+    "releaseDate": "2025-08-09",
+    "isLatest": true,
+    "categories": {
+      "features": [
+        {
+          "icon": "🛡️",
+          "title": "SbTracker Disabled",
+          "description": "SbTracker disabled. Nearly all popups/actions in-game were being logged and tracked. Could have potentially been used to ban users so I disabled it.",
+          "priority": "major"
+        },
+        {
+          "icon": "💰",
+          "title": "Price Checker Added",
+          "description": "Added Price Checker into plugins.",
+          "priority": "major"
+        }
+      ],
+      "improvements": [
+        {
+          "icon": "🔢",
+          "title": "Spammer Plugin Update",
+          "description": "Updated Spammer plugin to support decimal delays.",
+          "priority": "enhancement"
+        },
+        {
+          "icon": "💾",
+          "title": "Membership Plugin Update",
+          "description": "Updated Membership plugin to save on/off across sessions.",
+          "priority": "enhancement"
+        },
+        {
+          "icon": "📢",
+          "title": "Advertising Plugin Update",
+          "description": "Updated Advertising plugin to work. Messages auto persist across session and new randomized interval setting.",
+          "priority": "enhancement"
+        }
+      ],
+      "fixes": [],
+      "shortcuts": [],
+      "commands": [],
+      "messages": []
+    }
+  },
   "3.5.0": {
     "version": "3.5.0",
     "releaseDate": "2025-07-31",
-    "isLatest": true,
+    "isLatest": false,
     "categories": {
       "features": [
         {

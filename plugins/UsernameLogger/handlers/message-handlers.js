@@ -111,13 +111,13 @@ class MessageHandlers {
         message: `[Username Logger] Auto-running leak check after collecting ${this.stateModel.getLoggedUsernamesCount()} usernames`
       });
 
-      // Reset the counter
-      this.stateModel.clearLoggedUsernames();
-
       // Signal that we should run leak check (callback will be provided by the plugin)
       if (typeof this.onAutoLeakCheckTriggered === 'function') {
         this.onAutoLeakCheckTriggered();
       }
+
+      // Reset the counter
+      this.stateModel.clearLoggedUsernames();
     }
   }
 
