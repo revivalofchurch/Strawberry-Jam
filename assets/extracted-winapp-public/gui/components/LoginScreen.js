@@ -927,7 +927,7 @@
       this._fruitThemes = {
         'strawberry.png': { primary: '#e83d52', secondary: 'rgba(232, 61, 82, 0.3)', highlight: 'rgba(255, 220, 220, 0.3)', shadow: 'rgba(252, 93, 93, 0.1)', gradientStart: 'rgba(255, 220, 220, 0.3)', gradientEnd: 'rgba(255, 245, 230, 0.6)', hoverBorder: 'rgba(232, 61, 82, 0.5)', radial1: 'rgba(255, 180, 180, 0.05)', radial2: 'rgba(255, 200, 200, 0.07)', settingsHover: 'rgba(232, 61, 82, 0.05)', settingsBorder: 'rgba(232, 61, 82, 0.2)' },
         'banana.png': { primary: '#FFDA03', secondary: 'rgba(255, 218, 3, 0.3)', highlight: 'rgba(255, 248, 220, 0.3)', shadow: 'rgba(255, 218, 3, 0.1)', gradientStart: 'rgba(255, 248, 220, 0.3)', gradientEnd: 'rgba(255, 250, 235, 0.6)', hoverBorder: 'rgba(255, 218, 3, 0.5)', radial1: 'rgba(255, 230, 100, 0.05)', radial2: 'rgba(255, 240, 150, 0.07)', settingsHover: 'rgba(255, 218, 3, 0.05)', settingsBorder: 'rgba(255, 218, 3, 0.2)' },
-        'blueberries.png': { primary: '#4682B4', secondary: 'rgba(70, 130, 180, 0.3)', highlight: 'rgba(173, 216, 230, 0.3)', shadow: 'rgba(70, 130, 180, 0.1)', gradientStart: 'rgba(173, 216, 230, 0.3)', gradientEnd: 'rgba(220, 235, 245, 0.6)', hoverBorder: 'rgba(70, 130, 180, 0.5)', radial1: 'rgba(100, 150, 200, 0.05)', radial2: 'rgba(120, 170, 220, 0.07)', settingsHover: 'rgba(70, 130, 180, 0.05)', settingsBorder: 'rgba(70, 130, 180, 0.2)' },
+        'blueberry.png': { primary: '#4682B4', secondary: 'rgba(70, 130, 180, 0.3)', highlight: 'rgba(173, 216, 230, 0.3)', shadow: 'rgba(70, 130, 180, 0.1)', gradientStart: 'rgba(173, 216, 230, 0.3)', gradientEnd: 'rgba(220, 235, 245, 0.6)', hoverBorder: 'rgba(70, 130, 180, 0.5)', radial1: 'rgba(100, 150, 200, 0.05)', radial2: 'rgba(120, 170, 220, 0.07)', settingsHover: 'rgba(70, 130, 180, 0.05)', settingsBorder: 'rgba(70, 130, 180, 0.2)' },
         'cantaloupe.png': { primary: '#FFA07A', secondary: 'rgba(255, 160, 122, 0.3)', highlight: 'rgba(255, 228, 196, 0.3)', shadow: 'rgba(255, 160, 122, 0.1)', gradientStart: 'rgba(255, 228, 196, 0.3)', gradientEnd: 'rgba(255, 245, 230, 0.6)', hoverBorder: 'rgba(255, 160, 122, 0.5)', radial1: 'rgba(255, 180, 150, 0.05)', radial2: 'rgba(255, 200, 170, 0.07)', settingsHover: 'rgba(255, 160, 122, 0.05)', settingsBorder: 'rgba(255, 160, 122, 0.2)' },
         'coconut.png': { primary: '#A0522D', secondary: 'rgba(160, 82, 45, 0.3)', highlight: 'rgba(210, 180, 140, 0.3)', shadow: 'rgba(160, 82, 45, 0.1)', gradientStart: 'rgba(210, 180, 140, 0.3)', gradientEnd: 'rgba(245, 222, 179, 0.6)', hoverBorder: 'rgba(160, 82, 45, 0.5)', radial1: 'rgba(180, 120, 80, 0.05)', radial2: 'rgba(200, 140, 100, 0.07)', settingsHover: 'rgba(160, 82, 45, 0.05)', settingsBorder: 'rgba(160, 82, 45, 0.2)' },
         'dragonfruit.png': { primary: '#E91E63', secondary: 'rgba(233, 30, 99, 0.3)', highlight: 'rgba(248, 187, 208, 0.3)', shadow: 'rgba(233, 30, 99, 0.1)', gradientStart: 'rgba(248, 187, 208, 0.3)', gradientEnd: 'rgba(252, 228, 236, 0.6)', hoverBorder: 'rgba(233, 30, 99, 0.5)', radial1: 'rgba(244, 143, 177, 0.05)', radial2: 'rgba(244, 143, 177, 0.07)', settingsHover: 'rgba(233, 30, 99, 0.05)', settingsBorder: 'rgba(233, 30, 99, 0.2)' },
@@ -1354,7 +1354,17 @@
       if (!theme) {
         return;
       }
-      const root = this.shadowRoot.host; 
+      const root = this.shadowRoot.host;
+
+      let fruitName = fruitKey.replace('.png', '');
+      if (fruitName === 'blueberries') {
+        fruitName = 'blueberry';
+      }
+      const displayName = fruitName.charAt(0).toUpperCase() + fruitName.slice(1) + ' Jam';
+
+      if (this.playerLoginTextElem) {
+        this.playerLoginTextElem.innerText = displayName;
+      }
       
       const primaryIsLight = this.isLightColor(theme.primary); // Uses class isLightColor
 
@@ -1987,8 +1997,6 @@
       this.forgotPasswordLinkElem.innerText = await globals.translate("forgotPassword");
       this.needAccountElem.innerText = await globals.translate("needAccount");
       this.createAccountElem.text = await globals.translate("createAccount");
-      this.playerLoginTextElem.innerText = await globals.translate("playerLogin");
-      this.playerLoginTextElem.style.fontSize = `${Math.min(646 / this.playerLoginTextElem.innerText.length, 36)}px`;
     }
 
     async connectedCallback() {

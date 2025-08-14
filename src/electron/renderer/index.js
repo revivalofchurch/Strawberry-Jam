@@ -757,21 +757,19 @@ const displayAppVersion = async () => {
     const version = await ipcRenderer.invoke('get-app-version');
     const versionDisplayElement = document.getElementById('appVersionDisplay');
     if (versionDisplayElement) {
-      // Prepend "Strawberry Jam v" to the version number
-      versionDisplayElement.textContent = `Strawberry Jam v${version}`;
+      versionDisplayElement.textContent = `v${version}`;
     } else {
       console.error('Could not find element with ID appVersionDisplay');
     }
   } catch (error) {
     console.error('Error fetching app version:', error);
-    // Optionally display an error or default text
     const versionDisplayElement = document.getElementById('appVersionDisplay');
     if (versionDisplayElement) {
-      versionDisplayElement.textContent = 'Strawberry Jam v?.?.?'; // Default/error text
+      versionDisplayElement.textContent = 'v?.?.?';
     }
   }
 };
-displayAppVersion(); // Call the function to display the version on load
+displayAppVersion();
 // --- End Fetch and Display App Version ---
 
 window.jam = {
