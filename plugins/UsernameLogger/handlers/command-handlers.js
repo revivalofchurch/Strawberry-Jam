@@ -62,72 +62,30 @@ class CommandHandlers {
       
       const isDevMode = this._isDevMode();
       
-      // Debug log the current saved index
-      if (isDevMode) {
-        this.application.consoleMessage({
-          type: 'logger',
-          message: `[Username Logger] Current saved index is ${this.configModel.getLeakCheckIndex()}, will start from ${startIndex}`
-        });
-      }
+      // Removed verbose saved-index log to reduce console noise
       
-      if (parameters.length > 0) {
-        // Only parameter accepted is a number for the limit
-        const param = parameters[0].toLowerCase();
-        
-        if (param === 'all') {
-          // Process all remaining usernames (already the default with Infinity)
-          if (isDevMode) {
-            this.application.consoleMessage({
-              type: 'notify',
-              message: `[Username Logger] Processing all remaining usernames from index ${startIndex}.`
-            });
-          } else {
-            this.application.consoleMessage({
-              type: 'notify',
-              message: `[Username Logger] Processing all remaining usernames.`
-            });
-          }
-        } else {
-          // Try to parse as a number (limit)
-          const num = parseInt(param, 10);
-          if (isNaN(num) || num <= 0) {
-            this.application.consoleMessage({
-              type: 'error',
-              message: `[Username Logger] Invalid parameter. Use a positive number or 'all'.`
-            });
-            return;
-          }
-          
-          limit = num;
-          if (isDevMode) {
-            this.application.consoleMessage({
-              type: 'notify',
-              message: `[Username Logger] Processing up to ${limit} usernames from index ${startIndex}.`
-            });
-          } else {
-            this.application.consoleMessage({
-              type: 'notify',
-              message: `[Username Logger] Processing up to ${limit} usernames.`
-            });
-          }
+      // Build a refined start message and show it with a removable messageId
+      const fromText = startIndex <= 0 ? 'from the beginning' : 'from where you left off';
+      let startMessageText;
+      if (parameters.length > 0 && parameters[0].toLowerCase() !== 'all') {
+        // Numeric limit provided
+        const num = parseInt(parameters[0], 10);
+        if (isNaN(num) || num <= 0) {
+          this.application.consoleMessage({ type: 'error', message: `[Username Logger] Invalid parameter. Use a positive number or 'all'.` });
+          return;
         }
+        limit = num;
+        startMessageText = `[Username Logger] Processing up to ${limit} usernames ${fromText}.`;
       } else {
-        // No parameters - default is to process all remaining
-        if (isDevMode) {
-          this.application.consoleMessage({
-            type: 'notify',
-            message: `[Username Logger] Processing all remaining usernames from index ${startIndex}.`
-          });
-        } else {
-          this.application.consoleMessage({
-            type: 'notify',
-            message: `[Username Logger] Processing all remaining usernames.`
-          });
-        }
+        // 'all' or no parameter
+        startMessageText = `[Username Logger] Processing all remaining usernames ${fromText}.`;
       }
+
+      const startMessageId = `leakcheck-start-${Date.now()}`;
+      this.application.consoleMessage({ type: 'notify', message: startMessageText, details: { messageId: startMessageId } });
       
-      // Run the leak check with the determined parameters
-      this.leakCheckService.runLeakCheck({ limit, startIndex });
+      // Run the leak check with the determined parameters and pass message IDs for cleanup
+      this.leakCheckService.runLeakCheck({ limit, startIndex, context: { startMessageId } });
     } catch (error) {
       // Silent error handling to avoid breaking the app
       this.application.consoleMessage({

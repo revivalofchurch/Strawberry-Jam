@@ -11,7 +11,8 @@ const {
   POTENTIAL_ACCOUNTS_FILE,
   PROCESSED_FILE,
   FOUND_GENERAL_FILE,
-  FOUND_AJC_FILE
+  FOUND_AJC_FILE,
+  FOUND_NOPASS_FILE
 } = require('../constants/constants');
 
 /**
@@ -44,7 +45,8 @@ function getFilePaths(pluginStoragePath) {
     processedUsernamesPath: path.join(basePath, PROCESSED_FILE),
     potentialAccountsPath: path.join(basePath, POTENTIAL_ACCOUNTS_FILE),
     foundAccountsPath: path.join(basePath, FOUND_GENERAL_FILE),
-    ajcAccountsPath: path.join(basePath, FOUND_AJC_FILE)
+    ajcAccountsPath: path.join(basePath, FOUND_AJC_FILE),
+    foundNoPassPath: path.join(basePath, FOUND_NOPASS_FILE)
     // workingAccountsPath has been removed as it is deprecated.
   };
 

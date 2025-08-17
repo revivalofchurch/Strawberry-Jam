@@ -64,9 +64,9 @@ class BatchLogger {
       
       // Show individual names only if there are 5 or fewer
       if (buddyCount <= 5) {
-        message = `[Username Logger] Logged ${buddyCount} buddy${buddyCount > 1 ? 's' : ''}: ${this._pendingBuddyLog.join(', ')}`;
+        message = `[Username Logger] Logged ${buddyCount} new buddy${buddyCount > 1 ? 'ies' : ''}: ${this._pendingBuddyLog.join(', ')}`;
       } else {
-        message = `[Username Logger] Logged ${buddyCount} buddies`;
+        message = `[Username Logger] Logged ${buddyCount} new buddies`;
       }
       
       this.application.consoleMessage({
@@ -85,9 +85,9 @@ class BatchLogger {
       
       // Show individual names only if there are 5 or fewer
       if (nearbyCount <= 5) {
-        message = `[Username Logger] Logged ${nearbyCount} nearby player${nearbyCount > 1 ? 's' : ''}: ${this._pendingNearbyLog.join(', ')}`;
+        message = `[Username Logger] Logged ${nearbyCount} new nearby player${nearbyCount > 1 ? 's' : ''}: ${this._pendingNearbyLog.join(', ')}`;
       } else {
-        message = `[Username Logger] Logged ${nearbyCount} nearby players`;
+        message = `[Username Logger] Logged ${nearbyCount} new nearby players`;
       }
       
       this.application.consoleMessage({

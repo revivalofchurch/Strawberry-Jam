@@ -1095,6 +1095,41 @@ module.exports = class Application extends EventEmitter {
   } // End of consoleMessage method
 
   /**
+   * Updates an existing console message by its data-message-id.
+   * If not found, returns false without creating a new message.
+   * @param {string} messageId - The identifier used when the message was created.
+   * @param {{ message: string, type?: string }} param1 - New content and optional type for icon.
+   * @returns {boolean} True if updated, false if not found or failed.
+   * @public
+   */
+  updateConsoleMessage(messageId, { message, type = 'success' } = {}) {
+    try {
+      if (!messageId) return false;
+      const $existing = $(`[data-message-id='${messageId}']`);
+      if (!$existing || $existing.length === 0) return false;
+
+      // Update text inside the status span (created by status())
+      const $textSpan = $existing.find('span').last();
+      if ($textSpan && $textSpan.length) {
+        $textSpan.text(message || '');
+      }
+
+      // Update icon (first FontAwesome icon in the container)
+      const icon = messageIcons[type];
+      if (icon) {
+        const $icon = $existing.find('i.fas').first();
+        if ($icon && $icon.length) {
+          $icon.attr('class', `fas ${icon} mr-2`);
+        }
+      }
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
    * Cleans old log entries from the specified container.
    * @param {JQuery<HTMLElement>} $logContainer - The jQuery object for the log container.
    * @param {boolean} isPacketLog - Whether the container is for packet logs.

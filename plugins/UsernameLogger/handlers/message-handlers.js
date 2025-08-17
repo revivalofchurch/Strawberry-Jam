@@ -74,12 +74,12 @@ class MessageHandlers {
    */
   async logUsername(username, source) {
     // Use instance properties set by updateSettings()
-    if (!this.enableLogging) return;
-    if (!username) return;
+    if (!this.enableLogging) return false;
+    if (!username) return false;
 
     // Skip collection based on source and settings
-    if (source === 'nearby' && !this.collectNearby) return;
-    if (source === 'buddy' && !this.collectBuddies) return;
+    if (source === 'nearby' && !this.collectNearby) return false;
+    if (source === 'buddy' && !this.collectBuddies) return false;
     
     // Skip if username should be ignored
     if (shouldIgnoreUsername(
@@ -87,7 +87,7 @@ class MessageHandlers {
       this.stateModel.ignoredUsernames, 
       this.stateModel.loggedUsernamesThisSession
     )) {
-      return;
+      return false;
     }
     
     // Add to session log to prevent duplicates
@@ -119,6 +119,7 @@ class MessageHandlers {
       // Reset the counter
       this.stateModel.clearLoggedUsernames();
     }
+    return true;
   }
 
   /**
@@ -155,6 +156,9 @@ class MessageHandlers {
 
     // Expected format: %xt%bl%-1%0%count?%dbId?%username%uuid%status%worldId%roomId?%...
     if (parts.length >= 6 && parts[1] === 'xt' && parts[2] === 'bl' && parts[4] === '0') {
+      let totalCandidates = 0;
+      let newLogged = 0;
+      let skipped = 0;
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       let currentIndex = 5; // Start searching after the header + '0' indicator
 
@@ -177,16 +181,20 @@ class MessageHandlers {
         if (uuidIndex > currentIndex) {
           const username = parts[uuidIndex - 1];
           const status = parts[uuidIndex + 1] || 'unknown';
+          totalCandidates++;
           
           // Validate: not empty, not purely numeric, not another UUID
           if (username && !/^\d+$/.test(username) && !uuidRegex.test(username)) {
-            await this.logUsername(username, 'buddy'); // Made async
+            const added = await this.logUsername(username, 'buddy'); // Made async
+            if (added) newLogged++; else skipped++;
           }
         }
 
         // Advance the index to start searching *after* the current UUID
         currentIndex = uuidIndex + 1;
       }
+      const summaryMsg = `[Username Logger] Buddy list parsed: ${newLogged} new / ${skipped} skipped of ${totalCandidates} candidates.`;
+      this.application.consoleMessage({ type: 'success', message: summaryMsg });
     }
   }
 

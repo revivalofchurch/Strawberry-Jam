@@ -1,0 +1,136 @@
+{
+  "packets": [
+    {
+      "name": "Enter Tiki Trouble (Alternative 1)",
+      "content": "%xt%o%qjc%{room}%0%40%0%",
+      "type": "xt",
+      "delay": "3"
+    },
+    {
+      "name": "Enter Tiki Trouble (Alternative 2)",
+      "content": "%xt%o%qs%{room}%0%",
+      "type": "xt",
+      "delay": "2"
+    },
+    {
+      "name": "Join Adventure Instance",
+      "content": "%xt%o%qaskr%{room}%alpha0%0%1%",
+      "type": "xt",
+      "delay": "2"
+    },
+    {
+      "name": "Arctic Wolf Gate",
+      "content": "%xt%o%qat%{room}%av_treasure%0%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Arctic Wolf Gate Treasure",
+      "content": "%xt%o%qatt%{room}%av_treasure%1%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 1",
+      "content": "%xt%o%qat%{room}%treasure1%0%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 1 Treasure",
+      "content": "%xt%o%qatt%{room}%treasure1%1%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 2",
+      "content": "%xt%o%qat%{room}%treasure2%0%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 2 Treasure",
+      "content": "%xt%o%qatt%{room}%treasure2%1%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 3",
+      "content": "%xt%o%qat%{room}%treasure3%0%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 3 Treasure",
+      "content": "%xt%o%qatt%{room}%treasure3%1%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 4",
+      "content": "%xt%o%qat%{room}%treasure4%0%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 4 Treasure",
+      "content": "%xt%o%qatt%{room}%treasure4%1%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 5",
+      "content": "%xt%o%qat%{room}%treasure5%0%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Chest 5 Treasure",
+      "content": "%xt%o%qatt%{room}%treasure5%1%",
+      "type": "xt",
+      "delay": "0.5"
+    },
+    {
+      "name": "Pick up Pearl 1",
+      "content": "%xt%o%qpup%{room}%tikipearl3%514902%",
+      "type": "xt",
+      "delay": "0.3"
+    },
+    {
+      "name": "Submit Pearl 1",
+      "content": "%xt%o%qat%{room}%alpha1%0%",
+      "type": "xt",
+      "delay": "150"
+    },
+    {
+      "name": "Pick up Pearl 2",
+      "content": "%xt%o%qpup%{room}%tikipearl3%514902%",
+      "type": "xt",
+      "delay": "0.3"
+    },
+    {
+      "name": "Submit Pearl 2",
+      "content": "%xt%o%qat%{room}%alpha1%0%",
+      "type": "xt",
+      "delay": "150"
+    },
+    {
+      "name": "Pick up Pearl 3",
+      "content": "%xt%o%qpup%{room}%tikipearl3%514902%",
+      "type": "xt",
+      "delay": "0.3"
+    },
+    {
+      "name": "Submit Pearl 3",
+      "content": "%xt%o%qat%{room}%alpha1%0%",
+      "type": "xt",
+      "delay": "1"
+    },
+    {
+      "name": "Leave Adventure",
+      "content": "%xt%o%qx%{room}%",
+      "type": "xt",
+      "delay": "1.5"
+    }
+  ]
+}

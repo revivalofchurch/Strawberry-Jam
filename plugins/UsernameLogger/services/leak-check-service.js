@@ -30,17 +30,41 @@ class LeakCheckService {
   }
 
   /**
+   * Updates or creates a single progress message in the console.
+   * Uses Application.updateConsoleMessage if available; falls back to consoleMessage once.
+   * @param {string} messageId
+   * @param {('wait'|'success'|'warn'|'error'|'notify'|'logger')} type
+   * @param {string} text
+   * @private
+   */
+  _updateProgressMessage(messageId, type, text) {
+    try {
+      if (!this.application || typeof this.application.updateConsoleMessage !== 'function') {
+        // Fallback: first time, print a message with the id so future updates can find it
+        if (typeof this._progressInitialized === 'undefined' || !this._progressInitialized) {
+          this._progressInitialized = true;
+          this.application.consoleMessage({ type, message: text, details: { messageId } });
+        }
+        return;
+      }
+      const updated = this.application.updateConsoleMessage(messageId, { message: text, type });
+      if (!updated) {
+        // If not found, create it
+        this.application.consoleMessage({ type, message: text, details: { messageId } });
+      }
+    } catch (_) {
+      // Silent
+    }
+  }
+
+  /**
    * Detect whether we're in development mode - more reliable than process.env.NODE_ENV
    * @returns {boolean} true if in development mode
    * @private
    */
   _isDevMode() {
-    try {
-      // In packaged apps, app.asar will be in the path
-      return !window.location.href.includes('app.asar');
-    } catch (e) {
-      return false;
-    }
+    // Verbose logs disabled by default to reduce console noise
+    return false;
   }
 
   /**
@@ -60,6 +84,7 @@ class LeakCheckService {
       const limit = options.limit || Infinity;
       const startIndex = options.startIndex || (this.configModel.getLeakCheckIndex() + 1);
       const onProgress = options.onProgress || null;
+      const context = options.context || {};
       
       // For debugging
       if (isDevMode) {
@@ -168,26 +193,8 @@ class LeakCheckService {
           return { success: false, error: 'No new usernames' };
         }
 
-        // More user-friendly message in production
-        if (isDevMode) {
-          this.application.consoleMessage({
-            type: 'notify',
-            message: `[Username Logger] Starting check from index ${startIndex}. Processing up to ${limitedUsernamesToCheck.length} usernames (limit: ${limit === Infinity ? 'All' : limit})...`
-          });
-        } else {
-          // Cleaner message for end users
-          if (startIndex <= 1) {
-            this.application.consoleMessage({
-              type: 'notify',
-              message: `[Username Logger] Starting leak check on ${limitedUsernamesToCheck.length} usernames...`
-            });
-          } else {
-            this.application.consoleMessage({
-              type: 'notify',
-              message: `[Username Logger] Continuing leak check from where you left off (${limitedUsernamesToCheck.length} usernames remaining)...`
-            });
-          }
-        }
+        // Initial progress line replaces verbose start messages
+        // (shown via _updateProgressMessage below)
 
         // Read already checked usernames (for duplicate output prevention)
         const processedUsernames = await this.fileService.readLinesFromFile(paths.processedUsernamesPath);
@@ -200,17 +207,23 @@ class LeakCheckService {
         let errorCount = 0;
         let invalidCharCount = 0;
         let currentOverallIndex = startIndex - 1; // Initialize to startIndex - 1 since we increment at start of loop
+        const totalToProcess = limitedUsernamesToCheck.length;
+        const progressMessageId = `leakcheck-progress-${Date.now()}`;
+        // Initialize single-line progress
+        this._updateProgressMessage(progressMessageId, 'wait', `[Username Logger] Leak Check: 0/${totalToProcess} | Found: 0 | Not Found: 0 | Errors: 0 | Invalid: 0`);
         
         // Batching variables
         let processedBatch = [];
         let foundGeneralBatch = [];
         let foundAjcBatch = [];
+        let foundNoPassBatch = [];
         let potentialBatch = []; // For invalid char usernames
 
         // Main processing loop
         for (const username of limitedUsernamesToCheck) {
           currentOverallIndex++; // Increment index at start of loop
           processedInThisRun++;
+          let perUserOutcome = '';
 
           // Check if we should stop or pause
           if (this.stateModel.getLeakCheckState().isStopped || this.stateModel.getLeakCheckState().isPaused) {
@@ -301,62 +314,40 @@ class LeakCheckService {
               if (result.data.found > 0) {
                 foundCount++;
                 addedToProcessedList = true;
-                if (isDevMode) {
-                  this.application.consoleMessage({
-                    type: 'logger',
-                    message: `[Username Logger] Found ${result.data.found} results for: ${username}`
-                  });
-                } else {
-                  // Simpler message for production
-                  this.application.consoleMessage({
-                    type: 'notify',
-                    message: `[Username Logger] Found results for: ${username}`
-                  });
-                }
+                perUserOutcome = 'found';
+                // Suppress per-user found logs; progress line will reflect counts
 
                 // Extract passwords
                 const passwords = this.apiService.extractPasswordsFromResult(result);
                 
                 let passwordsFoundGeneral = 0;
                 let passwordsFoundAjc = 0;
+                let noPasswordHits = 0;
 
                 for (const { password, isAjc } of passwords) {
-                  const accountEntry = `${username}:${password}`;
-                  
-                  if (isAjc) {
-                    foundAjcBatch.push(accountEntry);
-                    passwordsFoundAjc++;
+                  if (password && String(password).length > 0) {
+                    const accountEntry = `${username}:${password}`;
+                    if (isAjc) {
+                      foundAjcBatch.push(accountEntry);
+                      passwordsFoundAjc++;
+                    } else {
+                      foundGeneralBatch.push(accountEntry);
+                      passwordsFoundGeneral++;
+                    }
                   } else {
-                    foundGeneralBatch.push(accountEntry);
-                    passwordsFoundGeneral++;
+                    // Track result without a password for separate logging
+                    foundNoPassBatch.push(username);
+                    noPasswordHits++;
                   }
                 }
 
                 // Log summary of found passwords
-                if (passwordsFoundAjc > 0 || passwordsFoundGeneral > 0) {
-                  if (isDevMode) {
-                    this.application.consoleMessage({
-                      type: 'logger',
-                      message: `[Username Logger] Found ${passwordsFoundAjc} password(s) to save to ajc_accounts.txt and ${passwordsFoundGeneral} password(s) to save to found_accounts.txt.`
-                    });
-                  }
-                } else {
-                  if (isDevMode) {
-                    this.application.consoleMessage({
-                      type: 'logger',
-                      message: `[Username Logger] No passwords found in results for ${username}, but breach exists.`
-                    });
-                  }
-                }
+                // Suppress per-user password/no-password summaries
               } else {
                 notFoundCount++;
                 addedToProcessedList = true;
-                if (isDevMode) {
-                  this.application.consoleMessage({
-                    type: 'logger',
-                    message: `[Username Logger] Not Found: ${username}`
-                  });
-                }
+                // Suppress per-user not found logs
+                perUserOutcome = 'not found';
               }
             } else if (this.apiService.isInvalidCharactersError(result)) {
               invalidCharCount++;
@@ -370,13 +361,12 @@ class LeakCheckService {
                 potentialBatch.push(username);
                 processedUsernamesSet.add(username.toLowerCase());
               }
+              perUserOutcome = 'invalid';
             } else {
               errorCount++;
               addedToProcessedList = false;
-              this.application.consoleMessage({
-                type: 'error',
-                message: `[Username Logger] Unexpected API Response for ${username}: Status ${result.status} - ${JSON.stringify(result.data)}`
-              });
+              // Suppress per-user unexpected API response logs; counters reflect errors
+              perUserOutcome = 'error';
             }
 
             // Add to processed batch if needed
@@ -405,6 +395,13 @@ class LeakCheckService {
               });
             }
 
+            // Update single progress line in the console
+            this._updateProgressMessage(
+              progressMessageId,
+              'wait',
+              `[Username Logger] Leak Check: ${processedInThisRun}/${totalToProcess} | Found: ${foundCount} | Not Found: ${notFoundCount} | Errors: ${errorCount} | Invalid: ${invalidCharCount} — Current: ${username}${perUserOutcome ? ` (${perUserOutcome})` : ''}`
+            );
+
             // Write batches periodically
             if (processedInThisRun % DEFAULT_BATCH_SIZE === 0) {
               if (isDevMode) {
@@ -413,13 +410,14 @@ class LeakCheckService {
                   message: `[Username Logger] Performing periodic batch write.` 
                 });
               }
-              await this._writeBatches(paths, processedBatch, foundGeneralBatch, foundAjcBatch, potentialBatch);
+              await this._writeBatches(paths, processedBatch, foundGeneralBatch, foundAjcBatch, potentialBatch, foundNoPassBatch);
               
               // Clear the batches
               processedBatch = [];
               foundGeneralBatch = [];
               foundAjcBatch = [];
               potentialBatch = [];
+              foundNoPassBatch = [];
             }
           } catch (requestError) {
             errorCount++;
@@ -427,6 +425,11 @@ class LeakCheckService {
               type: 'error',
               message: `[Username Logger] Request Error for ${username}: ${requestError.message}`
             });
+            this._updateProgressMessage(
+              progressMessageId,
+              'wait',
+              `[Username Logger] Leak Check: ${processedInThisRun}/${totalToProcess} | Found: ${foundCount} | Not Found: ${notFoundCount} | Errors: ${errorCount} | Invalid: ${invalidCharCount} — Current: ${username} (error)`
+            );
 
             // Check if the error is specifically about the missing API key from the api-service check
             if (requestError.message.includes('API key is missing or blank')) {
@@ -448,7 +451,7 @@ class LeakCheckService {
             message: `[Username Logger] Writing final batches...` 
           });
         }
-        await this._writeBatches(paths, processedBatch, foundGeneralBatch, foundAjcBatch, potentialBatch);
+        await this._writeBatches(paths, processedBatch, foundGeneralBatch, foundAjcBatch, potentialBatch, foundNoPassBatch);
 
         // Update the last processed index
         this.configModel.setLeakCheckIndex(currentOverallIndex);
@@ -507,18 +510,28 @@ class LeakCheckService {
           lastIndexProcessed: currentOverallIndex
         };
 
+        this._updateProgressMessage(
+          progressMessageId,
+          'success',
+          `[Username Logger] Leak check complete. Processed: ${processedInThisRun}/${totalToProcess}, Found: ${foundCount}, Not Found: ${notFoundCount}, Errors: ${errorCount}, Invalid: ${invalidCharCount}`
+        );
+
+        // Emit a standalone completion summary that will remain after cleanup
         this.application.consoleMessage({
           type: 'success',
-          message: `[Username Logger] Leak check complete. Processed: ${processedInThisRun}, Found: ${foundCount}, Not Found: ${notFoundCount}, Errors: ${errorCount}, Invalid: ${invalidCharCount}`
+          message: `[Username Logger] Leak check complete. Processed: ${processedInThisRun}/${totalToProcess}, Found: ${foundCount}, Not Found: ${notFoundCount}, Errors: ${errorCount}, Invalid: ${invalidCharCount}`
         });
 
         // --- START AUTO-TRIM LOGIC ---
         if (summary.status === 'completed') {
           try {
-            this.application.consoleMessage({
-              type: 'notify',
-              message: `[Username Logger] Attempting to automatically clear processed usernames...`
-            });
+            // Remove start/progress messages; the standalone completion summary persists
+            if (context.startMessageId && typeof this.application._removeMessageById === 'function') {
+              this.application._removeMessageById(context.startMessageId);
+            }
+            if (typeof this.application._removeMessageById === 'function') {
+              this.application._removeMessageById(progressMessageId);
+            }
             
             // Configure options for large files
             const trimOptions = {
@@ -692,7 +705,7 @@ class LeakCheckService {
    * @param {Array<string>} potentialBatch - Potential accounts batch 
    * @private
    */
-  async _writeBatches(paths, processedBatch, foundGeneralBatch, foundAjcBatch, potentialBatch) {
+  async _writeBatches(paths, processedBatch, foundGeneralBatch, foundAjcBatch, potentialBatch, foundNoPassBatch) {
     try {
       const writePromises = [];
 
@@ -731,6 +744,13 @@ class LeakCheckService {
         writePromises.push(this.fileService.writeLinesToFile(
           paths.potentialAccountsPath,
           potentialBatch,
+          true
+        ));
+      }
+      if (foundNoPassBatch && foundNoPassBatch.length > 0) {
+        writePromises.push(this.fileService.writeLinesToFile(
+          paths.foundNoPassPath,
+          foundNoPassBatch,
           true
         ));
       }
