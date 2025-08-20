@@ -1702,8 +1702,18 @@
 
     _isTokenExpired(token) {
       if (!token) return true;
+      
+      // Check if token has the expected JWT format (three parts separated by dots)
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        console.log("Token does not have JWT format (3 parts):", tokenParts.length, "- treating as non-expiring refresh token");
+        // If it's not a JWT (like a simple refresh token), assume it's valid
+        // The server will reject it if it's actually expired
+        return false;
+      }
+      
       try {
-        const payloadBase64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const payloadBase64 = tokenParts[1].replace(/-/g, '+').replace(/_/g, '/');
         const decodedJson = atob(payloadBase64);
         const decoded = JSON.parse(decodedJson);
         
@@ -1728,6 +1738,8 @@
       console.log(`[LOGIN PROCESS] Has Auth Token: ${!!this.authToken}`);
       console.log(`[LOGIN PROCESS] Has Refresh Token: ${!!this.refreshToken}`);
       console.log(`[LOGIN PROCESS] Remember Me: ${this.rememberMeElem ? this.rememberMeElem.value : 'unknown'}`);
+      console.log(`[LOGIN PROCESS] Has OTP: ${this.otp ? '[SET]' : '[NOT SET]'}`);
+      console.log(`[LOGIN PROCESS] Login blocked state: ${this.loginBlocked}`);
       
       if (this.loginBlocked) {
         console.log(`[LOGIN PROCESS] Login blocked, returning early`);
@@ -1761,13 +1773,44 @@
 
         let authResult;
 
+        console.log("[ANIMAL JAM AUTH] ============= Starting authentication flow =============");
+        console.log("[ANIMAL JAM AUTH] Auth token present:", !!this.authToken);
+        console.log("[ANIMAL JAM AUTH] Refresh token present:", !!this.refreshToken);
+        console.log("[ANIMAL JAM AUTH] OTP present:", !!this.otp);
+
         // 1. Check for a valid, non-expired auth token
+        let authTokenFailed = false;
+        let authTokenOtpNeeded = false;
+        let refreshTokenOtpNeeded = false;
+        
         if (this.authToken && !this._isTokenExpired(this.authToken)) {
           console.log("[ANIMAL JAM AUTH] Auth token is valid. Attempting authentication with it.");
-          authResult = await globals.authenticateWithAuthToken(this.authToken);
+          try {
+            authResult = await globals.authenticateWithAuthToken(this.authToken);
+            console.log("[ANIMAL JAM AUTH] Auth token authentication successful");
+          } catch (err) {
+            console.log("[ANIMAL JAM AUTH] Auth token authentication failed:", err.message);
+            
+            // If OTP is needed for auth token, try refresh token instead
+            if (err.message === "OTP_NEEDED" && this.refreshToken) {
+              console.log("[ANIMAL JAM AUTH] OTP needed for auth token, trying refresh token instead");
+              authTokenFailed = true;
+              authTokenOtpNeeded = true;
+            } else if (err.message === "LOGIN_ERROR" && this.refreshToken) {
+              // If auth token fails with LOGIN_ERROR, try refresh token instead
+              console.log("[ANIMAL JAM AUTH] Auth token failed with LOGIN_ERROR, trying refresh token instead");
+              authTokenFailed = true;
+            } else {
+              // For other errors, throw immediately
+              throw err;
+            }
+          }
         } 
-        // 2. If auth token is expired or missing, try using the refresh token
-        else if (this.refreshToken) {
+        // 2. If auth token is expired, missing, or failed with OTP, try using the refresh token
+        if ((!this.authToken || this._isTokenExpired(this.authToken) || authTokenFailed) && this.refreshToken) {
+          console.log("[ANIMAL JAM AUTH] Attempting refresh token authentication");
+          console.log("[ANIMAL JAM AUTH] Refresh token format check:", this.refreshToken ? this.refreshToken.split('.').length + ' parts' : 'null');
+          
           // **NEW**: First, check if the refresh token itself is expired client-side
           if (this._isTokenExpired(this.refreshToken)) {
             console.warn("[ANIMAL JAM AUTH] Refresh token has expired (client-side check). Clearing all tokens.");
@@ -1784,8 +1827,15 @@
             console.log("[ANIMAL JAM AUTH] No auth token found. Attempting to use refresh token.");
           }
           try {
+            console.log("[ANIMAL JAM AUTH] OTP for refresh token auth:", this.otp ? '[SET]' : '[NOT SET]');
             authResult = await globals.authenticateWithRefreshToken(this.refreshToken, this.otp);
             console.log("[ANIMAL JAM AUTH] Successfully refreshed token.");
+            console.log("[ANIMAL JAM AUTH] Refresh token auth result:", {
+              hasResult: !!authResult,
+              hasUserData: !!authResult?.userData,
+              hasAuthToken: !!authResult?.userData?.authToken,
+              hasRefreshToken: !!authResult?.userData?.refreshToken
+            });
           } catch (err) {
             if (err.message === "REFRESH_TOKEN_EXPIRED") {
               console.warn("[ANIMAL JAM AUTH] Refresh token has expired (server-side check). Clearing all tokens.");
@@ -1793,21 +1843,43 @@
               this.clearRefreshToken();
               this.isFakePassword = false;
               // Error message is already set in the main catch block, just ensure tokens are cleared.
+            } else if (err.message === "OTP_NEEDED") {
+              console.log("[ANIMAL JAM AUTH] OTP needed for refresh token, will fall back to password login");
+              refreshTokenOtpNeeded = true;
+              // Continue to password login below
+            } else {
+              // Re-throw to be caught by the main catch block
+              throw err;
             }
-            // Re-throw to be caught by the main catch block
-            throw err;
           }
         }
-        // 3. If no tokens are available or valid, fall back to password login
-        else {
-          console.log("[ANIMAL JAM AUTH] No valid tokens. Proceeding with password authentication.");
+        // 3. If we have a successful auth result from tokens, use it; otherwise fall back to password login
+        if (authResult) {
+          console.log("[ANIMAL JAM AUTH] Using successful token authentication result");
+        } else if (!this.authToken || this._isTokenExpired(this.authToken) || authTokenFailed || refreshTokenOtpNeeded) {
+          console.log("[ANIMAL JAM AUTH] No valid tokens or OTP needed. Proceeding with password authentication.");
+          console.log("[ANIMAL JAM AUTH] OTP for password auth:", this.otp ? '[SET]' : '[NOT SET]');
+          
+          // If both tokens failed with OTP and we don't have an OTP, we need to show the OTP modal
+          if ((authTokenOtpNeeded || refreshTokenOtpNeeded) && !this.otp) {
+            console.log("[ANIMAL JAM AUTH] Both tokens need OTP but no OTP provided, throwing OTP_NEEDED");
+            throw new Error("OTP_NEEDED");
+          }
+          
           if (!this.username.length) throw new Error("EMPTY_USERNAME");
           if (!this.password.length) throw new Error("EMPTY_PASSWORD");
           authResult = await globals.authenticateWithPassword(this.username, this.password, this.otp, null);
         }
 
         // If we have a result, proceed to login
+        console.log("[LOGIN PROCESS] Clearing OTP after successful authentication");
         this.otp = null;
+        
+        // Ensure we have a valid result
+        if (!authResult || !authResult.userData) {
+          throw new Error("Invalid authentication result - missing user data");
+        }
+        
         const { userData, flashVars } = authResult;
         
         console.log(`[FLASHVARS] Raw FlashVars received from authentication:`, {
@@ -1823,8 +1895,23 @@
         });
         
         // Persist new tokens
-        if (userData.authToken) this.authToken = userData.authToken;
-        if (userData.refreshToken) this.refreshToken = userData.refreshToken;
+        if (userData.authToken) {
+          console.log("[LOGIN PROCESS] Setting auth token:", {
+            length: userData.authToken.length,
+            parts: userData.authToken.split('.').length
+          });
+          this.authToken = userData.authToken;
+        }
+        if (userData.refreshToken) {
+          console.log("[LOGIN PROCESS] Setting refresh token:", {
+            token: userData.refreshToken,
+            length: userData.refreshToken.length,
+            parts: userData.refreshToken.split('.').length
+          });
+          this.refreshToken = userData.refreshToken;
+        } else {
+          console.log("[LOGIN PROCESS] No refresh token in userData");
+        }
 
         // Clear any previous error messages
         this.usernameInputElem.error = "";
@@ -1903,6 +1990,8 @@
             case "USER_RENAME_NEEDED":
             case "OTP_NEEDED":
               // These open modals, so no user message needed here.
+              console.log("[LOGIN PROCESS] OTP_NEEDED or USER_RENAME_NEEDED - keeping UI blocked for modal");
+              console.log("[LOGIN PROCESS] UI will be unblocked when OTP modal is submitted");
               return; // Exit without unblocking UI yet
             default:
               globals.reportError("webClient", `Unhandled login error: ${err.stack || err.message}`);

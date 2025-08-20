@@ -299,6 +299,10 @@ ipcMain.on("loaded", async (event, message) => {
   if (username) {
     authToken = store.get(`accounts.${username}.authToken`);
     refreshToken = store.get(`accounts.${username}.refreshToken`);
+    log("debug", `[IPC] Retrieved tokens for ${username}: authToken=${authToken ? 'present' : 'missing'}, refreshToken=${refreshToken ? 'present' : 'missing'}`);
+    if (refreshToken) {
+      log("debug", `[IPC] Refresh token details: length=${refreshToken.length}, parts=${refreshToken.split('.').length}`);
+    }
   }
 
   const df = await getDf();
@@ -446,9 +450,13 @@ ipcMain.on("loginSucceeded", async (event, message) => {
 
   // Always store tokens for the account to allow for quick re-login,
   // regardless of the "Remember Me" setting for auto-login.
+  log("debug", `[IPC] Storing auth token for ${message.username}: ${message.authToken ? 'present' : 'missing'}`);
   store.set(`accounts.${message.username}.authToken`, message.authToken);
   if (message.refreshToken) {
+    log("debug", `[IPC] Storing refresh token for ${message.username}: ${message.refreshToken ? 'present' : 'missing'}`);
     store.set(`accounts.${message.username}.refreshToken`, message.refreshToken);
+  } else {
+    log("debug", `[IPC] No refresh token provided for ${message.username}`);
   }
 });
 
