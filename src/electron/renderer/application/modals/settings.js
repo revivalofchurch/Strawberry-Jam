@@ -258,13 +258,27 @@ function setupEventHandlers ($modal, app) {
     const $button = $(this);
     const originalText = $button.html();
     
-    // Show loading state
-    $button.html('<i class="fas fa-spinner fa-spin mr-2"></i>Refreshing...').prop('disabled', true);
+    // Show loading state with simple text
+    $button.html('Refreshing...').prop('disabled', true);
+    
+    // Add a small delay to make loading state visible
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     try {
       const currentSelection = $modal.find('#selectedSwfFile').val();
+      
       await loadSwfFileSettings($modal, currentSelection);
+      
       showToast('SWF file list refreshed successfully!', 'success');
+      
+      // Force green styling with !important-like approach
+      $button.removeClass('bg-sidebar-hover').addClass('bg-green-500 text-white transition-all duration-300');
+      
+      // Transition back to original styling after 1 second
+      setTimeout(() => {
+        $button.removeClass('bg-green-500 text-white').addClass('bg-sidebar-hover');
+      }, 1000);
+      
     } catch (error) {
       console.error('Error refreshing SWF files:', error);
       showToast('Error refreshing SWF files', 'error');
@@ -278,10 +292,15 @@ function setupEventHandlers ($modal, app) {
     const $button = $(this);
     const originalText = $button.html();
     
-    $button.html('<i class="fas fa-spinner fa-spin mr-2"></i>Reapplying...').prop('disabled', true);
+    // Show loading state with simple text
+    $button.html('Reapplying...').prop('disabled', true);
+    
+    // Add a small delay to make loading state visible
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     try {
       const selectedFile = $modal.find('#selectedSwfFile').val();
+      
       if (!selectedFile) {
         showToast('No SWF file selected.', 'error');
         return;
@@ -298,6 +317,15 @@ function setupEventHandlers ($modal, app) {
               message: `Game client file '${selectedFile}' was reapplied. Changes will apply on next game launch.`
             });
         }
+        
+        // Force green styling with !important-like approach
+        $button.removeClass('bg-sidebar-hover').addClass('bg-green-500 text-white transition-all duration-300');
+        
+        // Transition back to original styling after 1 second
+        setTimeout(() => {
+          $button.removeClass('bg-green-500 text-white').addClass('bg-sidebar-hover');
+        }, 1000);
+        
       } else {
         showToast(`Failed to reapply SWF: ${result.error}`, 'error');
       }

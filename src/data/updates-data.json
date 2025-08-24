@@ -1,8 +1,109 @@
 {
+  "3.5.2": {
+    "version": "3.5.2",
+    "releaseDate": "2025-01-27",
+    "isLatest": true,
+    "categories": {
+      "features": [
+        {
+          "icon": "🎨",
+          "title": "Dynamic App Name",
+          "description": "Name of 'Strawberry Jam' changes when fruit theme is changed.",
+          "priority": "major"
+        },
+        {
+          "icon": "🎁",
+          "title": "Jag Gift to Non-Members",
+          "description": "Jag gifts can now be sent to non-members if you are a member. Gifts remain unclaimable to the non-member.",
+          "priority": "major"
+        },
+        {
+          "icon": "🎮",
+          "title": "Tiki Trouble Automation",
+          "description": "Added Tiki Trouble automation plugin. Work in progress - you can easily modify the .json for the packets in the folder to fix.",
+          "priority": "major"
+        },
+        {
+          "icon": "🎩",
+          "title": "Multiple Hats Support",
+          "description": "Allows multiple hats to be worn at a time. Only displays to other Strawberry Jam users.",
+          "priority": "major"
+        },
+        {
+          "icon": "💬",
+          "title": "Private Chat History",
+          "description": "Added private chats into chat history/log box for better user experience.",
+          "priority": "major"
+        }
+      ],
+      "improvements": [
+        {
+          "icon": "🔍",
+          "title": "Refined Leakchecking",
+          "description": "Improved leakchecking functionality for better user experience.",
+          "priority": "enhancement"
+        },
+        {
+          "icon": "🔐",
+          "title": "2FA/OTP Logic Refinement",
+          "description": "Refined the 2FA/OTP logic to address bugs and improve authentication flow.",
+          "priority": "enhancement"
+        },
+        {
+          "icon": "💬",
+          "title": "Console Message Optimization",
+          "description": "Adjusted console messages to reduce spam and improve user experience.",
+          "priority": "enhancement"
+        }
+      ],
+      "fixes": [
+        {
+          "icon": "🐛",
+          "title": "Volume Slider Crash Fix",
+          "description": "Fixed bug where volume slider caused crashes.",
+          "priority": "fix"
+        },
+        {
+          "icon": "🐛",
+          "title": "Custom Animal Names Fix",
+          "description": "Fixed issue where user custom animal names were applying to other players animals.",
+          "priority": "fix"
+        },
+        {
+          "icon": "🐛",
+          "title": "Game Time Multiple Instances Fix",
+          "description": "Fixed gametime going insane when multiple instances are open.",
+          "priority": "fix"
+        },
+        {
+          "icon": "🐛",
+          "title": "Hide Game Plugins Setting Fix",
+          "description": "Fixed 'Hide Game Plugins' setting. Now only visually hides the plugins but allows them to still function.",
+          "priority": "fix"
+        },
+        {
+          "icon": "🐛",
+          "title": "Tab Auto Complete Fix",
+          "description": "Fixed tab to auto complete for console commands.",
+          "priority": "fix"
+        }
+      ],
+      "shortcuts": [
+        {
+          "icon": "⌨️",
+          "title": "Ctrl + Shift + U",
+          "description": "Toggles private chat On/Off. Purple border around chat box indicates when enabled.",
+          "keys": ["Ctrl", "Shift", "U"]
+        }
+      ],
+      "commands": [],
+      "messages": []
+    }
+  },
   "3.5.1": {
     "version": "3.5.1",
     "releaseDate": "2025-08-09",
-    "isLatest": true,
+    "isLatest": false,
     "categories": {
       "features": [
         {

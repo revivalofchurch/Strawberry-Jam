@@ -90,6 +90,13 @@ module.exports = class Client {
      * @private
      */
     this._reconnectAttempts = 0 // From jam-master
+
+    /**
+     * Flag to prevent spam of disconnect messages
+     * @type {boolean}
+     * @private
+     */
+    this._recentlyDisconnected = false
   }
 
   /**
@@ -638,18 +645,27 @@ module.exports = class Client {
         this._server.application.dispatch.intervals.clear();
     }
 
-
     if (this.connected) {
       this.connected = false;
       if (this._server && this._server.application && !manual) { // Check application exists
         this._server.application.emit('connection:change', false);
-         // Only show disconnect message if not manual and game wasn't just launched
+        
+        // Only show disconnect message if not manual and game wasn't just launched
+        // and we haven't shown a disconnect message recently
         const wasJustLaunched = (typeof this._wasGameJustLaunched === 'function') ? this._wasGameJustLaunched() : false;
-        if (!wasJustLaunched) {
-            this._server.application.consoleMessage({
-                message: 'Connection to Animal Jam servers closed.',
-                type: 'notify'
-            });
+        const shouldShowMessage = !wasJustLaunched && !this._recentlyDisconnected;
+        
+        if (shouldShowMessage) {
+          this._recentlyDisconnected = true;
+          this._server.application.consoleMessage({
+              message: 'Connection to Animal Jam servers closed.',
+              type: 'notify'
+          });
+          
+          // Reset the flag after a delay to prevent spam
+          setTimeout(() => {
+            this._recentlyDisconnected = false;
+          }, 5000); // 5 second cooldown
         }
       }
     }

@@ -123,10 +123,6 @@ module.exports = class Dispatch {
       any: new Map()
     }
 
-    // No longer exposing getDataPath function directly
-    // this.getDataPath = getDataPath;
-
-    // Default state handlers will be initialized at the end of the load() method.
   }
 
   /**
@@ -138,14 +134,6 @@ module.exports = class Dispatch {
       type: ConnectionMessageTypes.aj,
       message: 'rj', // Room Join packet
       callback: ({ message }) => {
-        // Based on XtMessage.parse() and logs, message.value for "%xt%rj%world%status%name%instance%..." is:
-        // message.value[0] = "" (empty string from leading '%')
-        // message.value[1] = "xt"
-        // message.value[2] = "rj" (command)
-        // message.value[3] = worldId (e.g., "8795")
-        // message.value[4] = status ("1" for success)
-        // message.value[5] = textualRoomName (e.g., "balloosh.room_main#94")
-        // message.value[6] = numericalInstanceId (e.g., "3695" - needed for pubMsg)
 
         if (message.value && message.value.length > 6 && message.value[4] === '1') { // Status '1' is at index 4
           const textualRoomId = message.value[5];         // e.g., "balloosh.room_main#94"
@@ -377,40 +365,35 @@ module.exports = class Dispatch {
       });
 
       let loadedPluginConfigs = (await Promise.all(pluginPromises)).filter(r => r !== null);
-              
-      // Filter plugins based on ui.hideGamePlugins setting
-      const hideGamePlugins = await this._shouldHideGamePlugins();
-      if (hideGamePlugins) {
-        loadedPluginConfigs = loadedPluginConfigs.filter(p => p.configuration.type !== 'game');
-      }
-
-      // Sort plugins: UI plugins first, then game plugins, then alphabetically
+      
+      // Sort plugins by type (UI first, then game) and alphabetically within each type
       loadedPluginConfigs.sort((a, b) => {
-        const typeA = a.configuration.type;
-        const typeB = b.configuration.type;
-        const nameA = a.configuration.name || '';
-        const nameB = b.configuration.name || '';
-
-        let priorityA = 2; // Default for 'other' types
-        if (typeA === 'ui') priorityA = 0;       // HARDCODED 'ui'
-        else if (typeA === 'game') priorityA = 1; // HARDCODED 'game'
-
-        let priorityB = 2; // Default for 'other' types
-        if (typeB === 'ui') priorityB = 0;       // HARDCODED 'ui'
-        else if (typeB === 'game') priorityB = 1; // HARDCODED 'game'
+        const aType = a.configuration.type;
+        const bType = b.configuration.type;
         
-        if (priorityA !== priorityB) {
-          return priorityA - priorityB; // Lower priority number comes first
-        }
+        // UI plugins come first
+        if (aType === 'ui' && bType === 'game') return -1;
+        if (aType === 'game' && bType === 'ui') return 1;
         
-        // If priorities are the same, sort by name
-        return nameA.localeCompare(nameB);
+        // Within same type, sort alphabetically by name
+        return a.configuration.name.localeCompare(b.configuration.name);
       });
-
+              
+      // Store all plugins regardless of visibility setting
       for (const configData of loadedPluginConfigs) {
         // _processAndRenderPlugin expects an object with configuration and filepath properties
         await this._processAndRenderPlugin(configData); 
-        }
+      }
+
+      // After all plugins are loaded, filter the display based on settings
+      const hideGamePlugins = await this._shouldHideGamePlugins();
+      if (hideGamePlugins) {
+        // Hide game plugins from UI but keep them loaded and functional
+        this._application.$pluginList.find('[data-plugin-type="game"]').hide();
+      } else {
+        // Show all plugins
+        this._application.$pluginList.find('[data-plugin-type="game"]').show();
+      }
 
     } catch (error) {
       // Catch errors from readdirRecursive or other unexpected issues
@@ -1198,6 +1181,9 @@ module.exports = class Dispatch {
         }
       }
     }
+
+    // Refresh plugin visibility after notifying plugins
+    await this.refreshPluginVisibility();
   }
 
   /**
@@ -1225,6 +1211,28 @@ module.exports = class Dispatch {
         console.error('[_shouldHideGamePlugins] require is not a function. Not in Electron renderer context?');
       }
       return false; // Default if IPC is not available
+    }
+  }
+
+  /**
+   * Refreshes plugin visibility based on current settings
+   * @public
+   */
+  async refreshPluginVisibility() {
+    try {
+      const hideGamePlugins = await this._shouldHideGamePlugins();
+      if (hideGamePlugins) {
+        // Hide game plugins from UI but keep them loaded and functional
+        this._application.$pluginList.find('[data-plugin-type="game"]').hide();
+      } else {
+        // Show all plugins
+        this._application.$pluginList.find('[data-plugin-type="game"]').show();
+      }
+    } catch (error) {
+      this._consoleMessage({
+        type: 'error',
+        message: `Error refreshing plugin visibility: ${error.message}`
+      });
     }
   }
 }

@@ -194,9 +194,13 @@ module.exports = function ({ client, dispatch }) {
     }
 
     for (let i = 0; i < achievements.length; i++) {
-      if (dispatch.connected) {
+      // Check connection state before sending to prevent error spam
+      if (dispatch.connected && dispatch.isConnectionReady && dispatch.isConnectionReady()) {
         dispatch.sendRemoteMessage(`%xt%o%zs%${roomIdToUse}%${achievements[i]}%9999999%1%`)
         await dispatch.wait(110)
+      } else {
+        // Connection not ready, stop sending achievements
+        break;
       }
     }
   }

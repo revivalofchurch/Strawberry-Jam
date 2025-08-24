@@ -168,14 +168,38 @@ module.exports = class Application extends EventEmitter {
     this.$input.on('keydown', (event) => {
       if (event.key === 'Enter') {
         const message = this.$input.val().trim()
+        if (!message) return;
+        
         const [command, ...parameters] = message.split(' ')
 
-        const cmd = this.dispatch.commands.get(command)
-        if (cmd) {
-          cmd.callback({ parameters })
+        if (this.dispatch && this.dispatch.commands) {
+          const cmd = this.dispatch.commands.get(command)
+          if (cmd) {
+            try {
+              cmd.callback({ parameters })
+            } catch (error) {
+              this.consoleMessage({
+                type: 'error',
+                message: `Error executing command '${command}': ${error.message}`
+              });
+            }
+          } else {
+            this.consoleMessage({
+              type: 'error',
+              message: `Unknown command: '${command}'. Type 'help' for available commands.`
+            });
+          }
+        } else {
+          this.consoleMessage({
+            type: 'error',
+            message: 'Command system not initialized yet.'
+          });
         }
 
         this.$input.val('')
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        this._handleTabCompletion();
       }
     })
 
@@ -1979,5 +2003,39 @@ module.exports = class Application extends EventEmitter {
     this.modals.show('updatesModal', '#modalContainer', { 
       version: version 
     });
+  }
+
+  /**
+   * Handles tab completion for commands
+   * @private
+   */
+  _handleTabCompletion() {
+    if (!this.dispatch || !this.dispatch.commands) return;
+    
+    const currentInput = this.$input.val().trim();
+    if (!currentInput) return;
+    
+    const [command, ...parameters] = currentInput.split(' ');
+    if (!command) return;
+    
+    // Get all available commands
+    const availableCommands = Array.from(this.dispatch.commands.keys());
+    
+    // Find commands that start with the current input
+    const matchingCommands = availableCommands.filter(cmd => 
+      cmd.toLowerCase().startsWith(command.toLowerCase())
+    );
+    
+    if (matchingCommands.length === 1) {
+      // Single match - complete the command
+      const completedCommand = matchingCommands[0];
+      this.$input.val(completedCommand + (parameters.length > 0 ? ' ' + parameters.join(' ') : ''));
+    } else if (matchingCommands.length > 1) {
+      // Multiple matches - show suggestions
+      this.consoleMessage({
+        type: 'notify',
+        message: `Available commands: ${matchingCommands.join(', ')}`
+      });
+    }
   }
 }

@@ -39,6 +39,56 @@ function registerCoreCommands(dispatch, application) {
       });
     }
   });
+
+  // Help command - shows available commands
+  dispatch.onCommand({
+    name: 'help',
+    description: 'Shows available commands',
+    callback: () => {
+      const commands = Array.from(dispatch.commands.values());
+      
+      if (commands.length === 0) {
+        application.consoleMessage({
+          type: 'notify',
+          message: 'No commands available'
+        });
+        return;
+      }
+      
+      // Group commands by type (core, game plugins, etc.)
+      const coreCommands = commands.filter(cmd => 
+        ['clear', 'help', 'servers', 'end'].includes(cmd.name)
+      );
+      
+      const gameCommands = commands.filter(cmd => 
+        !['clear', 'help', 'servers', 'end'].includes(cmd.name)
+      );
+      
+      application.consoleMessage({
+        type: 'notify',
+        message: 'Available commands:'
+      });
+      
+      if (coreCommands.length > 0) {
+        application.consoleMessage({
+          type: 'notify',
+          message: `Core commands: ${coreCommands.map(cmd => cmd.name).join(', ')}`
+        });
+      }
+      
+      if (gameCommands.length > 0) {
+        application.consoleMessage({
+          type: 'notify',
+          message: `Game commands: ${gameCommands.map(cmd => cmd.name).join(', ')}`
+        });
+      }
+      
+      application.consoleMessage({
+        type: 'notify',
+        message: 'Use Tab to autocomplete commands, Enter to execute'
+      });
+    }
+  });
 }
 
 module.exports = registerCoreCommands; 

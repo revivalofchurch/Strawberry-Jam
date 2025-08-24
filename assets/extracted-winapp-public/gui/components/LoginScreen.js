@@ -866,7 +866,8 @@
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Shift + Equals / Numpad Add: Zoom In</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Shift + Minus / Numpad Subtract: Zoom Out</div>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Shift + Enter: Private message system</div>
-            <div class="settings-item" style="font-size: 10px; padding: 4px 8px; margin-top: -6px; background-color: rgba(0,0,0,0.4); border-radius: 4px; color: white; display: inline-block; margin-left: 10px;">Credits to&nbsp;<span style="color:purple; font-weight:bold;">Doc</span>&nbsp;and&nbsp;<span style="color:pink; font-weight:bold;">Elyxr</span></div>
+            <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Ctrl + Shift + U: Private message Toggle</div>
+            <div class="settings-item" style="font-size: 10px; padding: 4px 8px; margin-top: -6px; background-color: rgba(0,0,0,0.4); border-radius: 4px; color: white; display: inline-block; margin-left: 10px;">Credits to&nbsp;<span style="color:purple; font-weight:bold;">Doc</span>&nbsp;and&nbsp;<span style="color:pink; font-weight:bold;"></span></div>
 
             <h5 style="font-family: CCDigitalDelivery; color: #805B47; font-size: 12px; margin-top: 8px; margin-bottom: 4px; font-weight: bold;">Windows/Linux:</h5>
             <div class="settings-item" style="font-size: 11px; padding-left: 10px;">Alt + Enter / F11: Toggle Fullscreen</div>

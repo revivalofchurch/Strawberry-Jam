@@ -735,6 +735,7 @@ function setupIpcHandlers(electronInstance) {
 
   let gameTimeInterval;
   let gameStartTime;
+  let isGameTimeBeingTracked = false; // Track if we're already monitoring a game instance
 
   ipcMain.on('launch-game-client', () => {
     const exePath = process.platform === 'win32'
@@ -763,12 +764,57 @@ function setupIpcHandlers(electronInstance) {
       });
 
       processManager.add(gameProcess);
-      gameStartTime = Date.now();
+      
+      // Only track game time for the first instance
+      if (!isGameTimeBeingTracked) {
+        gameStartTime = Date.now();
+        isGameTimeBeingTracked = true;
+        logManager.log('[Process] Starting game time tracking for first instance', 'main', logManager.logLevels.INFO);
+      } else {
+        logManager.log('[Process] Additional game instance launched - not tracking game time', 'main', logManager.logLevels.INFO);
+      }
       
       gameProcess.on('close', async (code) => {
         logManager.log(`Game client process exited with code: ${code}`, 'main', logManager.logLevels.INFO);
-        const endTime = Date.now();
-        const durationInSeconds = Math.round((endTime - gameStartTime) / 1000);
+        
+        // Only update game time if this was the tracked instance
+        if (isGameTimeBeingTracked && gameStartTime) {
+          const endTime = Date.now();
+          const durationInSeconds = Math.round((endTime - gameStartTime) / 1000);
+
+          const dataDir = getDataPath(app);
+          const gameTimeFilePath = path.join(dataDir, 'gametime.json');
+          let gameTimeData = { totalGameTime: 0, totalUptime: 0 };
+
+          try {
+            await fsPromises.access(gameTimeFilePath);
+            const fileContent = await fsPromises.readFile(gameTimeFilePath, 'utf-8');
+            gameTimeData = JSON.parse(fileContent);
+            // Sanity check for game time
+            if (gameTimeData.totalGameTime > Date.now() / 1000) {
+              logManager.warn(`[Process] Detected abnormally high game time (${gameTimeData.totalGameTime}), reverting to last known value: ${lastKnownGoodGameTime}.`);
+              gameTimeData.totalGameTime = lastKnownGoodGameTime;
+            } else {
+              // Update the cache with the valid time from the file
+              lastKnownGoodGameTime = gameTimeData.totalGameTime;
+            }
+          } catch (error) {
+            // File doesn't exist, use defaults
+          }
+
+          gameTimeData.totalGameTime += durationInSeconds;
+
+          try {
+            await fsPromises.writeFile(gameTimeFilePath, JSON.stringify(gameTimeData, null, 2), 'utf-8');
+            logManager.log(`[Process] Updated game time: +${durationInSeconds}s (Total: ${gameTimeData.totalGameTime}s)`, 'main', logManager.logLevels.INFO);
+          } catch (error) {
+            logManager.error(`[Process] Failed to write total game time: ${error.message}`);
+          }
+          
+          // Reset tracking state
+          gameStartTime = null;
+          isGameTimeBeingTracked = false;
+        }
 
         // Notify renderer process that game has exited
         const allWindows = BrowserWindow.getAllWindows();
@@ -777,40 +823,16 @@ function setupIpcHandlers(electronInstance) {
             window.webContents.send('game-process-exit');
           }
         });
-
-        const dataDir = getDataPath(app);
-        const gameTimeFilePath = path.join(dataDir, 'gametime.json');
-        let gameTimeData = { totalGameTime: 0, totalUptime: 0 };
-
-        try {
-          await fsPromises.access(gameTimeFilePath);
-          const fileContent = await fsPromises.readFile(gameTimeFilePath, 'utf-8');
-          gameTimeData = JSON.parse(fileContent);
-          // Sanity check for game time
-          if (gameTimeData.totalGameTime > Date.now() / 1000) {
-            logManager.warn(`[Process] Detected abnormally high game time (${gameTimeData.totalGameTime}), reverting to last known value: ${lastKnownGoodGameTime}.`);
-            gameTimeData.totalGameTime = lastKnownGoodGameTime;
-          } else {
-            // Update the cache with the valid time from the file
-            lastKnownGoodGameTime = gameTimeData.totalGameTime;
-          }
-        } catch (error) {
-          // File doesn't exist, use defaults
-        }
-
-        gameTimeData.totalGameTime += durationInSeconds;
-
-        try {
-          await fsPromises.writeFile(gameTimeFilePath, JSON.stringify(gameTimeData, null, 2), 'utf-8');
-        } catch (error) {
-          logManager.error(`[Process] Failed to write total game time: ${error.message}`);
-        }
-        gameStartTime = null;
       });
 
       gameProcess.on('error', (err) => {
         logManager.error(`[Process] Error with game client process: ${err.message}`);
-        gameStartTime = null;
+        
+        // Only reset tracking if this was the tracked instance
+        if (isGameTimeBeingTracked && gameStartTime) {
+          gameStartTime = null;
+          isGameTimeBeingTracked = false;
+        }
         
         // Notify renderer process that game has exited due to error
         const allWindows = BrowserWindow.getAllWindows();
